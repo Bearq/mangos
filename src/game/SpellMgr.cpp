@@ -680,6 +680,8 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
         case 52988:                                         // Penance heal effect trigger - Rank 4
         case 64844:                                         // Divine Hymn
         case 64904:                                         // Hymn of Hope
+        case 67398:                                         // Zergling Periodic Effect
+        case 67369:                                         // Grunty Focus
         return true;
         default:
             break;
