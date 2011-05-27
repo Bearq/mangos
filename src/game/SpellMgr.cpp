@@ -682,6 +682,7 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
         case 64904:                                         // Hymn of Hope
         case 67398:                                         // Zergling Periodic Effect
         case 67369:                                         // Grunty Focus
+        case 47747:                                         // Charge Rift (Nexus: Anomalus)
         return true;
         default:
             break;
