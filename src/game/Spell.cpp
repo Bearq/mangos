@@ -852,14 +852,14 @@ void Spell::prepareDataForTriggerSystem()
         switch (m_spellInfo->SpellFamilyName)
         {
             case SPELLFAMILY_MAGE:
-                // Arcane Missles / Blizzard triggers need do it
-                if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x0000000000200080)|| m_spellInfo->SpellIconID == 212)
+                // Arcane Missiles / Blizzard triggers need do it
+                if (m_spellInfo->IsFitToFamilyMask(UI64LIT(0x0000000000200080))|| m_spellInfo->SpellIconID == 212)
                     m_canTrigger = true;
                 // Clearcasting trigger need do it
-                else if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x0000000200000000) && m_spellInfo->SpellFamilyFlags2 & 0x8)
+                else if (m_spellInfo->IsFitToFamilyMask(UI64LIT(0x0000000200000000)))
                     m_canTrigger = true;
                 // Replenish Mana, item spell with triggered cases (Mana Agate, etc mana gems)
-                else if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x0000010000000000))
+                else if (m_spellInfo->IsFitToFamilyMask(UI64LIT(0x0000010000000000)))
                     m_canTrigger = true;
                 // Fingers of Frost: triggered by Frost/Ice Armor
                 else if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x0000000000100000))
@@ -870,27 +870,27 @@ void Spell::prepareDataForTriggerSystem()
                 break;
             case SPELLFAMILY_WARLOCK:
                 // For Hellfire Effect / Rain of Fire / Seed of Corruption triggers need do it
-                if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x0000800000000060))
+                if (m_spellInfo->IsFitToFamilyMask(UI64LIT(0x0000800000000060)))
                     m_canTrigger = true;
                 break;
             case SPELLFAMILY_PRIEST:
-                // For Penance,Mind Sear,Mind Flay heal/damage triggers need do it
-                if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x0001800000800000) || (m_spellInfo->SpellFamilyFlags2 & 0x00000040))
+                // For Penance,Mind Sear,Mind Flay,Improved Devouring Plague heal/damage triggers need do it
+                if (m_spellInfo->IsFitToFamilyMask(UI64LIT(0x0001800000800000)) || (m_spellInfo->SpellFamilyFlags2 & 0x00000048))
                     m_canTrigger = true;
                 break;
             case SPELLFAMILY_ROGUE:
                 // For poisons need do it
-                if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x000000101001E000))
+                if (m_spellInfo->IsFitToFamilyMask(UI64LIT(0x000000101001E000)))
                     m_canTrigger = true;
                 break;
             case SPELLFAMILY_HUNTER:
                 // Hunter Rapid Killing/Explosive Trap Effect/Immolation Trap Effect/Frost Trap Aura/Snake Trap Effect/Explosive Shot
-                if ((m_spellInfo->SpellFamilyFlags & UI64LIT(0x0100000000000000)) || m_spellInfo->SpellFamilyFlags2 & 0x200)
+                if ((m_spellInfo->IsFitToFamilyMask(UI64LIT(0x0100000000000000))) || m_spellInfo->SpellFamilyFlags2 & 0x200)
                     m_canTrigger = true;
                 break;
             case SPELLFAMILY_PALADIN:
                 // For Judgements (all) / Holy Shock triggers need do it
-                if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x0001000900B80400))
+                if (m_spellInfo->IsFitToFamilyMask(UI64LIT(0x0001000900B80400)))
                     m_canTrigger = true;
                 break;
             case SPELLFAMILY_WARRIOR:
@@ -1809,6 +1809,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 59870:                                 // Glare of the Tribunal (h) (Halls of Stone)
                 case 63387:                                 // Rapid Burst
                 case 64531:                                 // Rapid Burst (h)
+                case 64218:                                 // Overcharge
                 case 66336:                                 // Mistress' Kiss (Trial of the Crusader, ->
                 case 67077:                                 // -> Lord Jaraxxus encounter, 10 and 10 heroic)
                 case 66001:                                 // Touch of Darkness
@@ -1915,7 +1916,8 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
         }
         case SPELLFAMILY_DRUID:
         {
-            if (m_spellInfo->SpellFamilyFlags2 & 0x00000100)// Starfall
+            // Starfall
+            if (m_spellInfo->IsFitToFamilyMask(UI64LIT(0x0000000000000000), 0x00000100))
                 unMaxTargets = 2;
             break;
         }
@@ -2649,11 +2651,17 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
             break;
         }
         case TARGET_ALL_PARTY_AROUND_CASTER:
-        case TARGET_ALL_PARTY_AROUND_CASTER_2:
-        case TARGET_ALL_PARTY:
         {
             switch(m_spellInfo->Id)
             {
+                case 24604:                                 // Furious Howl
+                {
+                    // from 3.1.0 only affect pet and owner
+                    targetUnitMap.push_back(m_caster);
+                    if (Unit *owner = m_caster->GetOwner())
+                        targetUnitMap.push_back(owner);
+                    break;
+                }
                 case 70893:                                 // Culling the Herd
                 case 53434:                                 // Call of the Wild
                 {
@@ -2667,6 +2675,12 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                     break;
                 }
             }
+            break;
+        }
+        case TARGET_ALL_PARTY_AROUND_CASTER_2:
+        case TARGET_ALL_PARTY:
+        {
+            FillRaidOrPartyTargets(targetUnitMap, m_caster, m_caster, radius, false, true, true);
             break;
         }
         case TARGET_ALL_RAID_AROUND_CASTER:
@@ -3123,8 +3137,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
             {
                 targetUnitMap.push_back(currentTarget);
                 m_targets.setDestination(currentTarget->GetPositionX(), currentTarget->GetPositionY(), currentTarget->GetPositionZ());
-                if(m_spellInfo->EffectImplicitTargetB[effIndex] == TARGET_ALL_ENEMY_IN_AREA_INSTANT)
-                    FillAreaTargets(targetUnitMap, radius, PUSH_TARGET_CENTER, SPELL_TARGETS_AOE_DAMAGE);
             }
             break;
         }
@@ -3774,6 +3786,16 @@ void Spell::cast(bool skipCheck)
             // Ice Block
             if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x0000008000000000))
                 AddPrecastSpell(41425);                     // Hypothermia
+            // Icy Veins
+            else if (m_spellInfo->Id == 12472)
+            {
+                // Glyph of Icy Veins
+                if (m_caster->HasAura(56374))
+                {
+                    m_caster->RemoveSpellsCausingAura(SPELL_AURA_MOD_DECREASE_SPEED);
+                    m_caster->RemoveSpellsCausingAura(SPELL_AURA_HASTE_SPELLS);
+                }
+            }
             // Fingers of Frost
             else if (m_spellInfo->Id == 44544)
                 AddPrecastSpell(74396);                     // Fingers of Frost
@@ -3982,15 +4004,15 @@ void Spell::cast(bool skipCheck)
 
 void Spell::handle_immediate()
 {
-    // start channeling if applicable
+    // process immediate effects (items, ground, etc.) also initialize some variables
+    _handle_immediate_phase();
+
+    // start channeling if applicable (after _handle_immediate_phase for get persistent effect dynamic object for channel target
     if (IsChanneledSpell(m_spellInfo) && m_duration)
     {
         m_spellState = SPELL_STATE_CASTING;
         SendChannelStart(m_duration);
     }
-
-    // process immediate effects (items, ground, etc.) also initialize some variables
-    _handle_immediate_phase();
 
     for(TargetList::iterator ihit = m_UniqueTargetInfo.begin(); ihit != m_UniqueTargetInfo.end(); ++ihit)
     {
@@ -4847,8 +4869,11 @@ void Spell::SendChannelStart(uint32 duration)
 {
     WorldObject* target = NULL;
 
+    // select dynobject created by first effect if any
+    if (m_spellInfo->Effect[EFFECT_INDEX_0] == SPELL_EFFECT_PERSISTENT_AREA_AURA)
+        target = m_caster->GetDynObject(m_spellInfo->Id, EFFECT_INDEX_0);
     // select first not resisted target from target list for _0_ effect
-    if (!m_UniqueTargetInfo.empty())
+    else if (!m_UniqueTargetInfo.empty())
     {
         for(TargetList::const_iterator itr = m_UniqueTargetInfo.begin(); itr != m_UniqueTargetInfo.end(); ++itr)
         {
@@ -5380,6 +5405,17 @@ SpellCastResult Spell::CheckCast(bool strict)
             if ((!((Player*)m_caster)->m_movementInfo.HasMovementFlag(MOVEFLAG_FALLINGFAR) || m_spellInfo->Effect[EFFECT_INDEX_0] != SPELL_EFFECT_STUCK) &&
                 (IsAutoRepeat() || (m_spellInfo->AuraInterruptFlags & AURA_INTERRUPT_FLAG_NOT_SEATED) != 0))
                 return SPELL_FAILED_MOVING;
+        }
+
+        if (((Player*)m_caster)->hasUnitState(UNIT_STAT_STUNNED))
+        {
+            if (m_spellInfo->SpellFamilyName == SPELLFAMILY_PRIEST && m_spellInfo->SpellIconID == 2178)
+            {
+                // Glyph of Desperation
+                if (m_caster->HasAura(63248))
+                    return SPELL_CAST_OK;
+                else return SPELL_FAILED_STUNNED;
+            }
         }
 
         if (!m_IsTriggeredSpell && NeedsComboPoints(m_spellInfo) && !m_caster->IsIgnoreUnitState(m_spellInfo, IGNORE_UNIT_TARGET_STATE) &&
@@ -6637,8 +6673,9 @@ SpellCastResult Spell::CheckCasterAuras() const
             else if (m_spellInfo->EffectApplyAuraName[i] == SPELL_AURA_DISPEL_IMMUNITY)
                 dispel_immune |= GetDispellMask(DispelType(m_spellInfo->EffectMiscValue[i]));
         }
-        // immune movement impairment and loss of control
-        if (m_spellInfo->Id == 42292)                       // PvP Trinket
+
+        // immune movement impairment and loss of control (spell data have special structure for mark this case)
+        if (IsSpellRemoveAllMovementAndControlLossEffects(m_spellInfo))
             mechanic_immune = IMMUNE_TO_MOVEMENT_IMPAIRMENT_AND_LOSS_CONTROL_MASK;
     }
 

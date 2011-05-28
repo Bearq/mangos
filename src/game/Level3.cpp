@@ -3631,7 +3631,12 @@ bool ChatHandler::HandleGuildUninviteCommand(char *args)
     if (!targetGuild)
         return false;
 
-    targetGuild->DelMember(target_guid);
+    if (targetGuild->DelMember(target_guid))
+    {
+        targetGuild->Disband();
+        delete targetGuild;
+    }
+
     return true;
 }
 
@@ -3674,7 +3679,7 @@ bool ChatHandler::HandleGuildDeleteCommand(char* args)
         return false;
 
     char* guildStr = ExtractQuotedArg(&args);
-    if(!guildStr)
+    if (!guildStr)
         return false;
 
     std::string gld = guildStr;
@@ -3683,7 +3688,8 @@ bool ChatHandler::HandleGuildDeleteCommand(char* args)
     if (!targetGuild)
         return false;
 
-    targetGuild->Disband ();
+    targetGuild->Disband();
+    delete targetGuild;
 
     return true;
 }
@@ -4948,7 +4954,7 @@ bool ChatHandler::HandleResetTalentsCommand(char* args)
             Unit *owner = creature->GetOwner();
             if(owner && owner->GetTypeId() == TYPEID_PLAYER && ((Pet *)creature)->IsPermanentPetFor((Player*)owner))
             {
-                ((Pet *)creature)->resetTalents(true);
+                ((Pet *)creature)->resetTalents();
                 ((Player*)owner)->SendTalentsInfoData(true);
 
                 ChatHandler((Player*)owner).SendSysMessage(LANG_RESET_PET_TALENTS);

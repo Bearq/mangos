@@ -38,6 +38,7 @@
 #include "BattleGroundAV.h"
 #include "Util.h"
 #include "ScriptMgr.h"
+#include <G3D/Quat.h>
 
 GameObject::GameObject() : WorldObject(),
     m_goInfo(NULL),
@@ -55,6 +56,11 @@ GameObject::GameObject() : WorldObject(),
     m_spawnedByDefault = true;
     m_useTimes = 0;
     m_spellId = 0;
+    m_captureTime = 1000;
+    m_captureTicks = CAPTURE_SLIDER_NEUTRAL;        // 50 = 1/2* 100 (this is calculated in percents)
+    m_captureState = CAPTURE_STATE_NEUTRAL;
+    m_ownerFaction = TEAM_NONE;
+    m_progressFaction = TEAM_NONE;
     m_cooldownTime = 0;
 
     m_rotation = 0;
@@ -130,10 +136,7 @@ bool GameObject::Create(uint32 guidlow, uint32 name_id, Map *map, uint32 phaseMa
 
     SetObjectScale(goinfo->size);
 
-    SetFloatValue(GAMEOBJECT_PARENTROTATION+0, rotation0);
-    SetFloatValue(GAMEOBJECT_PARENTROTATION+1, rotation1);
-
-    UpdateRotationFields(rotation2,rotation3);              // GAMEOBJECT_FACING, GAMEOBJECT_ROTATION, GAMEOBJECT_PARENTROTATION+2/3
+    SetRotationQuat(rotation0,rotation1,rotation2,rotation3);
 
     SetUInt32Value(GAMEOBJECT_FACTION, goinfo->faction);
     SetUInt32Value(GAMEOBJECT_FLAGS, goinfo->flags);
@@ -173,12 +176,97 @@ bool GameObject::Create(uint32 guidlow, uint32 name_id, Map *map, uint32 phaseMa
     return true;
 }
 
-void GameObject::Update(uint32 update_diff, uint32 /*p_time*/)
+void GameObject::Update(uint32 update_diff, uint32 diff)
 {
     if (GetObjectGuid().IsMOTransport())
     {
         //((Transport*)this)->Update(p_time);
         return;
+    }
+
+    if (GetGoType() == GAMEOBJECT_TYPE_CAPTURE_POINT)
+    {
+        if (m_captureTime < diff)
+        {
+            // get go info -> search radius
+            GameObjectInfo const* info = this->GetGOInfo();
+
+            if (!info)
+                return;
+
+            float radius = info->capturePoint.radius;
+
+            std::list<Player*> pointPlayers;
+
+            MaNGOS::AnyPlayerInObjectRangeCheck u_check(this, radius);
+            MaNGOS::PlayerListSearcher<MaNGOS::AnyPlayerInObjectRangeCheck > checker(pointPlayers, u_check);
+            Cell::VisitWorldObjects(this, checker, radius);
+
+            for (std::list<Player*>::iterator itr = pointPlayers.begin(); itr != pointPlayers.end(); ++itr)
+            {
+                if (m_CapturePlayersSet.find((*itr)->GetObjectGuid()) != m_CapturePlayersSet.end())
+                    continue;
+                else
+                {
+                    // each faction in its list
+                    if (((Player*)(*itr))->GetTeam() == ALLIANCE)
+                        m_AlliancePlayersSet.insert((*itr)->GetObjectGuid());
+                    else if (((Player*)(*itr))->GetTeam() == HORDE)
+                        m_HordePlayersSet.insert((*itr)->GetObjectGuid());
+
+                    // also use a general list to make things easy for now
+                    m_CapturePlayersSet.insert((*itr)->GetObjectGuid());
+                }
+            }
+
+            // return if no players found
+            if (m_CapturePlayersSet.empty())
+                return;
+
+            for (std::set<ObjectGuid>::iterator itr = m_CapturePlayersSet.begin(); itr != m_CapturePlayersSet.end(); ++itr)
+            {
+                if (Player* p_captor = GetMap()->GetPlayer(*itr))
+                {
+                    // check the radius for the players already in the set; remove those which are not valid
+                    if (!p_captor->IsWithinDistInMap(this, radius))
+                    {
+                        p_captor->SendUpdateWorldState(info->capturePoint.worldState1, 0);
+                        m_CapturePlayersSet.erase(p_captor->GetObjectGuid());
+
+                        // also erase from faction sets
+                        if (p_captor->GetTeam() == ALLIANCE)
+                            m_AlliancePlayersSet.erase(p_captor->GetObjectGuid());
+                        else if (p_captor->GetTeam() == HORDE)
+                            m_HordePlayersSet.erase(p_captor->GetObjectGuid());
+                    }
+                    else
+                    {
+                        // check use conditions:
+                        if (!p_captor->isAlive())
+                            return;
+                        if (p_captor->HasStealthAura())
+                            return;
+                        if (p_captor->HasInvisibilityAura())
+                            return;
+                        if (!p_captor->IsPvP() && !sWorld.IsPvPRealm())
+                            return;
+                        if (p_captor->IsTaxiFlying())
+                            return;
+                        if (p_captor->HasMovementFlag(MOVEFLAG_FLYING))
+                            return;
+                        if (p_captor->isGameMaster())
+                            return;
+
+                        // if conditions are ok, then use the button
+                        // further checks and calculations will be done in the use function
+                        Use(p_captor);
+                    }
+                }
+            }
+            m_captureTime = 1000;
+        }
+        else
+            m_captureTime -= diff;
     }
 
     switch (m_lootState)
@@ -208,11 +296,7 @@ void GameObject::Update(uint32 update_diff, uint32 /*p_time*/)
                             SetGoState(GO_STATE_ACTIVE);
                             // SetUInt32Value(GAMEOBJECT_FLAGS, GO_FLAG_NODESPAWN);
 
-                            UpdateData udata;
-                            WorldPacket packet;
-                            BuildValuesUpdateBlockForPlayer(&udata,((Player*)caster));
-                            udata.BuildPacket(&packet);
-                            ((Player*)caster)->GetSession()->SendPacket(&packet);
+                            SendForcedObjectUpdate();
 
                             SendGameObjectCustomAnim(GetObjectGuid(),0);
                         }
@@ -1560,17 +1644,73 @@ void GameObject::Use(Unit* user)
             // Computer may very well blow up after stealing your bank accounts and wreck your car.
             // Use() object at own risk.
 
+            // the main ideea is that every use increases or decreases a counter
+            // the slider can be updated by ticks
+            // then we can check for the transition events (when counter = a value, trigger a certain event)
+
+            // Can we expect that only player object are able to trigger a capture point or
+            // ToDo- research: could dummy creatures be involved?
+
+            if (user->GetTypeId() != TYPEID_PLAYER)
+                return;
+
+            Player* player = (Player*)user;
+
             GameObjectInfo const* info = GetGOInfo();
 
             if (!info)
                 return;
 
-            // Can we expect that only player object are able to trigger a capture point or
-            // could dummy creatures be involved?
-            //if (user->GetTypeId() != TYPEID_PLAYER)
-                //return;
+            // some values used in the event
+            uint32 m_neutralPercent = info->capturePoint.neutralPercent;
 
-            //Player* player = (Player*)user;
+            // unk how to use these yet
+            //uint32 m_maxTime = info->capturePoint.maxTime;
+            //uint32 m_minTime = info->capturePoint.minTime;
+
+            // we need to check which is the faction with the most players inside
+            m_progressFaction = m_AlliancePlayersSet.size() > m_HordePlayersSet.size() ? ALLIANCE : HORDE;
+
+            // calculate the number of players which are actually capturing the point
+            // if is bigger than the max players, then use the max players
+            uint8 m_RangePlayers = 0;
+            if (m_progressFaction == ALLIANCE)
+                m_RangePlayers = m_AlliancePlayersSet.size() - m_HordePlayersSet.size();
+            else if (m_progressFaction == HORDE)
+                m_RangePlayers = m_HordePlayersSet.size() - m_AlliancePlayersSet.size();
+
+            // no more players than max players
+            if (m_RangePlayers > info->capturePoint.maxSuperiority)
+                m_RangePlayers = info->capturePoint.maxSuperiority;
+
+            // this shouldn't happen we need to make sure it doesn't
+            if (m_RangePlayers < info->capturePoint.minSuperiority)
+                return;
+
+            // default value to increase the slider is 1/max players
+            // we multiply this value with the number of players in range
+
+            double m_sliderTick = m_RangePlayers * ((double)1 / (double)info->capturePoint.maxSuperiority);
+
+            // calculate the slider movement only for the major faction
+            if (player->GetTeam() == m_progressFaction)
+            {
+                if (m_progressFaction == ALLIANCE)
+                {
+                    if (m_captureTicks < CAPTURE_SLIDER_ALLIANCE)
+                        m_captureTicks += m_sliderTick;
+                }
+                else if (m_progressFaction == HORDE)
+                {
+                    if (m_captureTicks > CAPTURE_SLIDER_HORDE)
+                        m_captureTicks -= m_sliderTick;
+                }
+            }
+
+            // send world state
+            player->SendUpdateWorldState(info->capturePoint.worldState1, 1);
+            player->SendUpdateWorldState(info->capturePoint.worldstate2, (uint32)m_captureTicks);
+            player->SendUpdateWorldState(info->capturePoint.worldstate3, m_neutralPercent);
 
             // ID1 vs ID2 are possibly related to team. The world states should probably
             // control which event to be used. For this to work, we need a far better system for
@@ -1580,49 +1720,119 @@ void GameObject::Use(Unit* user)
             // Call every event, which is obviously wrong, but can help in further development. For
             // the time being script side can process events and determine which one to use. It
             // require of course that some object call go->Use()
-            if (info->capturePoint.winEventID1)
+            // win event can happen when a faction captures the tower with the slider at max range
+
+            // win event ally
+            // ally wins tower with max points
+            if ((uint32)m_captureTicks == CAPTURE_SLIDER_ALLIANCE && m_captureState == CAPTURE_STATE_PROGRESS)
             {
-                if (!sScriptMgr.OnProcessEvent(info->capturePoint.winEventID1, user, this, true))
-                    GetMap()->ScriptsStart(sEventScripts, info->capturePoint.winEventID1, user, this);
+                if (info->capturePoint.winEventID1)
+                {
+                    if (!sScriptMgr.OnProcessEvent(info->capturePoint.winEventID1, user, this, true))
+                        GetMap()->ScriptsStart(sEventScripts, info->capturePoint.winEventID1, user, this);
+
+                    m_captureState = CAPTURE_STATE_WIN;
+                }
             }
-            if (info->capturePoint.winEventID2)
+            // win event horde
+            // horde wins a tower with max points
+            else if ((uint32)m_captureTicks == CAPTURE_SLIDER_HORDE && m_captureState == CAPTURE_STATE_PROGRESS)
             {
-                if (!sScriptMgr.OnProcessEvent(info->capturePoint.winEventID2, user, this, true))
-                    GetMap()->ScriptsStart(sEventScripts, info->capturePoint.winEventID2, user, this);
+                if (info->capturePoint.winEventID2)
+                {
+                    if (!sScriptMgr.OnProcessEvent(info->capturePoint.winEventID2, user, this, true))
+                        GetMap()->ScriptsStart(sEventScripts, info->capturePoint.winEventID2, user, this);
+
+                    m_captureState = CAPTURE_STATE_WIN;
+                }
             }
 
-            if (info->capturePoint.contestedEventID1)
+            // contest event can happen when a player succeeds in attacking a tower which belongs to the opposite faction; owner doesn't change
+
+            // contest event aly
+            // horde attack tower which is in progress or is won by alliance
+            if (m_ownerFaction == ALLIANCE && m_progressFaction == HORDE && m_captureState != CAPTURE_STATE_CONTEST && (m_captureState == CAPTURE_STATE_PROGRESS || m_captureState == CAPTURE_STATE_WIN))
             {
-                if (!sScriptMgr.OnProcessEvent(info->capturePoint.contestedEventID1, user, this, true))
-                    GetMap()->ScriptsStart(sEventScripts, info->capturePoint.contestedEventID1, user, this);
+                if (info->capturePoint.contestedEventID1)
+                {
+                    if (!sScriptMgr.OnProcessEvent(info->capturePoint.contestedEventID1, user, this, true))
+                        GetMap()->ScriptsStart(sEventScripts, info->capturePoint.contestedEventID1, user, this);
+
+                    m_captureState = CAPTURE_STATE_CONTEST;
+                }
             }
-            if (info->capturePoint.contestedEventID2)
+            // contest event horde
+            // alliance attack tower which is in progress or is won by horde
+            else if (m_ownerFaction == HORDE && m_progressFaction == ALLIANCE && m_captureState != CAPTURE_STATE_CONTEST && (m_captureState == CAPTURE_STATE_PROGRESS || m_captureState == CAPTURE_STATE_WIN))
             {
-                if (!sScriptMgr.OnProcessEvent(info->capturePoint.contestedEventID2, user, this, true))
-                    GetMap()->ScriptsStart(sEventScripts, info->capturePoint.contestedEventID2, user, this);
+                if (info->capturePoint.contestedEventID2)
+                {
+                    if (!sScriptMgr.OnProcessEvent(info->capturePoint.contestedEventID2, user, this, true))
+                        GetMap()->ScriptsStart(sEventScripts, info->capturePoint.contestedEventID2, user, this);
+
+                    m_captureState = CAPTURE_STATE_CONTEST;
+                }
             }
 
-            if (info->capturePoint.progressEventID1)
+            // the progress event can be achieved when a faction passes on its color on the slider or retakes the tower from a contested state
+
+            // progress event aly
+            // alliance takes the tower from neutral to alliance OR alliance takes the tower from contested to allaince
+            if (((uint32)m_captureTicks == CAPTURE_SLIDER_NEUTRAL + m_neutralPercent/2 + 1 && m_captureState == CAPTURE_STATE_NEUTRAL && m_progressFaction == ALLIANCE) || (m_captureState == CAPTURE_STATE_CONTEST && m_progressFaction == ALLIANCE))
             {
-                if (!sScriptMgr.OnProcessEvent(info->capturePoint.progressEventID1, user, this, true))
-                    GetMap()->ScriptsStart(sEventScripts, info->capturePoint.progressEventID1, user, this);
+                if (info->capturePoint.progressEventID1)
+                {
+                    if (!sScriptMgr.OnProcessEvent(info->capturePoint.progressEventID1, user, this, true))
+                        GetMap()->ScriptsStart(sEventScripts, info->capturePoint.progressEventID1, user, this);
+
+                    // set capture state to aly
+                    m_captureState = CAPTURE_STATE_PROGRESS;
+                    m_ownerFaction = ALLIANCE;
+                }
             }
-            if (info->capturePoint.progressEventID2)
+            // progress event horde
+            // horde takes the tower from neutral to horde OR horde takes the tower from contested to horde
+            else if (((uint32)m_captureTicks == CAPTURE_SLIDER_NEUTRAL - m_neutralPercent/2 - 1 && m_captureState == CAPTURE_STATE_NEUTRAL && m_progressFaction == HORDE) || (m_captureState == CAPTURE_STATE_CONTEST && player->GetTeam() == HORDE))
             {
-                if (!sScriptMgr.OnProcessEvent(info->capturePoint.progressEventID2, user, this, true))
-                    GetMap()->ScriptsStart(sEventScripts, info->capturePoint.progressEventID2, user, this);
+                if (info->capturePoint.progressEventID2)
+                {
+                    if (!sScriptMgr.OnProcessEvent(info->capturePoint.progressEventID2, user, this, true))
+                        GetMap()->ScriptsStart(sEventScripts, info->capturePoint.progressEventID2, user, this);
+
+                    // set capture state to horde
+                    m_captureState = CAPTURE_STATE_PROGRESS;
+                    m_ownerFaction = HORDE;
+                }
             }
 
-            if (info->capturePoint.neutralEventID1)
+            // neutral event can happen when one faction takes the tower from the opposite faction and makes it neutral
+
+            // neutral event aly
+            // horde takes the tower from alliance to neutral
+            if ((uint32)m_captureTicks == CAPTURE_SLIDER_NEUTRAL + m_neutralPercent/2 && m_captureState == CAPTURE_STATE_CONTEST && m_progressFaction == HORDE)
             {
-                if (!sScriptMgr.OnProcessEvent(info->capturePoint.neutralEventID1, user, this, true))
-                    GetMap()->ScriptsStart(sEventScripts, info->capturePoint.neutralEventID1, user, this);
+                if (info->capturePoint.neutralEventID1)
+                {
+                    if (!sScriptMgr.OnProcessEvent(info->capturePoint.neutralEventID1, user, this, true))
+                        GetMap()->ScriptsStart(sEventScripts, info->capturePoint.neutralEventID1, user, this);
+
+                    m_captureState = CAPTURE_STATE_NEUTRAL;
+                    m_ownerFaction = TEAM_NONE;
+                }
             }
-            if (info->capturePoint.neutralEventID2)
+            // neutral event horde
+            // alliance takes the tower from horde to neutral
+            else if ((uint32)m_captureTicks == CAPTURE_SLIDER_NEUTRAL - m_neutralPercent/2 && m_captureState == CAPTURE_STATE_CONTEST && m_progressFaction == ALLIANCE)
             {
-                if (!sScriptMgr.OnProcessEvent(info->capturePoint.neutralEventID2, user, this, true))
-                    GetMap()->ScriptsStart(sEventScripts, info->capturePoint.neutralEventID2, user, this);
-            }
+                if (info->capturePoint.neutralEventID2)
+                {
+                    if (!sScriptMgr.OnProcessEvent(info->capturePoint.neutralEventID2, user, this, true))
+                        GetMap()->ScriptsStart(sEventScripts, info->capturePoint.neutralEventID2, user, this);
+
+                    m_captureState = CAPTURE_STATE_NEUTRAL;
+                    m_ownerFaction = TEAM_NONE;
+                }
+           }
 
             // Some has spell, need to process those further.
             return;
@@ -1771,34 +1981,61 @@ const char* GameObject::GetNameForLocaleIdx(int32 loc_idx) const
     return GetName();
 }
 
-void GameObject::UpdateRotationFields(float rotation2 /*=0.0f*/, float rotation3 /*=0.0f*/)
+using G3D::Quat;
+struct QuaternionCompressed
 {
-    static double const atan_pow = atan(pow(2.0f, -20.0f));
+    QuaternionCompressed() : m_raw(0) {}
+    QuaternionCompressed(int64 val) : m_raw(val) {}
+    QuaternionCompressed(const Quat& quat) { Set(quat); }
 
-    double f_rot1 = sin(GetOrientation() / 2.0f);
-    double f_rot2 = cos(GetOrientation() / 2.0f);
+    enum{
+        PACK_COEFF_YZ = 1 << 20,
+        PACK_COEFF_X = 1 << 21,
+    };
 
-    int64 i_rot1 = int64(f_rot1 / atan_pow *(f_rot2 >= 0 ? 1.0f : -1.0f));
-    int64 rotation = (i_rot1 << 43 >> 43) & 0x00000000001FFFFF;
-
-    //float f_rot2 = sin(0.0f / 2.0f);
-    //int64 i_rot2 = f_rot2 / atan(pow(2.0f, -20.0f));
-    //rotation |= (((i_rot2 << 22) >> 32) >> 11) & 0x000003FFFFE00000;
-
-    //float f_rot3 = sin(0.0f / 2.0f);
-    //int64 i_rot3 = f_rot3 / atan(pow(2.0f, -21.0f));
-    //rotation |= (i_rot3 >> 42) & 0x7FFFFC0000000000;
-
-    m_rotation = rotation;
-
-    if(rotation2==0.0f && rotation3==0.0f)
+    void Set(const Quat& quat)
     {
-        rotation2 = (float)f_rot1;
-        rotation3 = (float)f_rot2;
+        int8 w_sign = (quat.w >= 0 ? 1 : -1);
+        int64 X = int32(quat.x * PACK_COEFF_X) * w_sign & ((1 << 22) - 1);
+        int64 Y = int32(quat.y * PACK_COEFF_YZ) * w_sign & ((1 << 21) - 1);
+        int64 Z = int32(quat.z * PACK_COEFF_YZ) * w_sign & ((1 << 21) - 1);
+        m_raw = Z | (Y << 21) | (X << 42);
     }
 
-    SetFloatValue(GAMEOBJECT_PARENTROTATION+2, rotation2);
-    SetFloatValue(GAMEOBJECT_PARENTROTATION+3, rotation3);
+    Quat Unpack() const
+    {
+        double x = (double)(m_raw >> 42) / (double)PACK_COEFF_X;
+        double y = (double)(m_raw << 22 >> 43) / (double)PACK_COEFF_YZ;
+        double z = (double)(m_raw << 43 >> 43) / (double)PACK_COEFF_YZ;
+        double w = 1 - (x * x + y * y + z * z);
+        MANGOS_ASSERT(w >= 0);
+        w = sqrt(w);
+
+        return Quat(x,y,z,w);
+    }
+
+    int64 m_raw;
+};
+
+void GameObject::SetRotationQuat(float qx, float qy, float qz, float qw)
+{
+    Quat quat(qx, qy, qz, qw);
+    // Temporary solution for gameobjects that has no rotation data in DB:
+    if (qz == 0 && qw == 0)
+        quat = Quat::fromAxisAngleRotation(G3D::Vector3::unitZ(), GetOrientation());
+
+    quat.unitize();
+    m_rotation = QuaternionCompressed(quat).m_raw;
+    SetFloatValue(GAMEOBJECT_PARENTROTATION+0, quat.x);
+    SetFloatValue(GAMEOBJECT_PARENTROTATION+1, quat.y);
+    SetFloatValue(GAMEOBJECT_PARENTROTATION+2, quat.z);
+    SetFloatValue(GAMEOBJECT_PARENTROTATION+3, quat.w);
+}
+
+void GameObject::SetRotationAngles(float z_rot, float y_rot, float x_rot)
+{
+    Quat quat( G3D::Matrix3::fromEulerAnglesZYX(z_rot, y_rot, x_rot) );
+    SetRotationQuat(quat.x, quat.y, quat.z, quat.w);
 }
 
 bool GameObject::IsHostileTo(Unit const* unit) const

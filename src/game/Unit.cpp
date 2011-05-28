@@ -1526,11 +1526,11 @@ void Unit::CalculateSpellDamage(SpellNonMeleeDamage *damageInfo, int32 damage, S
                 damageInfo->HitInfo|= SPELL_HIT_TYPE_CRIT;
                 damage = SpellCriticalDamageBonus(spellInfo, damage, pVictim);
                 // Resilience - reduce crit damage
-                uint32 redunction_affected_damage = CalcNotIgnoreDamageRedunction(damage,damageSchoolMask);
+                uint32 reduction_affected_damage = CalcNotIgnoreDamageReduction(damage, damageSchoolMask);
                 if (attackType != RANGED_ATTACK)
-                    damage -= pVictim->GetMeleeCritDamageReduction(redunction_affected_damage);
+                    damage -= pVictim->GetMeleeCritDamageReduction(reduction_affected_damage);
                 else
-                    damage -= pVictim->GetRangedCritDamageReduction(redunction_affected_damage);
+                    damage -= pVictim->GetRangedCritDamageReduction(reduction_affected_damage);
             }
         }
         break;
@@ -1548,8 +1548,8 @@ void Unit::CalculateSpellDamage(SpellNonMeleeDamage *damageInfo, int32 damage, S
                 damageInfo->HitInfo|= SPELL_HIT_TYPE_CRIT;
                 damage = SpellCriticalDamageBonus(spellInfo, damage, pVictim);
                 // Resilience - reduce crit damage
-                uint32 redunction_affected_damage = CalcNotIgnoreDamageRedunction(damage,damageSchoolMask);
-                damage -= pVictim->GetSpellCritDamageReduction(redunction_affected_damage);
+                uint32 reduction_affected_damage = CalcNotIgnoreDamageReduction(damage, damageSchoolMask);
+                damage -= pVictim->GetSpellCritDamageReduction(reduction_affected_damage);
             }
         }
         break;
@@ -1558,8 +1558,8 @@ void Unit::CalculateSpellDamage(SpellNonMeleeDamage *damageInfo, int32 damage, S
     // only from players
     if (GetTypeId() == TYPEID_PLAYER)
     {
-        uint32 redunction_affected_damage = CalcNotIgnoreDamageRedunction(damage,damageSchoolMask);
-        damage -= pVictim->GetSpellDamageReduction(redunction_affected_damage);
+        uint32 reduction_affected_damage = CalcNotIgnoreDamageReduction(damage, damageSchoolMask);
+        damage -= pVictim->GetSpellDamageReduction(reduction_affected_damage);
     }
 
     // damage mitigation
@@ -1568,7 +1568,7 @@ void Unit::CalculateSpellDamage(SpellNonMeleeDamage *damageInfo, int32 damage, S
         // physical damage => armor
         if (damageSchoolMask & SPELL_SCHOOL_MASK_NORMAL)
         {
-            uint32 armor_affected_damage = CalcNotIgnoreDamageRedunction(damage,damageSchoolMask);
+            uint32 armor_affected_damage = CalcNotIgnoreDamageReduction(damage, damageSchoolMask);
             damage = damage - armor_affected_damage + CalcArmorReducedDamage(pVictim, armor_affected_damage);
         }
     }
@@ -1642,8 +1642,8 @@ void Unit::CalculateMeleeDamage(Unit *pVictim, uint32 damage, CalcDamageInfo *da
     damageInfo->resist           = 0;
     damageInfo->blocked_amount   = 0;
 
-    damageInfo->TargetState      = 0;
-    damageInfo->HitInfo          = 0;
+    damageInfo->TargetState      = VICTIMSTATE_UNAFFECTED;
+    damageInfo->HitInfo          = HITINFO_NORMALSWING;
     damageInfo->procAttacker     = PROC_FLAG_NONE;
     damageInfo->procVictim       = PROC_FLAG_NONE;
     damageInfo->procEx           = PROC_EX_NONE;
@@ -1670,7 +1670,7 @@ void Unit::CalculateMeleeDamage(Unit *pVictim, uint32 damage, CalcDamageInfo *da
         case RANGED_ATTACK:
             damageInfo->procAttacker = PROC_FLAG_SUCCESSFUL_RANGED_HIT;
             damageInfo->procVictim   = PROC_FLAG_TAKEN_RANGED_HIT;
-            damageInfo->HitInfo = 0x08;// test
+            damageInfo->HitInfo = HITINFO_UNK2;             // test (dev note: test what? HitInfo flag possibly not confirmed.)
             break;
         default:
             break;
@@ -1693,7 +1693,7 @@ void Unit::CalculateMeleeDamage(Unit *pVictim, uint32 damage, CalcDamageInfo *da
     damage = damageInfo->target->MeleeDamageBonusTaken(this, damage, damageInfo->attackType);
     // Calculate armor reduction
 
-    uint32 armor_affected_damage = CalcNotIgnoreDamageRedunction(damage,damageInfo->damageSchoolMask);
+    uint32 armor_affected_damage = CalcNotIgnoreDamageReduction(damage, damageInfo->damageSchoolMask);
     damageInfo->damage = damage - armor_affected_damage + CalcArmorReducedDamage(damageInfo->target, armor_affected_damage);
     damageInfo->cleanDamage += damage - damageInfo->damage;
 
@@ -1721,7 +1721,7 @@ void Unit::CalculateMeleeDamage(Unit *pVictim, uint32 damage, CalcDamageInfo *da
         case MELEE_HIT_MISS:
         {
             damageInfo->HitInfo    |= HITINFO_MISS;
-            damageInfo->TargetState = VICTIMSTATE_NORMAL;
+            damageInfo->TargetState = VICTIMSTATE_UNAFFECTED;
 
             damageInfo->procEx|=PROC_EX_MISS;
             damageInfo->damage = 0;
@@ -1757,12 +1757,12 @@ void Unit::CalculateMeleeDamage(Unit *pVictim, uint32 damage, CalcDamageInfo *da
                 damageInfo->damage = int32((damageInfo->damage) * float((100.0f + mod)/100.0f));
 
             // Resilience - reduce crit damage
-            uint32 redunction_affected_damage = CalcNotIgnoreDamageRedunction(damageInfo->damage,damageInfo->damageSchoolMask);
+            uint32 reduction_affected_damage = CalcNotIgnoreDamageReduction(damageInfo->damage, damageInfo->damageSchoolMask);
             uint32 resilienceReduction;
             if (attackType != RANGED_ATTACK)
-                resilienceReduction = pVictim->GetMeleeCritDamageReduction(redunction_affected_damage);
+                resilienceReduction = pVictim->GetMeleeCritDamageReduction(reduction_affected_damage);
             else
-                resilienceReduction = pVictim->GetRangedCritDamageReduction(redunction_affected_damage);
+                resilienceReduction = pVictim->GetRangedCritDamageReduction(reduction_affected_damage);
 
             damageInfo->damage      -= resilienceReduction;
             damageInfo->cleanDamage += resilienceReduction;
@@ -1770,22 +1770,22 @@ void Unit::CalculateMeleeDamage(Unit *pVictim, uint32 damage, CalcDamageInfo *da
         }
         case MELEE_HIT_PARRY:
             damageInfo->TargetState  = VICTIMSTATE_PARRY;
-            damageInfo->procEx |= PROC_EX_PARRY;
+            damageInfo->procEx      |= PROC_EX_PARRY;
             damageInfo->cleanDamage += damageInfo->damage;
             damageInfo->damage = 0;
             break;
 
         case MELEE_HIT_DODGE:
             damageInfo->TargetState  = VICTIMSTATE_DODGE;
-            damageInfo->procEx|=PROC_EX_DODGE;
+            damageInfo->procEx      |= PROC_EX_DODGE;
             damageInfo->cleanDamage += damageInfo->damage;
             damageInfo->damage = 0;
             break;
         case MELEE_HIT_BLOCK:
         {
             damageInfo->TargetState = VICTIMSTATE_NORMAL;
-            damageInfo->HitInfo |= HITINFO_BLOCK;
-            damageInfo->procEx |= PROC_EX_BLOCK;
+            damageInfo->HitInfo    |= HITINFO_BLOCK;
+            damageInfo->procEx     |= PROC_EX_BLOCK;
             damageInfo->blocked_amount = damageInfo->target->GetShieldBlockValue();
 
             // Target has a chance to double the blocked amount if it has SPELL_AURA_MOD_BLOCK_CRIT_CHANCE
@@ -1876,12 +1876,12 @@ void Unit::CalculateMeleeDamage(Unit *pVictim, uint32 damage, CalcDamageInfo *da
     // only from players and their pets
     if (GetTypeId() == TYPEID_PLAYER || GetObjectGuid().IsPet())
     {
-        uint32 redunction_affected_damage = CalcNotIgnoreDamageRedunction(damageInfo->damage,damageInfo->damageSchoolMask);
+        uint32 reduction_affected_damage = CalcNotIgnoreDamageReduction(damageInfo->damage, damageInfo->damageSchoolMask);
         uint32 resilienceReduction;
         if (attackType != RANGED_ATTACK)
-            resilienceReduction = pVictim->GetMeleeDamageReduction(redunction_affected_damage);
+            resilienceReduction = pVictim->GetMeleeDamageReduction(reduction_affected_damage);
         else
-            resilienceReduction = pVictim->GetRangedDamageReduction(redunction_affected_damage);
+            resilienceReduction = pVictim->GetRangedDamageReduction(reduction_affected_damage);
         damageInfo->damage      -= resilienceReduction;
         damageInfo->cleanDamage += resilienceReduction;
     }
@@ -2107,7 +2107,7 @@ uint32 Unit::CalcNotIgnoreAbsorbDamage( uint32 damage, SpellSchoolMask damageSch
     return absorb_affected_rate <= 0.0f ? 0 : (absorb_affected_rate < 1.0f  ? uint32(damage * absorb_affected_rate) : damage);
 }
 
-uint32 Unit::CalcNotIgnoreDamageRedunction( uint32 damage, SpellSchoolMask damageSchoolMask)
+uint32 Unit::CalcNotIgnoreDamageReduction(uint32 damage, SpellSchoolMask damageSchoolMask)
 {
     float absorb_affected_rate = 1.0f;
     Unit::AuraList const& ignoreAbsorb = GetAurasByType(SPELL_AURA_MOD_IGNORE_DAMAGE_REDUCTION_SCHOOL);
@@ -2541,7 +2541,7 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
 
         // Fire Ward or Frost Ward or Ice Barrier (or Mana Shield)
         // for Incanter's Absorption converting to spell power
-        if (spellProto->SpellFamilyName == SPELLFAMILY_MAGE && spellProto->SpellFamilyFlags2 & 0x000008)
+        if (spellProto->IsFitToFamily(SPELLFAMILY_MAGE, UI64LIT(0x0000000000000000), 0x00000008))
             incanterAbsorption += currentAbsorb;
 
         // Reduce shield amount
@@ -2607,7 +2607,7 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
 
         // Mana Shield (or Fire Ward or Frost Ward or Ice Barrier)
         // for Incanter's Absorption converting to spell power
-        if ((*i)->GetSpellProto()->SpellFamilyName == SPELLFAMILY_MAGE && (*i)->GetSpellProto()->SpellFamilyFlags2 & 0x000008)
+        if ((*i)->GetSpellProto()->IsFitToFamily(SPELLFAMILY_MAGE, UI64LIT(0x0000000000000000), 0x000008))
             incanterAbsorption += currentAbsorb;
 
         (*i)->GetModifier()->m_amount -= currentAbsorb;
@@ -5781,14 +5781,15 @@ void Unit::SendAttackStateUpdate(CalcDamageInfo *damageInfo)
     }
 
     data << uint8(damageInfo->TargetState);
-    data << uint32(0);
-    data << uint32(0);
+    data << uint32(0);                                      // unknown, usually seen with -1, 0 and 1000
+    data << uint32(0);                                      // spell id, seen with heroic strike and disarm as examples.
+                                                            // HITINFO_NOACTION normally set if spell
 
     if(damageInfo->HitInfo & HITINFO_BLOCK)
         data << uint32(damageInfo->blocked_amount);
 
     if(damageInfo->HitInfo & HITINFO_UNK3)
-        data << uint32(0);
+        data << uint32(0);                                  // count of some sort?
 
     if(damageInfo->HitInfo & HITINFO_UNK1)
     {
@@ -6148,8 +6149,10 @@ bool Unit::Attack(Unit *victim, bool meleeAttack)
     if(!isAlive() || !victim->IsInWorld() || !victim->isAlive())
         return false;
 
-    // player cannot attack while mounted or in vehicle
-    if(GetTypeId()==TYPEID_PLAYER && (IsMounted() || GetVehicle()))
+    // player cannot attack while mounted or in vehicle (exclude special vehicles)if 
+    if (GetTypeId()==TYPEID_PLAYER && (IsMounted() || 
+        (GetVehicle() && (!GetVehicle()->GetSeatInfo(this) ||
+        !(GetVehicle()->GetSeatInfo(this)->m_flags & (SEAT_FLAG_CAN_CAST | SEAT_FLAG_CAN_ATTACK))))))
     {
         // some exceptions
         if (!(GetVehicle() && GetVehicle()->GetSeatInfo(this) &&
@@ -6349,12 +6352,9 @@ bool Unit::HasAuraStateForCaster(AuraState flag, ObjectGuid casterGuid) const
         Unit::AuraList const& dotList = GetAurasByType(SPELL_AURA_PERIODIC_DAMAGE);
         for (Unit::AuraList::const_iterator i = dotList.begin(); i != dotList.end(); ++i)
         {
-            if ((*i)->GetSpellProto()->SpellFamilyName == SPELLFAMILY_WARLOCK &&
-                (*i)->GetCasterGuid() == casterGuid &&
-                //  Immolate
-                (((*i)->GetSpellProto()->SpellFamilyFlags & UI64LIT(0x0000000000000004)) ||
-                // Shadowflame
-                ((*i)->GetSpellProto()->SpellFamilyFlags2 & 0x00000002)))
+            if ((*i)->GetCasterGuid() == casterGuid &&
+                //  Immolate or Shadowflame
+                (*i)->GetSpellProto()->IsFitToFamily(SPELLFAMILY_WARLOCK, UI64LIT(0x0000000000000004), 0x00000002))
             {
                 return true;
             }
@@ -7136,6 +7136,13 @@ uint32 Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, u
                     }
                 }
             }
+            // Glyph of Shadow word: Death
+            else if (spellProto->SpellFamilyFlags & UI64LIT(0x0000000200000000))
+            {
+                if (pVictim->HasAuraState(AURA_STATE_HEALTHLESS_35_PERCENT))
+                    if (Aura* aur = GetAura(55682, EFFECT_INDEX_0))
+                        DoneTotalMod *= (aur->GetModifier()->m_amount + 100.0f) / 100.0f;
+            }
             break;
         }
         case SPELLFAMILY_DRUID:
@@ -7472,6 +7479,18 @@ bool Unit::IsSpellCrit(Unit *pVictim, SpellEntry const *spellProto, SpellSchoolM
                 // Custom crit by class
                 switch(spellProto->SpellFamilyName)
                 {
+                    case SPELLFAMILY_MAGE:
+                    {
+                        // Fire Blast
+                        if (spellProto->SpellFamilyFlags & UI64LIT(0x0000000000000002) && spellProto->SpellIconID == 12)
+                        {
+                            // Glyph of Fire Blast
+                            if (Aura* aura = GetAura(56369, EFFECT_INDEX_0))
+                                if (pVictim->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED) || pVictim->isInRoots())
+                                    crit_chance += aura->GetModifier()->m_amount;
+                        }
+                        break;
+                    }
                     case SPELLFAMILY_PRIEST:
                         // Flash Heal
                         if (spellProto->SpellFamilyFlags & UI64LIT(0x0000000000000800))
@@ -7749,6 +7768,16 @@ uint32 Unit::SpellHealingBonusDone(Unit *pVictim, SpellEntry const *spellProto, 
 
             if (Aura* glyph = GetAura(62971, EFFECT_INDEX_0))// Glyph of Nourish
                 DoneTotalMod *= (glyph->GetModifier()->m_amount * ownHotCount + 100.0f) / 100.0f;
+        }
+    }
+
+    // Glyph of Rejuvenation
+    else if (spellProto->SpellFamilyName == SPELLFAMILY_DRUID && (spellProto->SpellFamilyFlags & UI64LIT(0x0000000000000010)))
+    {
+        if (Aura* aura = GetAura(54754, EFFECT_INDEX_0))
+        {
+            if (pVictim->GetHealth() < pVictim->GetMaxHealth() / 2)
+                DoneTotalMod *= (aura->GetModifier()->m_amount + 100.0f) / 100.0f;
         }
     }
 
@@ -10940,8 +10969,7 @@ void Unit::ProcDamageAndSpellFor( bool isVictim, Unit * pTarget, uint32 procFlag
                 {
                     if (spellProcEvent->spellFamilyMask[i] || spellProcEvent->spellFamilyMask2[i])
                     {
-                        if ((spellProcEvent->spellFamilyMask[i]  & procSpell->SpellFamilyFlags ) == 0 &&
-                            (spellProcEvent->spellFamilyMask2[i] & procSpell->SpellFamilyFlags2) == 0)
+                        if (!procSpell->IsFitToFamilyMask(spellProcEvent->spellFamilyMask[i], spellProcEvent->spellFamilyMask2[i]))
                             continue;
                     }
                     // don't check dbc FamilyFlags if schoolMask exists
@@ -11284,7 +11312,7 @@ void Unit::UpdateModelData()
         if (GetTypeId() == TYPEID_PLAYER)
             SetFloatValue(UNIT_FIELD_COMBATREACH, 1.5f);
         else
-            SetFloatValue(UNIT_FIELD_COMBATREACH, GetObjectScale() * modelInfo->combat_reach);
+            SetFloatValue(UNIT_FIELD_COMBATREACH, GetObjectScale() * ( modelInfo->bounding_radius < 2.0 ? modelInfo->combat_reach : modelInfo->combat_reach / modelInfo->bounding_radius ));
     }
 }
 

@@ -581,6 +581,25 @@ enum LootState
     GO_JUST_DEACTIVATED
 };
 
+enum CapturePointState
+{
+    CAPTURE_STATE_NEUTRAL = 0,
+    CAPTURE_STATE_PROGRESS,
+    CAPTURE_STATE_CONTEST,
+    CAPTURE_STATE_WIN
+};
+
+// slider values meaning
+// 0   = full horde
+// 100 = full alliance
+// 50  = middle
+enum CapturePointSlider
+{
+    CAPTURE_SLIDER_ALLIANCE = 100,
+    CAPTURE_SLIDER_HORDE    = 0,
+    CAPTURE_SLIDER_NEUTRAL  = 50
+};
+
 class Unit;
 struct GameObjectDisplayInfoEntry;
 
@@ -607,7 +626,9 @@ class MANGOS_DLL_SPEC GameObject : public WorldObject
 
         bool HasStaticDBSpawnData() const;                  // listed in `gameobject` table and have fixed in DB guid
 
-        void UpdateRotationFields(float rotation2 = 0.0f, float rotation3 = 0.0f);
+        // z_rot, y_rot, x_rot - rotation angles around z, y and x axes
+        void SetRotationAngles(float z_rot, float y_rot, float x_rot);
+        int64 GetRotation() const { return m_rotation; }
 
         // overwrite WorldObject function for proper name localization
         const char* GetNameForLocaleIdx(int32 locale_idx) const;
@@ -724,8 +745,6 @@ class MANGOS_DLL_SPEC GameObject : public WorldObject
 
         GridReference<GameObject> &GetGridRef() { return m_gridRef; }
 
-        uint64 GetRotation() const { return m_rotation; }
-
         bool IsInRange(float x, float y, float z, float radius) const;
         void DamageTaken(Unit *pDoneBy, uint32 uiDamage);
         void Rebuild(Unit *pWho);
@@ -742,9 +761,17 @@ class MANGOS_DLL_SPEC GameObject : public WorldObject
         time_t      m_cooldownTime;                         // used as internal reaction delay time store (not state change reaction).
         uint32      m_health;
                                                             // For traps/goober this: spell casting cooldown, for doors/buttons: reset time.
+        uint32      m_captureTime;
+        double      m_captureTicks;
+        uint8       m_captureState;
+        uint32      m_progressFaction;                      // faction which has the most players in range of a capture point
+        uint32      m_ownerFaction;                         // faction which has conquered the capture point
 
         typedef std::set<ObjectGuid> GuidsSet;
 
+        GuidsSet m_CapturePlayersSet;                       // players in the radius of the capture point
+        GuidsSet m_AlliancePlayersSet;                      // player sets for each faction
+        GuidsSet m_HordePlayersSet;
         GuidsSet m_SkillupSet;                              // players that already have skill-up at GO use
 
         uint32 m_useTimes;                                  // amount uses/charges triggered
@@ -755,9 +782,10 @@ class MANGOS_DLL_SPEC GameObject : public WorldObject
 
         GameObjectInfo const* m_goInfo;
         GameObjectDisplayInfoEntry const* m_displayInfo;
-        uint64 m_rotation;
+        int64 m_rotation;
     private:
         void SwitchDoorOrButton(bool activate, bool alternative = false);
+        void SetRotationQuat(float qx, float qy, float qz, float qw);
 
         GridReference<GameObject> m_gridRef;
 };

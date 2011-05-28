@@ -369,7 +369,9 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
     if (mover->GetObjectGuid().IsVehicle() && mover->GetCharmerOrOwnerPlayerOrPlayerItself())
     {
         Player *plr = mover->GetCharmerOrOwnerPlayerOrPlayerItself();
-        if (mover->GetVehicleKit()->GetSeatInfo(plr) && mover->GetVehicleKit()->GetSeatInfo(plr)->m_flags & SEAT_FLAG_CAN_ATTACK)
+        if (mover->GetVehicleKit()->GetSeatInfo(plr) &&
+           (mover->GetVehicleKit()->GetSeatInfo(plr)->m_flags & SEAT_FLAG_CAN_ATTACK ||
+            mover->GetVehicleKit()->GetSeatInfo(plr)->m_flags & SEAT_FLAG_CAN_CAST ))
             mover = plr;
     }
 

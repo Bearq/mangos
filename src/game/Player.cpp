@@ -1438,7 +1438,7 @@ void Player::Update( uint32 update_diff, uint32 p_time )
     if (isAlive())
     {
         // if no longer casting, set regen power as soon as it is up.
-        if (!IsUnderLastManaUseEffect())
+        if (!IsUnderLastManaUseEffect() && !HasAuraType(SPELL_AURA_STOP_NATURAL_MANA_REGEN))
             SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_REGENERATE_POWER);
 
         if (!m_regenTimer)
@@ -2178,6 +2178,9 @@ void Player::Regenerate(Powers power, uint32 diff)
     {
         case POWER_MANA:
         {
+            if (HasAuraType(SPELL_AURA_STOP_NATURAL_MANA_REGEN))
+                break;
+
             bool recentCast = IsUnderLastManaUseEffect();
             float ManaIncreaseRate = sWorld.getConfig(CONFIG_FLOAT_RATE_POWER_MANA);
             if (recentCast)
@@ -4326,8 +4329,16 @@ void Player::DeleteFromDB(ObjectGuid playerguid, uint32 accountId, bool updateRe
 
     // remove from guild
     if (uint32 guildId = GetGuildIdFromDB(playerguid))
+    {
         if (Guild* guild = sGuildMgr.GetGuildById(guildId))
-            guild->DelMember(playerguid);
+        {
+            if (guild->DelMember(playerguid))
+            {
+                guild->Disband();
+                delete guild;
+            }
+        }
+    }
 
     // remove from arena teams
     LeaveAllArenaTeams(playerguid);
@@ -5809,8 +5820,11 @@ void Player::UpdateCombatSkills(Unit *pVictim, WeaponAttackType attType, bool de
     if(lvldif < 3)
         lvldif = 3;
 
-    uint32 skilldif = 5 * plevel - (defence ? GetBaseDefenseSkillValue() : GetBaseWeaponSkillValue(attType));
-    if(skilldif <= 0)
+    int32 skilldif = 5 * plevel - (defence ? GetBaseDefenseSkillValue() : GetBaseWeaponSkillValue(attType));
+
+    // Max skill reached for level.
+    // Can in some cases be less than 0: having max skill and then .level -1 as example.
+    if (skilldif <= 0)
         return;
 
     float chance = float(3 * lvldif * skilldif) / plevel;
@@ -9118,12 +9132,23 @@ void Player::SendTalentWipeConfirm(ObjectGuid guid)
 void Player::SendPetSkillWipeConfirm()
 {
     Pet* pet = GetPet();
+
     if(!pet)
         return;
-    WorldPacket data(SMSG_PET_UNLEARN_CONFIRM, (8+4));
-    data << ObjectGuid(pet->GetObjectGuid());
-    data << uint32(pet->resetTalentsCost());
-    GetSession()->SendPacket( &data );
+
+    if (pet->getPetType() != HUNTER_PET || pet->m_usedTalentCount == 0)
+        return;
+
+    CharmInfo* charmInfo = pet->GetCharmInfo();
+
+    if (!charmInfo)
+    {
+        sLog.outError("WorldSession::HandlePetUnlearnOpcode: %s is considered pet-like but doesn't have a charminfo!", pet->GetGuidStr().c_str());
+        return;
+    }
+    pet->resetTalents();
+    SendTalentsInfoData(true);
+
 }
 
 /*********************************************************/
@@ -20484,8 +20509,9 @@ bool Player::CanReportAfkDueToLimit()
 ///This player has been blamed to be inactive in a battleground
 void Player::ReportedAfkBy(Player* reporter)
 {
-    BattleGround *bg = GetBattleGround();
-    if(!bg || bg != reporter->GetBattleGround() || GetTeam() != reporter->GetTeam())
+    BattleGround* bg = GetBattleGround();
+    // Battleground also must be in progress!
+    if (!bg || bg != reporter->GetBattleGround() || GetTeam() != reporter->GetTeam() || bg->GetStatus() != STATUS_IN_PROGRESS)
         return;
 
     // check if player has 'Idle' or 'Inactive' debuff
@@ -20674,6 +20700,20 @@ template void Player::UpdateVisibilityOf(WorldObject const* viewPoint, Creature*
 template void Player::UpdateVisibilityOf(WorldObject const* viewPoint, Corpse*        target, UpdateData& data, std::set<WorldObject*>& visibleNow);
 template void Player::UpdateVisibilityOf(WorldObject const* viewPoint, GameObject*    target, UpdateData& data, std::set<WorldObject*>& visibleNow);
 template void Player::UpdateVisibilityOf(WorldObject const* viewPoint, DynamicObject* target, UpdateData& data, std::set<WorldObject*>& visibleNow);
+
+void Player::SetPhaseMask(uint32 newPhaseMask, bool update)
+{
+    // GM-mode have mask PHASEMASK_ANYWHERE always
+    if (isGameMaster())
+        newPhaseMask = PHASEMASK_ANYWHERE;
+
+    // phase auras normally not expected at BG but anyway better check
+    if (BattleGround *bg = GetBattleGround())
+        bg->EventPlayerDroppedFlag(this);
+
+    Unit::SetPhaseMask(newPhaseMask, update);
+    GetSession()->SendSetPhaseShift(GetPhaseMask());
+}
 
 void Player::InitPrimaryProfessions()
 {
@@ -23487,6 +23527,8 @@ Object* Player::GetObjectByTypeMask(ObjectGuid guid, TypeMask typemask)
         case HIGHGUID_CORPSE:
         case HIGHGUID_MO_TRANSPORT:
         case HIGHGUID_INSTANCE:
+        case HIGHGUID_GROUP:
+        default:
             break;
     }
 
