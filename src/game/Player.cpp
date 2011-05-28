@@ -2180,7 +2180,6 @@ void Player::Regenerate(Powers power, uint32 diff)
         {
             if (HasAuraType(SPELL_AURA_STOP_NATURAL_MANA_REGEN))
                 break;
-
             bool recentCast = IsUnderLastManaUseEffect();
             float ManaIncreaseRate = sWorld.getConfig(CONFIG_FLOAT_RATE_POWER_MANA);
             if (recentCast)
@@ -11660,7 +11659,7 @@ Item* Player::EquipItem( uint16 pos, Item *pItem, bool update )
 
             _ApplyItemMods(pItem, slot, true);
 
-            if(pProto && isInCombat()&& pProto->Class == ITEM_CLASS_WEAPON && m_weaponChangeTimer == 0)
+            if(pProto && isInCombat()&& (pProto->Class == ITEM_CLASS_WEAPON || pProto->InventoryType == INVTYPE_RELIC) && m_weaponChangeTimer == 0)
             {
                 uint32 cooldownSpell = SPELL_ID_WEAPON_SWITCH_COOLDOWN_1_5s;
 
