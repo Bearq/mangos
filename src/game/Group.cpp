@@ -472,6 +472,8 @@ void Group::Disband(bool hideDestroy)
         if(!player->GetSession())
             continue;
 
+        _homebindIfInstance(player);
+
         if (isLFDGroup())
             sLFGMgr.RemoveMemberFromLFDGroup(this, player->GetObjectGuid());
 
@@ -494,8 +496,6 @@ void Group::Disband(bool hideDestroy)
             data << uint64(0) << uint32(0) << uint32(0) << uint64(0);
             player->GetSession()->SendPacket(&data);
         }
-
-        _homebindIfInstance(player);
     }
     RollId.clear();
     m_memberSlots.clear();
