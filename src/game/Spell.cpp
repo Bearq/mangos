@@ -2528,7 +2528,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 }
 
                 // OK, we have all possible targets, let's sort them by distance from m_caster and keep the closest one
-                targetUnitMap.sort(TargetDistanceOrder(m_caster) );
+                targetUnitMap.sort(TargetDistanceOrderNear(m_caster) );
                 targetUnitMap.resize(unMaxTargets);
                 break;
             }
