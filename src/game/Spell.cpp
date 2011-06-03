@@ -2346,7 +2346,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 break;
             }
 
-/* this part of code will be anyway bypassed when executed FillCustomTarget(). we need to checkout rsa and our method and choose better*/
+            /*this part of code will be anyway bypassed when executed FillCustomTarget(). we need to checkout rsa and our method and choose better
             //Corpse Explosion
             if (m_spellInfo->SpellFamilyName == SPELLFAMILY_DEATHKNIGHT && m_spellInfo->SpellIconID == 1737)
             {
@@ -2392,8 +2392,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 targetUnitMap.sort(TargetDistanceOrderNear(m_caster) );
                 targetUnitMap.resize(unMaxTargets);
                 break;
-            }
-*/
+            }*/
 
             UnitList tempTargetUnitMap;
             SpellScriptTargetBounds bounds = sSpellMgr.GetSpellScriptTargetBounds(m_spellInfo->Id);
