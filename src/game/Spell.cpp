@@ -8055,12 +8055,12 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
     // Resulting effect depends on spell that we want to cast
     switch (m_spellInfo->Id)
     {
-		case 43263: // Ghoul Taunt (Army of the Dead)
-		{           // exclude Player and WorldBoss targets
-			FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
-			for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end();)
+        case 43263: // Ghoul Taunt (Army of the Dead)
+        {           // exclude Player and WorldBoss targets
+            FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+            for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end();)
             {
-				Creature *pTmp = (Creature*)(*itr);
+                Creature *pTmp = (Creature*)(*itr);
                 if ( ((*itr) && (*itr)->GetTypeId() == TYPEID_PLAYER) || (pTmp && pTmp->IsWorldBoss()) )
                 {
                     targetUnitMap.erase(itr);
@@ -8070,10 +8070,10 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                 }
                 itr++;
             }
-			if (!targetUnitMap.empty())
-				return true;
-			break;
-		}		
+            if (!targetUnitMap.empty())
+                return true;
+            break;
+        }
         case 46584: // Raise Dead
         {
             Unit* pCorpseTarget = NULL;
@@ -8149,15 +8149,15 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             if (!targetUnitMap.empty())
                 return true;
         }
-		case 57143: // Life Burst (Wyrmrest Skytalon) 
-					// hack - spell is AoE but implicitTargets dont match here :/
-		{
-			SetTargetMap(SpellEffectIndex(i), TARGET_ALL_FRIENDLY_UNITS_AROUND_CASTER, targetUnitMap);
-			targetUnitMap.push_back(m_caster);
-			return true;
-		}
-		case 57557: // Pyrobuffet (Sartharion encounter)
-		{           // don't target Range Markered units
+        case 57143: // Life Burst (Wyrmrest Skytalon) 
+                    // hack - spell is AoE but implicitTargets dont match here :/
+        {
+            SetTargetMap(SpellEffectIndex(i), TARGET_ALL_FRIENDLY_UNITS_AROUND_CASTER, targetUnitMap);
+            targetUnitMap.push_back(m_caster);
+            return true;
+        }
+        case 57557: // Pyrobuffet (Sartharion encounter)
+        {           // don't target Range Markered units
             UnitList tempTargetUnitMap;
             FillAreaTargets(tempTargetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_HOSTILE);
             if (!tempTargetUnitMap.empty())
@@ -8178,8 +8178,8 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
         }
         case 61693: // Arcane Storm (Malygos - Normal)
         case 61694: // Arcane Storm (Malygos - Heroic)
-		{           // exclude current victim
-			FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+        {           // exclude current victim
+            FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
             if (m_caster->getVictim())
                 targetUnitMap.remove(m_caster->getVictim());
 
