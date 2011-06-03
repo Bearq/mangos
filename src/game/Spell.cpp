@@ -469,8 +469,8 @@ void Spell::FillTargetMap()
             AddUnitTarget(m_caster, SpellEffectIndex(i));
 
         UnitList tmpUnitMap;
-
         if (!FillCustomTargetMap(SpellEffectIndex(i),tmpUnitMap))
+
         // TargetA/TargetB dependent from each other, we not switch to full support this dependences
         // but need it support in some know cases
         switch(m_spellInfo->EffectImplicitTargetA[i])
@@ -573,10 +573,6 @@ void Spell::FillTargetMap()
                         }
                         break;
                     case 0:
-                        // Life Burst (Wyrmrest Skytalon) hack - spell is AoE but implicitTargets dont match here :/
-                        if (m_spellInfo->Id == 57143)
-                            SetTargetMap(SpellEffectIndex(i), TARGET_ALL_FRIENDLY_UNITS_AROUND_CASTER, tmpUnitMap);
-                        else
                             SetTargetMap(SpellEffectIndex(i), m_spellInfo->EffectImplicitTargetA[i], tmpUnitMap);
                         tmpUnitMap.push_back(m_caster);
                         break;
@@ -2086,82 +2082,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                     targetUnitMap.resize(unMaxTargets);
                 }
             }
-
-            // Ghoul Taunt (Army of the Dead) - exclude Player and WorldBoss targets
-            if (m_spellInfo->Id == 43263)
-            {
-                if (!targetUnitMap.empty() )
-                {
-                    for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end();)
-                    {
-                        Creature *pTmp = (Creature*)(*itr);
-                        if ( ((*itr) && (*itr)->GetTypeId() == TYPEID_PLAYER) || (pTmp && pTmp->IsWorldBoss()) )
-                        {
-                            targetUnitMap.erase(itr);
-                            targetUnitMap.sort();
-                            itr = targetUnitMap.begin();
-                            continue;
-                        }
-                        itr++;
-                    }
-                }
-            }
-            // Pyrobuffet (Sartharion encounter)
-            // don't target Range Markered units
-            else if (m_spellInfo->Id == 57557)
-            {
-                std::list<Unit*> tempTargetUnitMap;
-                targetUnitMap.clear();
-                FillAreaTargets(tempTargetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_HOSTILE);
-                if (!tempTargetUnitMap.empty())
-                    for (UnitList::const_iterator iter = tempTargetUnitMap.begin(); iter != tempTargetUnitMap.end(); ++iter)
-                        if ((*iter) && !(*iter)->HasAura(m_spellInfo->CalculateSimpleValue(EFFECT_INDEX_2)))
-                            targetUnitMap.push_back(*iter);
-                return;
-            }
-
-            // Arcane Storm (Malygos)
-            // don't target main target (2-3 or 4-5 random targets)
-            else if (m_spellInfo->Id == 61693 || m_spellInfo->Id == 61694)
-            {
-                if (m_caster->getVictim())
-                    targetUnitMap.remove(m_caster->getVictim());
-            }
-
-            // Focused Eyebeam (Kologarn)
-            else if (m_spellInfo->Id == 63342 ||                         // Focused Eyebeam (Kologarn)
-                m_spellInfo->Id == 62166 || m_spellInfo->Id == 63981)    // Stone Grip (Kologarn)
-            {
-                targetUnitMap.clear();
-                if (m_targets.getUnitTarget())
-                {
-                    targetUnitMap.push_back(m_targets.getUnitTarget());
-                    return;
-                }
-                else
-                    unMaxTargets = 1;
-            }
-            // Solar Flare (Freya's elder)
-            else if (m_spellInfo->Id == 62240 || m_spellInfo->Id == 62920)
-            {
-                if (SpellAuraHolder *holder = m_caster->GetSpellAuraHolder(62239))
-                    unMaxTargets = holder->GetStackAmount();
-                else 
-                    unMaxTargets = 1;
-            }
-
-            // Starfall - exclude stealthed targets
-            if (m_spellInfo->Id == 50286)
-            {
-                for (UnitList::iterator itr = targetUnitMap.begin(), next; itr != targetUnitMap.end(); itr = next)
-                {
-                    next = itr;
-                    ++next;
-
-                    if (!(*itr)->isVisibleForOrDetect(m_caster, m_caster, false, false, false))
-                        targetUnitMap.erase(itr);
-                }
-            }
             break;
         }
         case TARGET_AREAEFFECT_INSTANT:
@@ -2345,54 +2265,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 targetUnitMap.push_back(m_caster);
                 break;
             }
-
-            /*this part of code will be anyway bypassed when executed FillCustomTarget(). we need to checkout rsa and our method and choose better
-            //Corpse Explosion
-            if (m_spellInfo->SpellFamilyName == SPELLFAMILY_DEATHKNIGHT && m_spellInfo->SpellIconID == 1737)
-            {
-                // check range = 30.0yd first, then radius = 10.0yd
-                float range = GetSpellMaxRange(sSpellRangeStore.LookupEntry(m_spellInfo->rangeIndex));
-                Unit *unitTarget = NULL;
-
-                targetUnitMap.remove(m_caster);
-                unitTarget = m_targets.getUnitTarget();
-
-                if (unitTarget)
-                {
-                    // Cast on corpses...
-                    if ((unitTarget->getDeathState() == CORPSE && !unitTarget->IsTaxiFlying() && !((Creature*)unitTarget)->IsDeadByDefault() &&
-                        (unitTarget->GetDisplayId() == unitTarget->GetNativeDisplayId()) && m_caster->IsWithinDistInMap(unitTarget, range) &&
-                        (unitTarget->GetCreatureTypeMask() & CREATURE_TYPEMASK_MECHANICAL_OR_ELEMENTAL) == 0) ||
-                        // ...or own Risen Ghoul pet - self explode effect
-                        (unitTarget->GetEntry() == 26125 && unitTarget->GetCreatorGuid() == m_caster->GetObjectGuid()) )
-                    {
-                        targetUnitMap.push_back(unitTarget);
-                        break;
-                    }
-                }
-
-                // target is not valid, search for a corpse in 10yd radius
-                {
-                    MaNGOS::ExplodeCorpseObjectCheck u_check(m_caster, radius);
-                    MaNGOS::UnitListSearcher<MaNGOS::ExplodeCorpseObjectCheck> searcher(targetUnitMap, u_check);
-                    Cell::VisitAllObjects(m_caster, searcher, radius);
-                }
-
-                if (targetUnitMap.empty() )
-                {
-                    // no valid targets, clear cooldown at fail
-                    if (m_caster->GetTypeId() == TYPEID_PLAYER)
-                        ((Player*)m_caster)->RemoveSpellCooldown(m_spellInfo->Id, true);
-                    SendCastResult(SPELL_FAILED_NO_VALID_TARGETS);
-                    finish(false);
-                    break;
-                }
-
-                // OK, we have all possible targets, let's sort them by distance from m_caster and keep the closest one
-                targetUnitMap.sort(TargetDistanceOrderNear(m_caster) );
-                targetUnitMap.resize(unMaxTargets);
-                break;
-            }*/
 
             UnitList tempTargetUnitMap;
             SpellScriptTargetBounds bounds = sSpellMgr.GetSpellScriptTargetBounds(m_spellInfo->Id);
@@ -8184,6 +8056,25 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
     // Resulting effect depends on spell that we want to cast
     switch (m_spellInfo->Id)
     {
+		case 43263: // Ghoul Taunt (Army of the Dead)
+		{           // exclude Player and WorldBoss targets
+			FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+			for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end();)
+            {
+				Creature *pTmp = (Creature*)(*itr);
+                if ( ((*itr) && (*itr)->GetTypeId() == TYPEID_PLAYER) || (pTmp && pTmp->IsWorldBoss()) )
+                {
+                    targetUnitMap.erase(itr);
+                    targetUnitMap.sort();
+                    itr = targetUnitMap.begin();
+                    continue;
+                }
+                itr++;
+            }
+			if (!targetUnitMap.empty())
+				return true;
+			break;
+		}		
         case 46584: // Raise Dead
         {
             WorldObject* result = FindCorpseUsing <MaNGOS::RaiseDeadObjectCheck>  ();
@@ -8273,6 +8164,39 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             targetUnitMap.resize(1);
             return true;
         }
+        case 50286: // Starfall - exclude stealthed targets
+        {
+            FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+            for (UnitList::iterator itr = targetUnitMap.begin(), next; itr != targetUnitMap.end(); itr = next)
+            {
+                next = itr;
+                ++next;
+
+                if (!(*itr)->isVisibleForOrDetect(m_caster, m_caster, false, false, false))
+                    targetUnitMap.erase(itr);
+            }
+            if (!targetUnitMap.empty())
+                return true;
+        }
+		case 57143: // Life Burst (Wyrmrest Skytalon) 
+					// hack - spell is AoE but implicitTargets dont match here :/
+		{
+			SetTargetMap(SpellEffectIndex(i), TARGET_ALL_FRIENDLY_UNITS_AROUND_CASTER, targetUnitMap);
+			targetUnitMap.push_back(m_caster);
+			return true;
+		}
+		case 57557: // Pyrobuffet (Sartharion encounter)
+		{           // don't target Range Markered units
+            UnitList tempTargetUnitMap;
+            FillAreaTargets(tempTargetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_HOSTILE);
+            if (!tempTargetUnitMap.empty())
+                for (UnitList::const_iterator iter = tempTargetUnitMap.begin(); iter != tempTargetUnitMap.end(); ++iter)
+                    if ((*iter) && !(*iter)->HasAura(m_spellInfo->CalculateSimpleValue(EFFECT_INDEX_2)))
+                        targetUnitMap.push_back(*iter);
+            if (!targetUnitMap.empty())
+                return true;
+            break;
+        }
         case 58912: // Deathstorm
         {
             if (!m_caster->GetObjectGuid().IsVehicle())
@@ -8280,6 +8204,17 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
 
             SetTargetMap(SpellEffectIndex(i), TARGET_RANDOM_ENEMY_CHAIN_IN_AREA, targetUnitMap);
             return true;
+        }
+        case 61693: // Arcane Storm (Malygos - Normal)
+        case 61694: // Arcane Storm (Malygos - Heroic)
+		{           // exclude current victim
+			FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+            if (m_caster->getVictim())
+                targetUnitMap.remove(m_caster->getVictim());
+
+            if (!targetUnitMap.empty())
+                return true;
+            break;
         }
         case 61999: // Raise ally
         {
@@ -8290,24 +8225,35 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                 targetUnitMap.push_back((Unit*)m_caster);
             return true;
         }
+        case 62240: // Solar Flare (Freya's elder)
+        case 62920:
+        {
+            FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+            targetUnitMap.resize(m_caster->GetSpellAuraHolder(62239) ? m_caster->GetSpellAuraHolder(62239)->GetStackAmount() : 1);
+
+            if (!targetUnitMap.empty())
+                return true;
+        }
+        case 62166: // Stone Grip (Kologarn)
+        case 63342: // Focused Eyebeam Summon Trigger (Kologarn)
+        case 63981: // Stone Grip (Kologarn)
+        {
+            if (m_caster->getVictim())
+                targetUnitMap.push_back(m_caster->getVictim());
+            else
+            {
+                FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+                targetUnitMap.sort(TargetDistanceOrderNear(m_caster));
+                targetUnitMap.resize(1);
+            }
+            if (!targetUnitMap.empty())
+                return true;
+            break;
+        }
         case 65045: // Flame of demolisher
         {
             FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
             return true;
-        }
-        case 74960:                                     // Infrigidate
-        {
-            UnitList tempTargetUnitMap;
-            FillAreaTargets(tempTargetUnitMap, 20.0f, PUSH_SELF_CENTER, SPELL_TARGETS_FRIENDLY);
-            tempTargetUnitMap.remove(m_caster);
-            if (!tempTargetUnitMap.empty())
-            {
-                UnitList::iterator i = tempTargetUnitMap.begin();
-                advance(i, rand()% tempTargetUnitMap.size());
-                targetUnitMap.push_back(*i);
-                return true;
-            }
-            break;
         }
         case 72378: // Blood Nova
         case 73058:
@@ -8372,6 +8318,20 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                 }
             }
             return true;
+        }
+        case 74960:                                     // Infrigidate
+        {
+            UnitList tempTargetUnitMap;
+            FillAreaTargets(tempTargetUnitMap, 20.0f, PUSH_SELF_CENTER, SPELL_TARGETS_FRIENDLY);
+            tempTargetUnitMap.remove(m_caster);
+            if (!tempTargetUnitMap.empty())
+            {
+                UnitList::iterator i = tempTargetUnitMap.begin();
+                advance(i, rand()% tempTargetUnitMap.size());
+                targetUnitMap.push_back(*i);
+                return true;
+            }
+            return false;
         }
         default:
             return false;
