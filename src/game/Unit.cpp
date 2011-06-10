@@ -2006,61 +2006,6 @@ void Unit::DealMeleeDamage(CalcDamageInfo *damageInfo, bool durabilityLoss)
         // on weapon hit casts
         if(GetTypeId() == TYPEID_PLAYER && pVictim->isAlive())
             ((Player*)this)->CastItemCombatSpell(pVictim, damageInfo->attackType);
-
-        // victim's damage shield
-        std::set<Aura*> alreadyDone;
-        AuraList const& vDamageShields = pVictim->GetAurasByType(SPELL_AURA_DAMAGE_SHIELD);
-        for(AuraList::const_iterator i = vDamageShields.begin(); i != vDamageShields.end();)
-        {
-            if (alreadyDone.find(*i) == alreadyDone.end())
-            {
-                alreadyDone.insert(*i);
-                uint32 damage=(*i)->GetModifier()->m_amount;
-                SpellEntry const *i_spellProto = (*i)->GetSpellProto();
-
-                // Thorns
-                if (i_spellProto && i_spellProto->SpellFamilyName == SPELLFAMILY_DRUID && i_spellProto->SpellFamilyFlags & UI64LIT(0x00000100))
-                {
-                    Unit::AuraList const& dummyList = pVictim->GetAurasByType(SPELL_AURA_DUMMY);
-                    for(Unit::AuraList::const_iterator iter = dummyList.begin(); iter != dummyList.end(); ++iter)
-                    {
-                        // Brambles
-                        if((*iter)->GetSpellProto()->SpellFamilyName == SPELLFAMILY_DRUID &&
-                            (*iter)->GetSpellProto()->SpellIconID == 53)
-                        {
-                            damage += uint32(damage * (*iter)->GetModifier()->m_amount / 100);
-                            break;
-                        }
-                    }
-                }
-
-                //Calculate absorb resist ??? no data in opcode for this possibly unable to absorb or resist?
-                //uint32 absorb;
-                //uint32 resist;
-                //CalcAbsorbResist(pVictim, SpellSchools(spellProto->School), SPELL_DIRECT_DAMAGE, damage, &absorb, &resist);
-                //damage-=absorb + resist;
-
-                pVictim->DealDamageMods(this,damage,NULL);
-
-                uint32 targetHealth = GetHealth();
-                uint32 overkill = damage > targetHealth ? damage - targetHealth : 0;
-
-                WorldPacket data(SMSG_SPELLDAMAGESHIELD,(8+8+4+4+4+4));
-                data << pVictim->GetObjectGuid();
-                data << GetObjectGuid();
-                data << uint32(i_spellProto->Id);
-                data << uint32(damage);                  // Damage
-                data << uint32(overkill);                // Overkill
-                data << uint32(i_spellProto->SchoolMask);
-                pVictim->SendMessageToSet(&data, true );
-
-                pVictim->DealDamage(this, damage, 0, SPELL_DIRECT_DAMAGE, GetSpellSchoolMask(i_spellProto), i_spellProto, true);
-
-                i = vDamageShields.begin();
-            }
-            else
-                ++i;
-        }
     }
 }
 
@@ -5035,10 +4980,12 @@ void Unit::RemoveAurasDueToSpellBySteal(uint32 spellId, ObjectGuid casterGuid, U
         new_holder->AddAura(new_aur, new_aur->GetEffIndex());
     }
 
+    bool needSetCharge = false;
     if (holder->GetSpellProto()->AttributesEx7 & SPELL_ATTR_EX7_DISPEL_CHARGES)
     {
         if (holder->DropAuraCharge())
             RemoveSpellAuraHolder(holder, AURA_REMOVE_BY_DISPEL);
+        needSetCharge = true;
     }
     else if (holder->ModStackAmount(-1))
         // Remove aura as dispel
@@ -5049,7 +4996,7 @@ void Unit::RemoveAurasDueToSpellBySteal(uint32 spellId, ObjectGuid casterGuid, U
 
     stealer->AddSpellAuraHolder(new_holder);
 
-    if (holder->GetSpellProto()->AttributesEx7 & SPELL_ATTR_EX7_DISPEL_CHARGES)
+    if (needSetCharge)
         new_holder->SetAuraCharges(1);
 }
 
@@ -6731,7 +6678,7 @@ Unit* Unit::SelectMagnetTarget(Unit *victim, Spell* spell, SpellEffectIndex eff)
         return NULL;
 
     // Magic case
-    if (spell && (spell->m_spellInfo->DmgClass == SPELL_DAMAGE_CLASS_NONE || spell->m_spellInfo->DmgClass == SPELL_DAMAGE_CLASS_MAGIC))
+    if (spell && (spell->m_spellInfo->PreventionType == SPELL_PREVENTION_TYPE_SILENCE || spell->m_spellInfo->DmgClass == SPELL_DAMAGE_CLASS_MAGIC))
     {
         Unit::AuraList const& magnetAuras = victim->GetAurasByType(SPELL_AURA_SPELL_MAGNET);
         for(Unit::AuraList::const_iterator itr = magnetAuras.begin(); itr != magnetAuras.end(); ++itr)
@@ -6739,12 +6686,7 @@ Unit* Unit::SelectMagnetTarget(Unit *victim, Spell* spell, SpellEffectIndex eff)
             if (Unit* magnet = (*itr)->GetCaster())
             {
                 if (magnet->isAlive() && magnet->IsWithinLOSInMap(this) && spell->CheckTarget(magnet, eff))
-                {
-                    if (SpellAuraHolder *holder = (*itr)->GetHolder())
-                        if (holder->DropAuraCharge())
-                            victim->RemoveSpellAuraHolder(holder);
                     return magnet;
-                }
             }
         }
     }
@@ -6759,12 +6701,7 @@ Unit* Unit::SelectMagnetTarget(Unit *victim, Spell* spell, SpellEffectIndex eff)
                 if (magnet->isAlive() && magnet->IsWithinLOSInMap(this) && (!spell || spell->CheckTarget(magnet, eff)))
                 {
                     if (roll_chance_i((*i)->GetModifier()->m_amount))
-                    {
-                        if (SpellAuraHolder *holder = (*i)->GetHolder())
-                            if (holder->DropAuraCharge())
-                                victim->RemoveSpellAuraHolder(holder);
                         return magnet;
-                    }
                 }
             }
         }
@@ -7502,18 +7439,18 @@ bool Unit::IsSpellCrit(Unit *pVictim, SpellEntry const *spellProto, SpellSchoolM
                     case SPELLFAMILY_MAGE:
                     {
                         // Fire Blast
-                        if (spellProto->SpellFamilyFlags & UI64LIT(0x0000000000000002) && spellProto->SpellIconID == 12)
+                        if (spellProto->IsFitToFamilyMask(UI64LIT(0x0000000000000002)) && spellProto->SpellIconID == 12)
                         {
                             // Glyph of Fire Blast
-                            if (Aura* aura = GetAura(56369, EFFECT_INDEX_0))
-                                if (pVictim->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED) || pVictim->isInRoots())
+                            if (pVictim->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED) || pVictim->isInRoots())
+                                if (Aura* aura = GetAura(56369, EFFECT_INDEX_0))
                                     crit_chance += aura->GetModifier()->m_amount;
                         }
                         break;
                     }
                     case SPELLFAMILY_PRIEST:
                         // Flash Heal
-                        if (spellProto->SpellFamilyFlags & UI64LIT(0x0000000000000800))
+                        if (spellProto->IsFitToFamilyMask(UI64LIT(0x0000000000000800)))
                         {
                             if (pVictim->GetHealth() > pVictim->GetMaxHealth()/2)
                                 break;
@@ -7532,7 +7469,7 @@ bool Unit::IsSpellCrit(Unit *pVictim, SpellEntry const *spellProto, SpellSchoolM
                         break;
                     case SPELLFAMILY_DRUID:
                         // Improved Insect Swarm (Starfire part)
-                        if (spellProto->SpellFamilyFlags & UI64LIT(0x0000000000000004))
+                        if (spellProto->IsFitToFamilyMask(UI64LIT(0x0000000000000004)))
                         {
                             // search for Moonfire on target
                             if (pVictim->GetAura(SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_DRUID, UI64LIT(0x000000000000002), 0, GetObjectGuid()))
@@ -7580,7 +7517,7 @@ bool Unit::IsSpellCrit(Unit *pVictim, SpellEntry const *spellProto, SpellSchoolM
                         break;
                     case SPELLFAMILY_SHAMAN:
                         // Lava Burst
-                        if (spellProto->SpellFamilyFlags & UI64LIT(0x0000100000000000))
+                        if (spellProto->IsFitToFamilyMask(UI64LIT(0x0000100000000000)))
                         {
                             // Flame Shock
                             if (pVictim->GetAura(SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_SHAMAN, UI64LIT(0x0000000010000000), 0, GetObjectGuid()))
@@ -7962,13 +7899,19 @@ bool Unit::IsImmuneToSpell(SpellEntry const* spellInfo)
 
         AuraList const& immuneAuraApply = GetAurasByType(SPELL_AURA_MECHANIC_IMMUNITY_MASK);
         for(AuraList::const_iterator iter = immuneAuraApply.begin(); iter != immuneAuraApply.end(); ++iter)
-            if ((*iter)->GetModifier()->m_miscvalue & (1 << (mechanic-1)))
+        {
+            if ((*iter)->GetId() == 46924)
             {
-                if((*iter)->GetId() == 46924 && mechanic == MECHANIC_DISARM) // Hack to remove Bladestorm disarm immunity
+                if (mechanic == MECHANIC_DISARM)
                     continue;
-                
-                return true;
+                else if (mechanic & IMMUNE_TO_MOVEMENT_IMPAIRMENT_AND_LOSS_CONTROL_MASK)
+                    return true;
             }
+
+            if ((*iter)->GetModifier()->m_miscvalue & (1 << (mechanic-1)))
+                return true;
+        }
+
     }
 
     return false;
@@ -7993,14 +7936,17 @@ bool Unit::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex i
         AuraList const& immuneAuraApply = GetAurasByType(SPELL_AURA_MECHANIC_IMMUNITY_MASK);
         for(AuraList::const_iterator iter = immuneAuraApply.begin(); iter != immuneAuraApply.end(); ++iter)
         {
-            if ((*iter)->GetModifier()->m_miscvalue & (1 << (mechanic-1)))
+            if ((*iter)->GetId() == 46924)
             {
-                // Bladestorm exception (Psychic Horror check here)
-                if ((*iter)->GetId() == 46924 && mechanic == MECHANIC_DISARM)
+                if (mechanic == MECHANIC_DISARM)
                     continue;
-
-                return true;
+                else if (mechanic & IMMUNE_TO_MOVEMENT_IMPAIRMENT_AND_LOSS_CONTROL_MASK ||
+                    spellInfo->Mechanic & IMMUNE_TO_MOVEMENT_IMPAIRMENT_AND_LOSS_CONTROL_MASK)
+                    return true;
             }
+
+            if ((*iter)->GetModifier()->m_miscvalue & (1 << (mechanic-1)))
+                return true;
         }
     }
 
@@ -8025,6 +7971,8 @@ bool Unit::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex i
                     return true;
         }
 
+        }
+        // is this still needed?
         AuraList const& immuneMechanicAuraApply = GetAurasByType(SPELL_AURA_MECHANIC_IMMUNITY_MASK);
         // need more checks like ^ there
         if (!immuneMechanicAuraApply.empty())
@@ -10393,12 +10341,12 @@ void CharmInfo::InitPossessCreateSpells()
     if(m_unit->GetTypeId() == TYPEID_PLAYER)                //possessed players don't have spells, keep the action bar empty
         return;
 
-    for(uint32 x = 0; x < CREATURE_MAX_SPELLS; ++x)
+    for(uint32 x = 0; x <= ((Creature*)m_unit)->GetSpellMaxIndex(); ++x)
     {
-        if (IsPassiveSpell(((Creature*)m_unit)->m_spells[x]))
-            m_unit->CastSpell(m_unit, ((Creature*)m_unit)->m_spells[x], true);
+        if (IsPassiveSpell(((Creature*)m_unit)->GetSpell(x)))
+            m_unit->CastSpell(m_unit, ((Creature*)m_unit)->GetSpell(x), true);
         else
-            AddSpellToActionBar(((Creature*)m_unit)->m_spells[x], ACT_PASSIVE);
+            AddSpellToActionBar(((Creature*)m_unit)->GetSpell(x), ACT_PASSIVE);
     }
 }
 
@@ -10407,9 +10355,9 @@ void CharmInfo::InitVehicleCreateSpells()
     for (uint32 x = ACTION_BAR_INDEX_START; x < ACTION_BAR_INDEX_END; ++x)
         SetActionBar(x, 0, ActiveStates(0x8 + x));
 
-    for (uint32 x = 0; x < CREATURE_MAX_SPELLS; ++x)
+    for (uint32 x = 0; x <= ((Creature*)m_unit)->GetSpellMaxIndex(); ++x)
     {
-        uint32 spellId = ((Creature*)m_unit)->m_spells[x];
+        uint32 spellId = ((Creature*)m_unit)->GetSpell(x);
 
         if (!spellId)
             continue;
@@ -10431,9 +10379,9 @@ void CharmInfo::InitCharmCreateSpells()
 
     InitPetActionBar();
 
-    for(uint32 x = 0; x < CREATURE_MAX_SPELLS; ++x)
+    for(uint32 x = 0; x <= ((Creature*)m_unit)->GetSpellMaxIndex(); ++x)
     {
-        uint32 spellId = ((Creature*)m_unit)->m_spells[x];
+        uint32 spellId = ((Creature*)m_unit)->GetSpell(x);
 
         if(!spellId)
         {
@@ -12407,8 +12355,14 @@ ObjectGuid const& Unit::GetCreatorGuid() const
 {
     switch(GetObjectGuid().GetHigh())
     {
-        case HIGHGUID_UNIT:
         case HIGHGUID_VEHICLE:
+            {
+                if (!(const_cast<Unit*>(this)->GetVehicleInfo()->GetEntry()->m_flags & (VEHICLE_FLAG_NOT_DISMISS | VEHICLE_FLAG_ACCESSORY)))
+                    if (GetOwner())
+                        return GetOwner()->GetObjectGuid();
+            }
+        // No break here!
+        case HIGHGUID_UNIT:
             if (((Creature*)this)->IsTemporarySummon())
             {
                 return ((TemporarySummon*)this)->GetSummonerGuid();

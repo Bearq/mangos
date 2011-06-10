@@ -1897,7 +1897,8 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
 
         // If the map is not created, assume it is possible to enter it.
         // It will be created in the WorldPortAck.
-        Map *map = sMapMgr.FindMap(mapid);
+        DungeonPersistentState* state = GetBoundInstanceSaveForSelfOrGroup(mapid);
+        Map *map = sMapMgr.FindMap(mapid, state ? state->GetInstanceId() : 0);
         if (!map ||  map->CanEnter(this))
         {
             //lets reset near teleport flag if it wasn't reset during chained teleports
@@ -11673,7 +11674,8 @@ Item* Player::EquipItem( uint16 pos, Item *pItem, bool update )
 
             _ApplyItemMods(pItem, slot, true);
 
-            if(pProto && isInCombat()&& (pProto->Class == ITEM_CLASS_WEAPON || pProto->InventoryType == INVTYPE_RELIC) && m_weaponChangeTimer == 0)
+            // Weapons and also Totem/Relic/Sigil/etc
+            if (pProto && isInCombat() && (pProto->Class == ITEM_CLASS_WEAPON || pProto->InventoryType == INVTYPE_RELIC) && m_weaponChangeTimer == 0)
             {
                 uint32 cooldownSpell = SPELL_ID_WEAPON_SWITCH_COOLDOWN_1_5s;
 

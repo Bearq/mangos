@@ -47,7 +47,7 @@ pAuraProcHandler AuraProcHandler[TOTAL_AURAS]=
     &Unit::HandleNULLProc,                                  // 12 SPELL_AURA_MOD_STUN
     &Unit::HandleNULLProc,                                  // 13 SPELL_AURA_MOD_DAMAGE_DONE
     &Unit::HandleNULLProc,                                  // 14 SPELL_AURA_MOD_DAMAGE_TAKEN
-    &Unit::HandleNULLProc,                                  // 15 SPELL_AURA_DAMAGE_SHIELD
+    &Unit::HandleDamageShieldAuraProc,                      // 15 SPELL_AURA_DAMAGE_SHIELD
     &Unit::HandleRemoveByDamageProc,                        // 16 SPELL_AURA_MOD_STEALTH
     &Unit::HandleNULLProc,                                  // 17 SPELL_AURA_MOD_STEALTH_DETECT
     &Unit::HandleRemoveByDamageProc,                        // 18 SPELL_AURA_MOD_INVISIBILITY
@@ -128,7 +128,7 @@ pAuraProcHandler AuraProcHandler[TOTAL_AURAS]=
     &Unit::HandleNULLProc,                                  // 93 SPELL_AURA_MOD_UNATTACKABLE
     &Unit::HandleNULLProc,                                  // 94 SPELL_AURA_INTERRUPT_REGEN
     &Unit::HandleNULLProc,                                  // 95 SPELL_AURA_GHOST
-    &Unit::HandleNULLProc,                                  // 96 SPELL_AURA_SPELL_MAGNET
+    &Unit::HandleDropChargeByDamageProc,                    // 96 SPELL_AURA_SPELL_MAGNET
     &Unit::HandleManaShieldAuraProc,                        // 97 SPELL_AURA_MANA_SHIELD
     &Unit::HandleNULLProc,                                  // 98 SPELL_AURA_MOD_SKILL_TALENT
     &Unit::HandleNULLProc,                                  // 99 SPELL_AURA_MOD_ATTACK_POWER
@@ -143,7 +143,7 @@ pAuraProcHandler AuraProcHandler[TOTAL_AURAS]=
     &Unit::HandleAddPctModifierAuraProc,                    //108 SPELL_AURA_ADD_PCT_MODIFIER
     &Unit::HandleNULLProc,                                  //109 SPELL_AURA_ADD_TARGET_TRIGGER
     &Unit::HandleNULLProc,                                  //110 SPELL_AURA_MOD_POWER_REGEN_PERCENT
-    &Unit::HandleNULLProc,                                  //111 SPELL_AURA_ADD_CASTER_HIT_TRIGGER
+    &Unit::HandleDropChargeByDamageProc,                    //111 SPELL_AURA_ADD_CASTER_HIT_TRIGGER
     &Unit::HandleOverrideClassScriptAuraProc,               //112 SPELL_AURA_OVERRIDE_CLASS_SCRIPTS
     &Unit::HandleNULLProc,                                  //113 SPELL_AURA_MOD_RANGED_DAMAGE_TAKEN
     &Unit::HandleNULLProc,                                  //114 SPELL_AURA_MOD_RANGED_DAMAGE_TAKEN_PCT
@@ -353,7 +353,11 @@ pAuraProcHandler AuraProcHandler[TOTAL_AURAS]=
 
 bool Unit::IsTriggeredAtSpellProcEvent(Unit *pVictim, SpellAuraHolder* holder, SpellEntry const* procSpell, uint32 procFlag, uint32 procExtra, WeaponAttackType attType, bool isVictim, SpellProcEventEntry const*& spellProcEvent )
 {
-    SpellEntry const* spellProto = holder->GetSpellProto ();
+
+    if (IsTriggeredAtCustomProcEvent(pVictim, holder, procSpell, procFlag, procExtra, attType, isVictim, spellProcEvent))
+        return true;
+
+    SpellEntry const* spellProto = holder->GetSpellProto();
 
     // Get proc Event Entry
     spellProcEvent = sSpellMgr.GetSpellProcEvent(spellProto->Id);
@@ -384,7 +388,7 @@ bool Unit::IsTriggeredAtSpellProcEvent(Unit *pVictim, SpellAuraHolder* holder, S
     }
     // Aura added by spell can`t trigger from self (prevent drop charges/do triggers)
     // But except periodic triggers (can triggered from self)
-    if(procSpell && procSpell->Id == spellProto->Id && !(spellProto->procFlags & PROC_FLAG_ON_TAKE_PERIODIC))
+    if(procSpell && procSpell->Id == spellProto->Id && !(EventProcFlag & PROC_FLAG_ON_TAKE_PERIODIC))
         return false;
 
     // Check if current equipment allows aura to proc
@@ -3595,7 +3599,7 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
         case SPELLFAMILY_WARLOCK:
         {
             // Drain Soul
-            if (auraSpellInfo->SpellFamilyFlags & UI64LIT(0x0000000000004000))
+            if (auraSpellInfo->IsFitToFamilyMask(UI64LIT(0x0000000000004000)))
             {
                 // search for "Improved Drain Soul" dummy aura
                 Unit::AuraList const& mDummyAura = GetAurasByType(SPELL_AURA_DUMMY);
@@ -3612,6 +3616,13 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
                 // Not remove charge (aura removed on death in any cases)
                 // Need for correct work Drain Soul SPELL_AURA_CHANNEL_DEATH_ITEM aura
                 return SPELL_AURA_PROC_FAILED;
+            }
+            // Consume Shadows
+            else if (auraSpellInfo->IsFitToFamilyMask(UI64LIT(0x0000000002000000)))
+            {
+                Aura* heal = triggeredByAura->GetHolder()->GetAuraByEffectIndex(EFFECT_INDEX_0);
+                if (!heal || heal->GetAuraTicks() > 1)
+                    return SPELL_AURA_PROC_FAILED;
             }
             // Nether Protection
             else if (auraSpellInfo->SpellIconID == 1985)
@@ -3760,15 +3771,11 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
                 if (HasAura(67544))
                     return SPELL_AURA_PROC_FAILED;
             }
+            // Item - Hunter T9 4P Bonus
             else if (auraSpellInfo->Id == 67151)
             {
-                if (Pet* pet = GetPet())
-                {
-                    trigger_spell_id = 68130;
-                    target = (Unit*)pet;
-                }
-                else
-                    return SPELL_AURA_PROC_FAILED;
+                trigger_spell_id = 68130;
+                break;
             }
             break;
         }
@@ -4698,6 +4705,11 @@ SpellAuraProcResult Unit::HandleRemoveByDamageProc(Unit* pVictim, uint32 damage,
 
 SpellAuraProcResult Unit::HandleRemoveByDamageChanceProc(Unit* pVictim, uint32 damage, Aura* triggeredByAura, SpellEntry const *procSpell, uint32 procFlag, uint32 procEx, uint32 cooldown)
 {
+    SpellEntry const* spellInfo = triggeredByAura->GetSpellProto();
+
+    if (!spellInfo || spellInfo == procSpell)
+        return SPELL_AURA_PROC_FAILED;
+
     // The chance to dispel an aura depends on the damage taken with respect to the casters level.
     uint32 max_dmg = getLevel() > 8 ? 25 * getLevel() - 150 : 50;
     float chance = float(damage) / max_dmg * 100.0f;
@@ -4775,6 +4787,121 @@ SpellAuraProcResult Unit::HandleModResistanceAuraProc(Unit* /*pVictim*/, uint32 
         if (!damage)
             return SPELL_AURA_PROC_FAILED;
     }
+
+    return SPELL_AURA_PROC_OK;
+}
+
+bool Unit::IsTriggeredAtCustomProcEvent(Unit *pVictim, SpellAuraHolder* holder, SpellEntry const* procSpell, uint32 procFlag, uint32 procExtra, WeaponAttackType attType, bool isVictim, SpellProcEventEntry const*& spellProcEvent )
+{
+    if (!holder || holder->IsDeleted())
+        return false;
+
+    SpellEntry const* spellProto = holder->GetSpellProto();
+
+    if (procSpell == spellProto)
+        return false;
+
+    for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+    {
+        if (Aura* aura = holder->GetAuraByEffectIndex(SpellEffectIndex(i)))
+        {
+            AuraType auraName = AuraType(spellProto->EffectApplyAuraName[i]);
+
+            switch (auraName)
+            {
+                case SPELL_AURA_DAMAGE_SHIELD:
+                    if (procFlag & PROC_FLAG_TAKEN_MELEE_HIT)
+                        return true;
+                    break;
+                case SPELL_AURA_MOD_STEALTH:
+                case SPELL_AURA_MOD_INVISIBILITY:
+                {
+                    uint32 anydamageMask = (PROC_FLAG_TAKEN_MELEE_HIT |
+                                        PROC_FLAG_TAKEN_MELEE_SPELL_HIT |
+                                        PROC_FLAG_TAKEN_RANGED_HIT |
+                                        PROC_FLAG_TAKEN_AOE_SPELL_HIT |
+                                        PROC_FLAG_TAKEN_NEGATIVE_SPELL_HIT |
+                                        PROC_FLAG_TAKEN_ANY_DAMAGE |
+                                        PROC_FLAG_ON_TRAP_ACTIVATION);
+                    if (procFlag & anydamageMask &&
+                        spellProto->AuraInterruptFlags & AURA_INTERRUPT_FLAG_DAMAGE)
+                        return true;
+                    break;
+                }
+                default:
+                    break;
+            }
+
+        }
+    }
+    return false;
+}
+
+SpellAuraProcResult Unit::HandleDamageShieldAuraProc(Unit* pVictim, uint32 damage, Aura* triggeredByAura, SpellEntry const *procSpell, uint32 procFlag, uint32 procEx, uint32 cooldown)
+{
+    if (!triggeredByAura)
+        return SPELL_AURA_PROC_FAILED;
+
+    SpellEntry const *spellProto = triggeredByAura->GetSpellProto();
+
+    if (!spellProto)
+        return SPELL_AURA_PROC_FAILED;
+
+    uint32 retdamage = triggeredByAura->GetModifier()->m_amount;
+
+    // Thorns
+    if (spellProto && spellProto->SpellFamilyName == SPELLFAMILY_DRUID && spellProto->SpellFamilyFlags & UI64LIT(0x00000100))
+    {
+        Unit::AuraList const& dummyList = GetAurasByType(SPELL_AURA_DUMMY);
+        for(Unit::AuraList::const_iterator iter = dummyList.begin(); iter != dummyList.end(); ++iter)
+        {
+            // Brambles
+            if((*iter)->GetSpellProto()->SpellFamilyName == SPELLFAMILY_DRUID &&
+                (*iter)->GetSpellProto()->SpellIconID == 53)
+                {
+                    damage += uint32(damage * (*iter)->GetModifier()->m_amount / 100);
+                    break;
+                }
+        }
+    }
+
+    int32 DoneAdvertisedBenefit = SpellBaseDamageBonusDone(GetSpellSchoolMask(spellProto));
+    int32 realBenefit = int32(float(DoneAdvertisedBenefit)*3.3f/100.0f);
+    retdamage += realBenefit;
+
+    DealDamageMods(pVictim,retdamage,NULL);
+
+    uint32 targetHealth = pVictim->GetHealth();
+    uint32 overkill = retdamage > targetHealth ? retdamage - targetHealth : 0;
+
+    WorldPacket data(SMSG_SPELLDAMAGESHIELD,(8+8+4+4+4+4));
+    data << GetObjectGuid();
+    data << pVictim->GetObjectGuid();
+    data << uint32(spellProto->Id);
+    data << uint32(retdamage);                  // Damage
+    data << uint32(overkill);                // Overkill
+    data << uint32(spellProto->SchoolMask);
+    SendMessageToSet(&data, true );
+
+    DealDamage(pVictim, retdamage, 0, SPELL_DIRECT_DAMAGE, GetSpellSchoolMask(spellProto), spellProto, true);
+
+    return SPELL_AURA_PROC_OK;
+}
+
+SpellAuraProcResult Unit::HandleDropChargeByDamageProc(Unit* pVictim, uint32 damage, Aura* triggeredByAura, SpellEntry const *procSpell, uint32 procFlag, uint32 procEx, uint32 cooldown)
+{
+    if (!triggeredByAura)
+        return SPELL_AURA_PROC_FAILED;
+
+    if (SpellAuraHolder *holder = triggeredByAura->GetHolder())
+    {
+        triggeredByAura->SetInUse(true);
+        if (holder->DropAuraCharge())
+            RemoveSpellAuraHolder(holder);
+        triggeredByAura->SetInUse(false);
+    }
+    else
+        return SPELL_AURA_PROC_FAILED;
 
     return SPELL_AURA_PROC_OK;
 }

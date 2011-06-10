@@ -138,7 +138,7 @@ pAuraHandler AuraHandler[TOTAL_AURAS]=
     &Aura::HandleModRegen,                                  // 84 SPELL_AURA_MOD_REGEN
     &Aura::HandleModPowerRegen,                             // 85 SPELL_AURA_MOD_POWER_REGEN
     &Aura::HandleChannelDeathItem,                          // 86 SPELL_AURA_CHANNEL_DEATH_ITEM
-    &Aura::HandleNoImmediateEffect,                         // 87 SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN implemented in Unit::MeleeDamageBonusTaken and Unit::SpellDamageBonusTaken
+    &Aura::HandleDamagePercentTaken,                        // 87 SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN implemented in Unit::MeleeDamageBonusTaken and Unit::SpellDamageBonusTaken
     &Aura::HandleNoImmediateEffect,                         // 88 SPELL_AURA_MOD_HEALTH_REGEN_PERCENT implemented in Player::RegenerateHealth
     &Aura::HandlePeriodicDamagePCT,                         // 89 SPELL_AURA_PERIODIC_DAMAGE_PERCENT
     &Aura::HandleUnused,                                    // 90 unused (3.0.8a-3.2.2a) old SPELL_AURA_MOD_RESIST_CHANCE
@@ -902,6 +902,20 @@ bool Aura::isAffectedOnSpell(SpellEntry const *spell) const
     // Check family name
     if (spell->SpellFamilyName != GetSpellProto()->SpellFamilyName)
         return false;
+
+    // hacks for bad DBC data
+    switch (GetId())
+    {
+        case 46924:
+            if (spell->Id == 1680 || spell->Id == 44949)
+                return false;
+            else if (spell->Id == 50622)
+                return true;
+            break;
+        default:
+            break;
+    }
+
     // Check EffectClassMask
     uint32 const *ptr = getAuraSpellClassMask();
     if (((uint64*)ptr)[0] & spell->SpellFamilyFlags)
@@ -1209,6 +1223,12 @@ void Aura::HandleAddModifier(bool apply, bool Real)
         if (spellProto->SpellFamilyName == SPELLFAMILY_WARLOCK && spellProto->SpellIconID == 3169)
         {
             m_spellmod->mask = UI64LIT(0x0000010000000002); // Corruption and Unstable Affliction
+            m_spellmod->mask2 = 0x00000000;
+        }
+        // Improved Flametongue Weapon, overwrite wrong data, maybe time re-add table
+        else if (spellProto->Id == 37212)
+        {
+            m_spellmod->mask = UI64LIT(0x0000000000200000); // Flametongue Weapon (Passive)
             m_spellmod->mask2 = 0x00000000;
         }
     }
@@ -2355,6 +2375,9 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                         target->HandleEmote(EMOTE_STATE_WORK);
                         // Pet will be following owner, this makes him stop
                         target->addUnitState(UNIT_STAT_STUNNED);
+                        return;
+                    case 52921:                             // Arc Lightning (Halls of Lighning: Loken)
+                        target->CastSpell(target, 52924, false);
                         return;
                     case 55328:                                 // Stoneclaw Totem I
                         target->CastSpell(target, 5728, true);
@@ -3791,10 +3814,12 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
     if (apply)
     {
         // remove other shapeshift before applying a new one
-        target->RemoveSpellsCausingAura(SPELL_AURA_MOD_SHAPESHIFT, GetHolder());
-
-        // need send to client not form active state, or at re-apply form client go crazy
-        // target->SendForcedObjectUpdate();
+        if (target->HasAuraType(SPELL_AURA_MOD_SHAPESHIFT))
+        {
+            target->RemoveSpellsCausingAura(SPELL_AURA_MOD_SHAPESHIFT, GetHolder());
+            // need send to client not form active state, or at re-apply form client go crazy
+            target->AddToClientUpdateList();
+        }
 
         if (modelid > 0)
             target->SetDisplayId(modelid);
@@ -3947,8 +3972,6 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
 
     if(target->GetTypeId() == TYPEID_PLAYER)
         ((Player*)target)->InitDataForForm();
-
-    target->SendForcedObjectUpdate();
 
 }
 
@@ -4689,7 +4712,7 @@ void Aura::HandleModCharm(bool apply, bool Real)
             // restore faction
             if(((Creature*)target)->IsPet())
             {
-                if(Unit* owner = target->GetOwner())
+                if(Unit* owner = ((Pet*)target)->GetOwner())
                     target->setFaction(owner->getFaction());
                 else if(cinfo)
                     target->setFaction(cinfo->faction_A);
@@ -5004,8 +5027,23 @@ void Aura::HandleModStealth(bool apply, bool Real)
     }
     else
     {
+        if (!Real)
+            return;
+
+        // Vanish (triggered, normal stealth need apply before remove advanced stealth)
+        if (target->GetTypeId() == TYPEID_PLAYER && m_removeMode == AURA_REMOVE_BY_EXPIRE &&
+            GetSpellProto()->IsFitToFamily(SPELLFAMILY_ROGUE, UI64LIT(0x000000000800)))
+        {
+            uint32 spellId = 1784;                          // Stealth
+            // reset cooldown on it if needed
+            if (((Player*)target)->HasSpellCooldown(spellId))
+                ((Player*)target)->RemoveSpellCooldown(spellId);
+
+            target->CastSpell(target, spellId, true);
+        }
+
         // only at real aura remove of _last_ SPELL_AURA_MOD_STEALTH
-        if (Real && !target->HasAuraType(SPELL_AURA_MOD_STEALTH))
+        if (!target->HasAuraType(SPELL_AURA_MOD_STEALTH))
         {
             // if no GM invisibility
             if (target->GetVisibility()!=VISIBILITY_OFF)
@@ -5949,6 +5987,34 @@ void Aura::HandlePeriodicHeal(bool apply, bool /*Real*/)
         }
 
         m_modifier.m_amount = caster->SpellHealingBonusDone(target, GetSpellProto(), m_modifier.m_amount, DOT, GetStackAmount());
+    }
+}
+
+void Aura::HandleDamagePercentTaken(bool apply, bool Real)
+{
+    m_isPeriodic = apply;
+
+    Unit* target = GetTarget();
+
+    if (!Real)
+        return;
+
+    // For prevent double apply bonuses
+    bool loading = (target->GetTypeId() == TYPEID_PLAYER && ((Player*)target)->GetSession()->PlayerLoading());
+
+    if (apply)
+    {
+        if (loading)
+            return;
+
+        // Hand of Salvation (only it have this aura and mask)
+        if (GetSpellProto()->IsFitToFamily(SPELLFAMILY_PALADIN, UI64LIT(0x0000000000000100)))
+        {
+            // Glyph of Salvation
+            if (target->GetObjectGuid() == GetCasterGuid())
+                if (Aura* aur = target->GetAura(63225, EFFECT_INDEX_0))
+                    m_modifier.m_amount -= aur->GetModifier()->m_amount;
+        }
     }
 }
 
@@ -7817,8 +7883,14 @@ void Aura::HandleSchoolAbsorb(bool apply, bool Real)
 
 void Aura::PeriodicTick()
 {
-    Unit *target = GetTarget();
+    Unit* target = GetTarget();
     SpellEntry const* spellProto = GetSpellProto();
+
+    if (!target || !spellProto)
+        return;
+
+    if (target->IsImmuneToSpell(spellProto))
+        return;
 
     switch(m_modifier.m_auraname)
     {
@@ -9535,6 +9607,12 @@ bool Aura::IsLastAuraOnHolder()
         if (i != GetEffIndex() && GetHolder()->m_auras[i])
             return false;
     return true;
+}
+
+bool Aura::HasMechanic(uint32 mechanic) const
+{
+    return GetSpellProto()->Mechanic == mechanic ||
+        GetSpellProto()->EffectMechanic[m_effIndex] == mechanic;
 }
 
 SpellAuraHolder::SpellAuraHolder(SpellEntry const* spellproto, Unit *target, WorldObject *caster, Item *castItem) :
