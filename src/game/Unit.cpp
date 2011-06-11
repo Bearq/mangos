@@ -7971,7 +7971,6 @@ bool Unit::IsImmuneToSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex i
                     return true;
         }
 
-        }
         // is this still needed?
         AuraList const& immuneMechanicAuraApply = GetAurasByType(SPELL_AURA_MECHANIC_IMMUNITY_MASK);
         // need more checks like ^ there
