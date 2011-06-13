@@ -899,10 +899,6 @@ void Aura::ApplyModifier(bool apply, bool Real)
 
 bool Aura::isAffectedOnSpell(SpellEntry const *spell) const
 {
-    // Check family name
-    if (spell->SpellFamilyName != GetSpellProto()->SpellFamilyName)
-        return false;
-
     // hacks for bad DBC data
     switch (GetId())
     {
@@ -916,22 +912,16 @@ bool Aura::isAffectedOnSpell(SpellEntry const *spell) const
             break;
     }
 
-    // Check EffectClassMask
-    uint32 const *ptr = getAuraSpellClassMask();
-    if (((uint64*)ptr)[0] & spell->SpellFamilyFlags)
-        return true;
-    if (ptr[2] & spell->SpellFamilyFlags2)
-        return true;
-    return false;
+    return spell->IsFitToFamily(SpellFamily(GetSpellProto()->SpellFamilyName), GetAuraSpellClassMask());
 }
 
 bool Aura::CanProcFrom(SpellEntry const *spell, uint32 EventProcEx, uint32 procEx, bool active, bool useClassMask) const
 {
     // Check EffectClassMask
-    uint32 const *ptr = getAuraSpellClassMask();
+    ClassFamilyMask const& mask  = GetAuraSpellClassMask();
 
     // if no class mask defined, or spell_proc_event has SpellFamilyName=0 - allow proc
-    if (!useClassMask || (!((uint64*)ptr)[0] && !ptr[2]))
+    if (!useClassMask || !mask)
     {
         if (!(EventProcEx & PROC_EX_EX_TRIGGER_ALWAYS))
         {
@@ -957,14 +947,8 @@ bool Aura::CanProcFrom(SpellEntry const *spell, uint32 EventProcEx, uint32 procE
     {
         // SpellFamilyName check is performed in SpellMgr::IsSpellProcEventCanTriggeredBy and it is done once for whole holder
         // note: SpellFamilyName is not checked if no spell_proc_event is defined
-
-        if (((uint64*)ptr)[0] & spell->SpellFamilyFlags)
-            return true;
-
-        if (ptr[2] & spell->SpellFamilyFlags2)
-            return true;
+        return mask.IsFitToFamilyMask(spell->SpellFamilyFlags);
     }
-    return false;
 }
 
 void Aura::ReapplyAffectedPassiveAuras( Unit* target, bool owner_mode )
@@ -1066,8 +1050,7 @@ bool Aura::IsEffectStacking()
     if (spellProto->AttributesEx6 & (SPELL_ATTR_EX6_NO_STACK_DEBUFF | SPELL_ATTR_EX6_NO_STACK_BUFF))
     {
         // Mark/Gift of the Wild early exception check
-        if (spellProto->SpellFamilyName == SPELLFAMILY_DRUID &&
-            spellProto->SpellFamilyFlags & UI64LIT(0x0000000000040000))
+        if (spellProto->IsFitToFamily(SPELLFAMILY_DRUID, UI64LIT(0x0000000000040000)))
         {
             // only mod resistance exclusive isn't stacking
             return (GetModifier()->m_auraname != SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE);
@@ -1086,48 +1069,43 @@ bool Aura::IsEffectStacking()
         // these effects never stack
         case SPELL_AURA_MOD_MELEE_HASTE:
         case SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE:
-        case SPELL_AURA_MOD_PARTY_MAX_HEALTH:                           // Commanding Shout / Blood Pact
-        case SPELL_AURA_MOD_HEALING_PCT:                                // Mortal Strike / Wound Poison / Aimed Shot / Furious Attacks
-        case SPELL_AURA_MOD_CASTING_SPEED_NOT_STACK:                    // Wrath of Air Totem / Mind-Numbing Poison and many more
-        case SPELL_AURA_MOD_STAT:                                       // various stat buffs
+        case SPELL_AURA_MOD_PARTY_MAX_HEALTH:                                                  // Commanding Shout / Blood Pact
+        case SPELL_AURA_MOD_HEALING_PCT:                                                       // Mortal Strike / Wound Poison / Aimed Shot / Furious Attacks
+        case SPELL_AURA_MOD_STAT:                                                              // various stat buffs
             return (spellProto->SpellFamilyName == SPELLFAMILY_GENERIC);
-        case SPELL_AURA_MOD_DAMAGE_PERCENT_DONE:                        // Ferocious Inspiration / Sanctified Retribution
-        case SPELL_AURA_MOD_ATTACKER_SPELL_AND_WEAPON_CRIT_CHANCE:      // Heart of the Crusader / Totem of Wrath
-            if (spellProto->SpellFamilyName == SPELLFAMILY_PALADIN &&
-                spellProto->SpellFamilyFlags & UI64LIT(0x0000000020000008)) // Sanctified Retribution / HoC
+        case SPELL_AURA_MOD_CASTING_SPEED_NOT_STACK:                                           // Wrath of Air Totem / Mind-Numbing Poison and many more
+            return (spellProto->CalculateSimpleValue(m_effIndex) > 0);
+        case SPELL_AURA_MOD_DAMAGE_PERCENT_DONE:                                               // Ferocious Inspiration / Sanctified Retribution
+        case SPELL_AURA_MOD_ATTACKER_SPELL_AND_WEAPON_CRIT_CHANCE:                             // Heart of the Crusader / Totem of Wrath
+            if (spellProto->IsFitToFamily(SPELLFAMILY_PALADIN, UI64LIT(0x0000000020000008)))   // Sanctified Retribution / HoC
             {
                 return false;
             }
             break;
-        case SPELL_AURA_MOD_RESISTANCE_PCT:                                         // Sunder Armor / Sting
-        case SPELL_AURA_HASTE_SPELLS:                                               // Mind-Numbing Poison
-        case SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN:                                   // Ebon Plague (spell not implemented) / Earth and Moon
-            if (spellProto->SpellFamilyName == SPELLFAMILY_WARRIOR &&               // Sunder Armor
-                spellProto->SpellFamilyFlags & UI64LIT(0x0000000000004000) ||       // (only spell triggering this aura has the flag)
-                spellProto->SpellFamilyName == SPELLFAMILY_HUNTER &&                // Sting (Hunter Pet)
-                spellProto->SpellFamilyFlags & UI64LIT(0x1000000000000000) ||
-                spellProto->SpellFamilyName == SPELLFAMILY_DRUID &&                 // Earth and Moon
+        case SPELL_AURA_MOD_RESISTANCE_PCT:                                                    // Sunder Armor / Sting
+        case SPELL_AURA_HASTE_SPELLS:                                                          // Mind-Numbing Poison
+        case SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN:                                              // Ebon Plague (spell not implemented) / Earth and Moon
+            if (spellProto->IsFitToFamily(SPELLFAMILY_WARRIOR, UI64LIT(0x0000000000004000)) || // Sunder Armor (only spell triggering this aura has the flag)
+                spellProto->IsFitToFamily(SPELLFAMILY_HUNTER,  UI64LIT(0x1000000000000000)) || // Sting (Hunter Pet)
+                spellProto->SpellFamilyName == SPELLFAMILY_DRUID &&                            // Earth and Moon
                 spellProto->SpellIconID == 2991 ||
-                spellProto->SpellFamilyName == SPELLFAMILY_ROGUE &&                 // Mind-Numbing Poison
-                spellProto->SpellFamilyFlags & UI64LIT(0x0000000000008000) ||
-                spellProto->SpellFamilyName == SPELLFAMILY_PRIEST &&                 // Inspiration
-                spellProto->SpellFamilyFlags & UI64LIT(0x0000100000000000))
+                spellProto->IsFitToFamily(SPELLFAMILY_ROGUE,  UI64LIT(0x0000000000008000)) ||  // Mind-Numbing Poison
+                spellProto->IsFitToFamily(SPELLFAMILY_PRIEST, UI64LIT(0x0000100000000000)))    // Inspiration
             {
                 return false;
             }
             break;
-        case SPELL_AURA_MOD_CRIT_PERCENT:                                           // Rampage
+        case SPELL_AURA_MOD_CRIT_PERCENT:                                                      // Rampage
             if (spellProto->SpellFamilyName == SPELLFAMILY_WARRIOR && spellProto->SpellIconID == 2006)
                 return false;
             break;
-        case SPELL_AURA_MOD_ATTACKER_SPELL_CRIT_CHANCE:                 // Winter's Chill / Improved Scorch
+        case SPELL_AURA_MOD_ATTACKER_SPELL_CRIT_CHANCE:                                        // Winter's Chill / Improved Scorch
             if (spellProto->SpellFamilyName == SPELLFAMILY_MAGE)
                 return false;
             break;
-        case SPELL_AURA_MOD_MECHANIC_DAMAGE_TAKEN_PERCENT:                     // Mangle / Trauma
-            if (spellProto->SpellFamilyName == SPELLFAMILY_DRUID &&            // Mangle
-                spellProto->SpellFamilyFlags & UI64LIT(0x0000044000000000) ||
-                spellProto->Id == 46856 || spellProto->Id == 46857)            // Trauma has SPELLFAMILY_GENERIC and no flags
+        case SPELL_AURA_MOD_MECHANIC_DAMAGE_TAKEN_PERCENT:                                     // Mangle / Trauma
+            if (spellProto->IsFitToFamily(SPELLFAMILY_DRUID, UI64LIT(0x0000044000000000)) ||   // Mangle
+                spellProto->Id == 46856 || spellProto->Id == 46857)                            // Trauma has SPELLFAMILY_GENERIC and no flags
             {
                 return false;
             }
@@ -1222,14 +1200,14 @@ void Aura::HandleAddModifier(bool apply, bool Real)
         // Everlasting Affliction, overwrite wrong data, if will need more better restore support of spell_affect table
         if (spellProto->SpellFamilyName == SPELLFAMILY_WARLOCK && spellProto->SpellIconID == 3169)
         {
-            m_spellmod->mask = UI64LIT(0x0000010000000002); // Corruption and Unstable Affliction
-            m_spellmod->mask2 = 0x00000000;
+            // Corruption and Unstable Affliction
+            m_spellmod->mask = ClassFamilyMask(UI64LIT(0x0000010000000002));
         }
         // Improved Flametongue Weapon, overwrite wrong data, maybe time re-add table
         else if (spellProto->Id == 37212)
         {
-            m_spellmod->mask = UI64LIT(0x0000000000200000); // Flametongue Weapon (Passive)
-            m_spellmod->mask2 = 0x00000000;
+            // Flametongue Weapon (Passive)
+            m_spellmod->mask = ClassFamilyMask(UI64LIT(0x0000000000200000));
         }
     }
 
@@ -7240,19 +7218,13 @@ void Aura::HandleNoReagentUseAura(bool /*Apply*/, bool Real)
     if(target->GetTypeId() != TYPEID_PLAYER)
         return;
 
-    uint32 mask[3] = {0, 0, 0};
+    ClassFamilyMask mask;
     Unit::AuraList const& noReagent = target->GetAurasByType(SPELL_AURA_NO_REAGENT_USE);
-        for(Unit::AuraList::const_iterator i = noReagent.begin(); i !=  noReagent.end(); ++i)
-        {
-            uint32 const *ptr = (*i)->getAuraSpellClassMask();
-            mask[0] |= ptr[0];
-            mask[1] |= ptr[1];
-            mask[2] |= ptr[2];
-        }
+    for(Unit::AuraList::const_iterator i = noReagent.begin(); i !=  noReagent.end(); ++i)
+        mask |= (*i)->GetAuraSpellClassMask();
 
-    target->SetUInt32Value(PLAYER_NO_REAGENT_COST_1+0, mask[0]);
-    target->SetUInt32Value(PLAYER_NO_REAGENT_COST_1+1, mask[1]);
-    target->SetUInt32Value(PLAYER_NO_REAGENT_COST_1+2, mask[2]);
+    target->SetUInt64Value(PLAYER_NO_REAGENT_COST_1+0, mask.Flags);
+    target->SetUInt32Value(PLAYER_NO_REAGENT_COST_1+2, mask.Flags2);
 }
 
 /*********************************************************/
@@ -9878,8 +9850,7 @@ void SpellAuraHolder::_RemoveSpellAuraHolder()
         }
 
         uint32 removeState = 0;
-        uint64 removeFamilyFlag = m_spellProto->SpellFamilyFlags;
-        uint32 removeFamilyFlag2 = m_spellProto->SpellFamilyFlags2;
+        ClassFamilyMask removeFamilyFlag = m_spellProto->SpellFamilyFlags;
         switch(m_spellProto->SpellFamilyName)
         {
             case SPELLFAMILY_PALADIN:
@@ -9890,8 +9861,7 @@ void SpellAuraHolder::_RemoveSpellAuraHolder()
                 // Conflagrate aura state on Immolate and Shadowflame,
                 if (m_spellProto->IsFitToFamilyMask(UI64LIT(0x0000000000000004), 0x00000002))
                 {
-                    removeFamilyFlag = UI64LIT(0x0000000000000004);
-                    removeFamilyFlag2 = 0x00000002;
+                    removeFamilyFlag = ClassFamilyMask(UI64LIT(0x0000000000000004), 0x00000002);
                     removeState = AURA_STATE_CONFLAGRATE;
                 }
                 break;
@@ -9900,7 +9870,7 @@ void SpellAuraHolder::_RemoveSpellAuraHolder()
                     removeState = AURA_STATE_FAERIE_FIRE;   // Faerie Fire (druid versions)
                 else if (m_spellProto->IsFitToFamilyMask(UI64LIT(0x0000000000000050)))
                 {
-                    removeFamilyFlag = 0x50;
+                    removeFamilyFlag = ClassFamilyMask(UI64LIT(0x00000000000050));
                     removeState = AURA_STATE_SWIFTMEND;     // Swiftmend aura state
                 }
                 break;
@@ -9925,7 +9895,7 @@ void SpellAuraHolder::_RemoveSpellAuraHolder()
             for (Unit::SpellAuraHolderMap::const_iterator i = holders.begin(); i != holders.end(); ++i)
             {
                 SpellEntry const *auraSpellInfo = (*i).second->GetSpellProto();
-                if (auraSpellInfo->IsFitToFamily(SpellFamily(m_spellProto->SpellFamilyName), removeFamilyFlag, removeFamilyFlag2))
+                if (auraSpellInfo->IsFitToFamily(SpellFamily(m_spellProto->SpellFamilyName), removeFamilyFlag))
                 {
                     found = true;
                     break;

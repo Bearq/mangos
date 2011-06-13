@@ -1229,13 +1229,7 @@ struct DoSpellProcEvent
             {
                 if (spe.spellFamilyMask[i] != r_spe.spellFamilyMask[i])
                 {
-                    sLog.outErrorDb("Spell %u listed in `spell_proc_event` as custom rank have different spellFamilyMask from first rank in chain", spell_id);
-                    break;
-                }
-
-                if (spe.spellFamilyMask2[i] != r_spe.spellFamilyMask2[i])
-                {
-                    sLog.outErrorDb("Spell %u listed in `spell_proc_event` as custom rank have different spellFamilyMask2 from first rank in chain", spell_id);
+                    sLog.outErrorDb("Spell %u listed in `spell_proc_event` as custom rank have different spellFamilyMask/spellFamilyMask2 from first rank in chain", spell_id);
                     break;
                 }
             }
@@ -1309,11 +1303,11 @@ struct DoSpellProcEvent
             bool empty = !spe.spellFamilyName ? true : false;
             for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
             {
-                if (spe.spellFamilyMask[i] || spe.spellFamilyMask2[i])
+                if (spe.spellFamilyMask[i])
                 {
                     empty = false;
-                    uint32 const* ptr = spell->GetEffectSpellClassMask(SpellEffectIndex(i));
-                    if ((((uint64*)ptr)[0] != 0 && spe.spellFamilyMask[i] == ((uint64*)ptr)[0]) && (ptr[2] == 0 || spe.spellFamilyMask2[i] == ptr[2]))
+                    ClassFamilyMask const& mask = spell->GetEffectSpellClassMask(SpellEffectIndex(i));
+                    if (mask == spe.spellFamilyMask[i])
                         sLog.outErrorDb("Spell %u listed in `spell_proc_event` has same class mask as in Spell.dbc (EffectIndex %u) and doesn't have any other data", spell->Id, i);
                 }
             }
@@ -1369,8 +1363,9 @@ void SpellMgr::LoadSpellProcEvents()
 
         for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
         {
-            spe.spellFamilyMask[i] = (uint64)fields[i+3].GetUInt32()|((uint64)fields[i+6].GetUInt32()<<32);
-            spe.spellFamilyMask2[i] = fields[i+9].GetUInt32();
+            spe.spellFamilyMask[i] = ClassFamilyMask(
+                (uint64)fields[i+3].GetUInt32() | ((uint64)fields[i+6].GetUInt32()<<32),
+                fields[i+9].GetUInt32());
         }
         spe.procFlags       = fields[12].GetUInt32();
         spe.procEx          = fields[13].GetUInt32();
@@ -1892,7 +1887,7 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
     SpellEntry const *spellInfo_1 = sSpellStore.LookupEntry(spellId_1);
     SpellEntry const *spellInfo_2 = sSpellStore.LookupEntry(spellId_2);
 
-    if(!spellInfo_1 || !spellInfo_2)
+    if (!spellInfo_1 || !spellInfo_2)
         return false;
 
     if(spellId_1 == spellId_2)
@@ -1903,31 +1898,26 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
     switch(spellInfo_1->SpellFamilyName)
     {
         case SPELLFAMILY_GENERIC:
-            switch(spellInfo_2->SpellFamilyName)
             {
-                case SPELLFAMILY_GENERIC:                   // same family case
-                {
-                    // Dark Essence & Light Essence
-                    if ((spellInfo_1->Id == 65684 && spellInfo_2->Id == 65686) ||
-                        (spellInfo_2->Id == 65684 && spellInfo_1->Id == 65686))
-                        return true;
+                // BG_WS_SPELL_FOCUSED_ASSAULT & BG_WS_SPELL_BRUTAL_ASSAULT
+                if ((spellInfo_1->Id == 46392 && spellInfo_2->Id == 46393) ||
+                    (spellInfo_1->Id == 46393 && spellInfo_2->Id == 46392))
+                    return true;
 
-                    //Potent Fungus and Mini must remove each other (Amanitar encounter, Ahn'kahet)
-                    if ((spellInfo_1->Id == 57055 && spellInfo_2->Id == 56648) ||
-                        (spellInfo_2->Id == 57055 && spellInfo_1->Id == 56648))
-                        return true;
+                // Dark Essence & Light Essence
+                if ((spellInfo_1->Id == 65684 && spellInfo_2->Id == 65686) ||
+                    (spellInfo_2->Id == 65684 && spellInfo_1->Id == 65686))
+                    return true;
 
-                    // Cologne Immune and Perfume Immune
-                    if ((spellInfo_1->Id == 68529 && spellInfo_2->Id == 68530) ||
-                        (spellInfo_2->Id == 68529 && spellInfo_1->Id == 68530))
-                        return true;
+                //Potent Fungus and Mini must remove each other (Amanitar encounter, Ahn'kahet)
+                if ((spellInfo_1->Id == 57055 && spellInfo_2->Id == 56648) ||
+                    (spellInfo_2->Id == 57055 && spellInfo_1->Id == 56648))
+                    return true;
 
-                    // BG_WS_SPELL_FOCUSED_ASSAULT & BG_WS_SPELL_BRUTAL_ASSAULT
-                    if ((spellInfo_1->Id == 46392 && spellInfo_2->Id == 46393) ||
-                        (spellInfo_1->Id == 46393 && spellInfo_2->Id == 46392))
-                        return true;
-                    break;
-                }
+                // Cologne Immune and Perfume Immune
+                if ((spellInfo_1->Id == 68529 && spellInfo_2->Id == 68530) ||
+                    (spellInfo_2->Id == 68529 && spellInfo_1->Id == 68530))
+                    return true;
             }
             break;
         case SPELLFAMILY_WARLOCK:
@@ -1945,11 +1935,6 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
         case SPELLFAMILY_WARRIOR:
             if (spellInfo_2->SpellFamilyName == SPELLFAMILY_WARRIOR)
             {
-                // Glyph of Revenge (triggered), and Sword and Board (triggered)
-                if ((spellInfo_1->SpellIconID == 856 && spellInfo_2->SpellIconID == 2780) ||
-                    (spellInfo_2->SpellIconID == 856 && spellInfo_1->SpellIconID == 2780))
-                    return false;
-
                 // Defensive/Berserker/Battle stance aura can not stack (needed for dummy auras)
                 if (((spellInfo_1->SpellFamilyFlags & UI64LIT(0x800000)) && (spellInfo_2->SpellFamilyFlags & UI64LIT(0x800000))) ||
                     ((spellInfo_2->SpellFamilyFlags & UI64LIT(0x800000)) && (spellInfo_1->SpellFamilyFlags & UI64LIT(0x800000))))
@@ -1977,8 +1962,8 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
                     return true;
 
                 // Swift Retribution / Improved Devotion Aura (talents) and Paladin Auras
-                if (((spellInfo_1->SpellFamilyFlags2 & 0x00000020) && (spellInfo_2->SpellIconID == 291 || spellInfo_2->SpellIconID == 3028)) ||
-                    ((spellInfo_2->SpellFamilyFlags2 & 0x00000020) && (spellInfo_1->SpellIconID == 291 || spellInfo_1->SpellIconID == 3028)))
+                if ((spellInfo_1->IsFitToFamilyMask(UI64LIT(0x0), 0x00000020) && (spellInfo_2->SpellIconID == 291 || spellInfo_2->SpellIconID == 3028)) ||
+                    (spellInfo_2->IsFitToFamilyMask(UI64LIT(0x0), 0x00000020) && (spellInfo_1->SpellIconID == 291 || spellInfo_1->SpellIconID == 3028)))
                     return false;
             }
         case SPELLFAMILY_DEATHKNIGHT:
@@ -3735,7 +3720,7 @@ void SpellMgr::CheckUsedSpells(char const* table)
             {
                 if(familyMaskA == UI64LIT(0x0000000000000000) && familyMaskB == 0x00000000)
                 {
-                    if(spellEntry->SpellFamilyFlags != 0 || spellEntry->SpellFamilyFlags2 != 0)
+                    if (spellEntry->SpellFamilyFlags)
                     {
                         sLog.outError("Spell %u '%s' not fit to (" I64FMT "," I32FMT ") but used in %s.",
                             spell, name.c_str(), familyMaskA, familyMaskB, code.c_str());
@@ -3745,7 +3730,7 @@ void SpellMgr::CheckUsedSpells(char const* table)
                 }
                 else
                 {
-                    if((spellEntry->SpellFamilyFlags & familyMaskA)==0 && (spellEntry->SpellFamilyFlags2 & familyMaskB)==0)
+                    if (!spellEntry->IsFitToFamilyMask(familyMaskA, familyMaskB))
                     {
                         sLog.outError("Spell %u '%s' not fit to (" I64FMT "," I32FMT ") but used in %s.",spell,name.c_str(),familyMaskA,familyMaskB,code.c_str());
                         continue;
@@ -3820,12 +3805,12 @@ void SpellMgr::CheckUsedSpells(char const* table)
                 {
                     if(familyMaskA == UI64LIT(0x0000000000000000) && familyMaskB == 0x00000000)
                     {
-                        if(spellEntry->SpellFamilyFlags != 0 || spellEntry->SpellFamilyFlags2 != 0)
+                        if (spellEntry->SpellFamilyFlags)
                             continue;
                     }
                     else
                     {
-                        if ((spellEntry->SpellFamilyFlags & familyMaskA)==0 && (spellEntry->SpellFamilyFlags2 & familyMaskB)==0)
+                        if (!spellEntry->IsFitToFamilyMask(familyMaskA, familyMaskB))
                             continue;
                     }
                 }
