@@ -1579,6 +1579,7 @@ void ObjectMgr::LoadGameobjects()
         int16 GuidPoolId    = fields[17].GetInt16();
         int16 EntryPoolId   = fields[18].GetInt16();
 
+        /* GO quateration temp commented out
         if (data.rotation0 < -1.0f || data.rotation0 > 1.0f)
         {
             sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid rotation0 (%f) value, skip", guid, data.id, data.rotation0);
@@ -1589,7 +1590,7 @@ void ObjectMgr::LoadGameobjects()
         {
             sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid rotation1 (%f) value, skip", guid, data.id, data.rotation1);
             continue;
-        }
+        }*/
 
         if (data.rotation2 < -1.0f || data.rotation2 > 1.0f)
         {
