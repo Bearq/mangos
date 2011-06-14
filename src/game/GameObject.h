@@ -618,7 +618,7 @@ class MANGOS_DLL_SPEC GameObject : public WorldObject
         void RemoveFromWorld();
 
         bool Create(uint32 guidlow, uint32 name_id, Map *map, uint32 phaseMask, float x, float y, float z, float ang, float rotation0, float rotation1, float rotation2, float rotation3, uint8 animprogress, GOState go_state);
-        void Update(uint32 update_diff, uint32 p_time);
+        void Update(uint32 update_diff, uint32 p_time) override;
         GameObjectInfo const* GetGOInfo() const;
 
         bool IsTransport() const;
@@ -627,8 +627,10 @@ class MANGOS_DLL_SPEC GameObject : public WorldObject
         bool HasStaticDBSpawnData() const;                  // listed in `gameobject` table and have fixed in DB guid
 
         // z_rot, y_rot, x_rot - rotation angles around z, y and x axes
-        void SetRotationAngles(float z_rot, float y_rot, float x_rot);
-        int64 GetRotation() const { return m_rotation; }
+        // void SetRotationAngles(float z_rot, float y_rot, float x_rot);
+        void UpdateRotationFields(float rotation2 = 0.0f, float rotation3 = 0.0f);
+
+        uint64 GetRotation() const { return m_rotation; }
 
         // overwrite WorldObject function for proper name localization
         const char* GetNameForLocaleIdx(int32 locale_idx) const;
@@ -782,10 +784,10 @@ class MANGOS_DLL_SPEC GameObject : public WorldObject
 
         GameObjectInfo const* m_goInfo;
         GameObjectDisplayInfoEntry const* m_displayInfo;
-        int64 m_rotation;
+        uint64 m_rotation;
     private:
         void SwitchDoorOrButton(bool activate, bool alternative = false);
-        void SetRotationQuat(float qx, float qy, float qz, float qw);
+        //void SetRotationQuat(float qx, float qy, float qz, float qw);
 
         GridReference<GameObject> m_gridRef;
 };

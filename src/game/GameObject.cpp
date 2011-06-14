@@ -136,7 +136,11 @@ bool GameObject::Create(uint32 guidlow, uint32 name_id, Map *map, uint32 phaseMa
 
     SetObjectScale(goinfo->size);
 
-    SetRotationQuat(rotation0,rotation1,rotation2,rotation3);
+    /* restored old GO rotation code*/
+    SetFloatValue(GAMEOBJECT_PARENTROTATION+0, rotation0);
+    SetFloatValue(GAMEOBJECT_PARENTROTATION+1, rotation1);
+    UpdateRotationFields(rotation2,rotation3);              // GAMEOBJECT_FACING, GAMEOBJECT_ROTATION, GAMEOBJECT_PARENTROTATION+2/3
+    // SetRotationQuat(rotation0,rotation1,rotation2,rotation3);
 
     SetUInt32Value(GAMEOBJECT_FACTION, goinfo->faction);
     SetUInt32Value(GAMEOBJECT_FLAGS, goinfo->flags);
@@ -521,8 +525,15 @@ void GameObject::Update(uint32 update_diff, uint32 diff)
             if (GetGOInfo()->IsDespawnAtAction() || GetGoAnimProgress() > 0)
             {
                 SendObjectDeSpawnAnim(GetObjectGuid());
-                //reset flags
-                SetUInt32Value(GAMEOBJECT_FLAGS, GetGOInfo()->flags);
+                // reset flags
+                if (GetMap()->Instanceable())
+                {
+                    // In Instances GO_FLAG_LOCKED or GO_FLAG_NO_INTERACT are not changed
+                    uint32 currentLockOrInteractFlags = GetUInt32Value(GAMEOBJECT_FLAGS) & (GO_FLAG_LOCKED | GO_FLAG_NO_INTERACT);
+                    SetUInt32Value(GAMEOBJECT_FLAGS, GetGOInfo()->flags & ~(GO_FLAG_LOCKED | GO_FLAG_NO_INTERACT) | currentLockOrInteractFlags);
+                }
+                else
+                    SetUInt32Value(GAMEOBJECT_FLAGS, GetGOInfo()->flags);
             }
 
             loot.clear();
@@ -593,9 +604,9 @@ void GameObject::getFishLoot(Loot *fishloot, Player* loot_owner)
     GetZoneAndAreaId(zone,subzone);
 
     // if subzone loot exist use it
-    if (!fishloot->FillLoot(subzone, LootTemplates_Fishing, loot_owner, true, true))
-        // else use zone loot (must exist in like case)
-        fishloot->FillLoot(zone, LootTemplates_Fishing, loot_owner,true);
+    if (!fishloot->FillLoot(subzone, LootTemplates_Fishing, loot_owner, true, (subzone != zone)) && subzone != zone)
+        // else use zone loot (if zone diff. from subzone, must exist in like case)
+        fishloot->FillLoot(zone, LootTemplates_Fishing, loot_owner, true);
 }
 
 void GameObject::SaveToDB()
@@ -1981,7 +1992,7 @@ const char* GameObject::GetNameForLocaleIdx(int32 loc_idx) const
     return GetName();
 }
 
-using G3D::Quat;
+/*using G3D::Quat;
 struct QuaternionCompressed
 {
     QuaternionCompressed() : m_raw(0) {}
@@ -2036,6 +2047,35 @@ void GameObject::SetRotationAngles(float z_rot, float y_rot, float x_rot)
 {
     Quat quat( G3D::Matrix3::fromEulerAnglesZYX(z_rot, y_rot, x_rot) );
     SetRotationQuat(quat.x, quat.y, quat.z, quat.w);
+}*/
+void GameObject::UpdateRotationFields(float rotation2 /*=0.0f*/, float rotation3 /*=0.0f*/)
+{
+    static double const atan_pow = atan(pow(2.0f, -20.0f));
+
+    double f_rot1 = sin(GetOrientation() / 2.0f);
+    double f_rot2 = cos(GetOrientation() / 2.0f);
+
+    int64 i_rot1 = int64(f_rot1 / atan_pow *(f_rot2 >= 0 ? 1.0f : -1.0f));
+    int64 rotation = (i_rot1 << 43 >> 43) & 0x00000000001FFFFF;
+
+    //float f_rot2 = sin(0.0f / 2.0f);
+    //int64 i_rot2 = f_rot2 / atan(pow(2.0f, -20.0f));
+    //rotation |= (((i_rot2 << 22) >> 32) >> 11) & 0x000003FFFFE00000;
+
+    //float f_rot3 = sin(0.0f / 2.0f);
+    //int64 i_rot3 = f_rot3 / atan(pow(2.0f, -21.0f));
+    //rotation |= (i_rot3 >> 42) & 0x7FFFFC0000000000;
+
+    m_rotation = rotation;
+
+    if(rotation2==0.0f && rotation3==0.0f)
+    {
+        rotation2 = (float)f_rot1;
+        rotation3 = (float)f_rot2;
+    }
+
+    SetFloatValue(GAMEOBJECT_PARENTROTATION+2, rotation2);
+    SetFloatValue(GAMEOBJECT_PARENTROTATION+3, rotation3);
 }
 
 bool GameObject::IsHostileTo(Unit const* unit) const

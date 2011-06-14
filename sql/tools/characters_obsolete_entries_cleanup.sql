@@ -20,8 +20,8 @@ DELETE FROM `character_instance` WHERE `guid` NOT IN (SELECT `guid` FROM `charac
 DELETE FROM `character_inventory` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`);
 DELETE FROM `character_pet` WHERE `owner` NOT IN (SELECT `guid` FROM `characters`);
 DELETE FROM `character_pet_declinedname` WHERE `owner` NOT IN (SELECT `guid` FROM `characters`);
-DELETE FROM `character_queststatus` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`) and `guid` < 100000;
-DELETE FROM `character_queststatus` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`) and `guid` > 99999;
+DELETE FROM `character_queststatus` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`) and `guid` < 200000;
+DELETE FROM `character_queststatus` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`) and `guid` > 199999;
 DELETE FROM `character_queststatus_daily` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`);
 DELETE FROM `character_queststatus_weekly` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`);
 DELETE FROM `character_queststatus_monthly` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`);
@@ -34,7 +34,10 @@ DELETE FROM `character_spell_cooldown` WHERE `guid` NOT IN (SELECT `guid` FROM `
 DELETE FROM `character_stats` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`);
 DELETE FROM `character_talent` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`);
 DELETE FROM `character_ticket` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`);
-DELETE FROM `cheaters` WHERE `player` NOT IN (SELECT `name` FROM `characters`);
+DELETE FROM `anticheat_log` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`);
+DELETE FROM `armory_character_feed_log` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`);
+DELETE FROM `armory_character_stats` WHERE `guid` NOT IN (SELECT `guid` FROM `characters`);
+DELETE FROM `corpse` WHERE `player` NOT IN (SELECT `guid` FROM `characters`);
 
 DELETE FROM `petition_sign` WHERE `ownerguid` NOT IN (SELECT `guid` FROM `characters`);
 DELETE FROM `petition_sign` WHERE `playerguid` NOT IN (SELECT `guid` FROM `characters`);

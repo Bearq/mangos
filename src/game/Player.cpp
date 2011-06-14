@@ -280,16 +280,12 @@ std::ostringstream& operator<< (std::ostringstream& ss, PlayerTaxi const& taxi)
 
 SpellModifier::SpellModifier( SpellModOp _op, SpellModType _type, int32 _value, SpellEntry const* spellEntry, SpellEffectIndex eff, int16 _charges /*= 0*/ ) : op(_op), type(_type), charges(_charges), value(_value), spellId(spellEntry->Id), lastAffected(NULL)
 {
-    uint32 const* ptr = spellEntry->GetEffectSpellClassMask(eff);
-    mask = uint64(ptr[0]) | (uint64(ptr[1]) << 32);
-    mask2= ptr[2];
+    mask = spellEntry->GetEffectSpellClassMask(eff);
 }
 
 SpellModifier::SpellModifier( SpellModOp _op, SpellModType _type, int32 _value, Aura const* aura, int16 _charges /*= 0*/ ) : op(_op), type(_type), charges(_charges), value(_value), spellId(aura->GetId()), lastAffected(NULL)
 {
-    uint32 const* ptr = aura->getAuraSpellClassMask();
-    mask = uint64(ptr[0]) | (uint64(ptr[1]) << 32);
-    mask2= ptr[2];
+    mask = aura->GetAuraSpellClassMask();
 }
 
 bool SpellModifier::isAffectedOnSpell( SpellEntry const *spell ) const
@@ -298,11 +294,7 @@ bool SpellModifier::isAffectedOnSpell( SpellEntry const *spell ) const
     // False if affect_spell == NULL or spellFamily not equal
     if (!affect_spell || affect_spell->SpellFamilyName != spell->SpellFamilyName)
         return false;
-    if (mask & spell->SpellFamilyFlags)
-        return true;
-    if (mask2 & spell->SpellFamilyFlags2)
-        return true;
-    return false;
+    return spell->IsFitToFamilyMask(mask);
 }
 
 //== TradeData =================================================
@@ -1363,9 +1355,8 @@ void Player::Update( uint32 update_diff, uint32 p_time )
                 }
             }
 
-            Unit *owner = pVictim->GetOwner();
-            Unit *u = owner ? owner : pVictim;
-            if (u->IsPvP() && (!duel || duel->opponent != u))
+            Player *vOwner = pVictim->GetCharmerOrOwnerPlayerOrPlayerItself();
+            if (vOwner && vOwner->IsPvP() && !IsInDuelWith(vOwner))
             {
                 UpdatePvP(true);
                 RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_ENTER_PVP_COMBAT);
@@ -1898,7 +1889,8 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
 
         // If the map is not created, assume it is possible to enter it.
         // It will be created in the WorldPortAck.
-        Map *map = sMapMgr.FindMap(mapid);
+        DungeonPersistentState* state = GetBoundInstanceSaveForSelfOrGroup(mapid);
+        Map *map = sMapMgr.FindMap(mapid, state ? state->GetInstanceId() : 0);
         if (!map ||  map->CanEnter(this))
         {
             //lets reset near teleport flag if it wasn't reset during chained teleports
@@ -5168,7 +5160,7 @@ void Player::JoinLFGChannel()
     {
         if((*i)->IsLFG())
         {
-            (*i)->Join(GetGUID(),"");
+            (*i)->Join(GetObjectGuid(),"");
             break;
         }
     }
@@ -7241,8 +7233,12 @@ void Player::CheckDuelDistance(time_t currTime)
         return;
 
     GameObject* obj = GetMap()->GetGameObject(GetGuidValue(PLAYER_DUEL_ARBITER));
-    if(!obj)
+    if (!obj)
+    {
+        // player not at duel start map
+        DuelComplete(DUEL_FLED);
         return;
+    }
 
     if (duel->outOfBound == 0)
     {
@@ -7273,7 +7269,7 @@ void Player::CheckDuelDistance(time_t currTime)
 void Player::DuelComplete(DuelCompleteType type)
 {
     // duel not requested
-    if(!duel)
+    if (!duel)
         return;
 
     WorldPacket data(SMSG_DUEL_COMPLETE, (1));
@@ -7281,7 +7277,7 @@ void Player::DuelComplete(DuelCompleteType type)
     GetSession()->SendPacket(&data);
     duel->opponent->GetSession()->SendPacket(&data);
 
-    if(type != DUEL_INTERUPTED)
+    if (type != DUEL_INTERUPTED)
     {
         data.Initialize(SMSG_DUEL_WINNER, (1+20));          // we guess size
         data << (uint8)((type==DUEL_WON) ? 0 : 1);          // 0 = just won; 1 = fled
@@ -7772,9 +7768,20 @@ void Player::ApplyItemEquipSpell(Item *item, bool apply, bool form_change)
         if(!spellData.SpellId )
             continue;
 
-        // wrong triggering type
-        if(apply && spellData.SpellTrigger != ITEM_SPELLTRIGGER_ON_EQUIP)
-            continue;
+        if (apply)
+        {
+            // apply only at-equip spells
+            if (spellData.SpellTrigger != ITEM_SPELLTRIGGER_ON_EQUIP)
+                continue;
+        }
+        else
+        {
+            // at un-apply remove all spells (not only at-apply, so any at-use active affects from item and etc)
+            // except with at-use with negative charges, so allow consuming item spells (including with extra flag that prevent consume really)
+            // applied to player after item remove from equip slot
+            if (spellData.SpellTrigger == ITEM_SPELLTRIGGER_ON_USE && spellData.SpellCharges < 0)
+                continue;
+        }
 
         // check if it is valid spell
         SpellEntry const* spellproto = sSpellStore.LookupEntry(spellData.SpellId);
@@ -7995,7 +8002,7 @@ void Player::CastItemCombatSpell(Unit* Target, WeaponAttackType attType)
                 else
                 {
                     // Deadly Poison, unique effect needs to be handled before casting triggered spell
-                    if (spellInfo->SpellFamilyName == SPELLFAMILY_ROGUE && spellInfo->SpellFamilyFlags & UI64LIT(0x10000))
+                    if (spellInfo->IsFitToFamily<SPELLFAMILY_ROGUE, CF_ROGUE_DEADLY_POISON>())
                         _HandleDeadlyPoison(Target, attType, spellInfo);
 
                     CastSpell(Target, spellInfo->Id, true, item);
@@ -11659,7 +11666,8 @@ Item* Player::EquipItem( uint16 pos, Item *pItem, bool update )
 
             _ApplyItemMods(pItem, slot, true);
 
-            if(pProto && isInCombat()&& (pProto->Class == ITEM_CLASS_WEAPON || pProto->InventoryType == INVTYPE_RELIC) && m_weaponChangeTimer == 0)
+            // Weapons and also Totem/Relic/Sigil/etc
+            if (pProto && isInCombat() && (pProto->Class == ITEM_CLASS_WEAPON || pProto->InventoryType == INVTYPE_RELIC) && m_weaponChangeTimer == 0)
             {
                 uint32 cooldownSpell = SPELL_ID_WEAPON_SWITCH_COOLDOWN_1_5s;
 
@@ -15802,7 +15810,7 @@ void Player::_LoadArenaTeamInfo(QueryResult *result)
 
 void Player::_LoadEquipmentSets(QueryResult *result)
 {
-    // SetPQuery(PLAYER_LOGIN_QUERY_LOADEQUIPMENTSETS,   "SELECT setguid, setindex, name, iconname, item0, item1, item2, item3, item4, item5, item6, item7, item8, item9, item10, item11, item12, item13, item14, item15, item16, item17, item18 FROM character_equipmentsets WHERE guid = '%u' ORDER BY setindex", GUID_LOPART(m_guid));
+    // SetPQuery(PLAYER_LOGIN_QUERY_LOADEQUIPMENTSETS,   "SELECT setguid, setindex, name, iconname, ignore_mask, item0, item1, item2, item3, item4, item5, item6, item7, item8, item9, item10, item11, item12, item13, item14, item15, item16, item17, item18 FROM character_equipmentsets WHERE guid = '%u' ORDER BY setindex", GUID_LOPART(m_guid));
     if (!result)
         return;
 
@@ -15813,14 +15821,15 @@ void Player::_LoadEquipmentSets(QueryResult *result)
 
         EquipmentSet eqSet;
 
-        eqSet.Guid      = fields[0].GetUInt64();
-        uint32 index    = fields[1].GetUInt32();
-        eqSet.Name      = fields[2].GetCppString();
-        eqSet.IconName  = fields[3].GetCppString();
-        eqSet.state     = EQUIPMENT_SET_UNCHANGED;
+        eqSet.Guid          = fields[0].GetUInt64();
+        uint32 index        = fields[1].GetUInt32();
+        eqSet.Name          = fields[2].GetCppString();
+        eqSet.IconName      = fields[3].GetCppString();
+        eqSet.IgnoreMask    = fields[4].GetUInt32();
+        eqSet.state         = EQUIPMENT_SET_UNCHANGED;
 
         for(uint32 i = 0; i < EQUIPMENT_SLOT_END; ++i)
-            eqSet.Items[i] = fields[4+i].GetUInt32();
+            eqSet.Items[i] = fields[5+i].GetUInt32();
 
         m_EquipmentSets[index] = eqSet;
 
@@ -16057,7 +16066,7 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder )
 
     _LoadBoundInstances(holder->GetResult(PLAYER_LOGIN_QUERY_LOADBOUNDINSTANCES));
 
-    if(!IsPositionValid())
+    if (!IsPositionValid())
     {
         sLog.outError("%s have invalid coordinates (X: %f Y: %f Z: %f O: %f). Teleport to default race/class locations.",
             guid.GetString().c_str(), GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation());
@@ -16070,13 +16079,13 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder )
 
     _LoadBGData(holder->GetResult(PLAYER_LOGIN_QUERY_LOADBGDATA));
 
-    if(m_bgData.bgInstanceID)                                                //saved in BattleGround
+    if (m_bgData.bgInstanceID)                              //saved in BattleGround
     {
         BattleGround *currentBg = sBattleGroundMgr.GetBattleGround(m_bgData.bgInstanceID, BATTLEGROUND_TYPE_NONE);
 
         bool player_at_bg = currentBg && currentBg->IsPlayerInBattleGround(GetObjectGuid());
 
-        if(player_at_bg && currentBg->GetStatus() != STATUS_WAIT_LEAVE)
+        if (player_at_bg && currentBg->GetStatus() != STATUS_WAIT_LEAVE)
         {
             BattleGroundQueueTypeId bgQueueTypeId = BattleGroundMgr::BGQueueTypeId(currentBg->GetTypeID(), currentBg->GetArenaType());
             AddBattleGroundQueueId(bgQueueTypeId);
@@ -16102,6 +16111,8 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder )
 
             // We are not in BG anymore
             SetBattleGroundId(0, BATTLEGROUND_TYPE_NONE);
+            // remove outdated DB data in DB
+            _SaveBGData();
         }
     }
     else
@@ -16114,6 +16125,11 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder *holder )
             const WorldLocation& _loc = GetBattleGroundEntryPoint();
             SetLocationMapId(_loc.mapid);
             Relocate(_loc.coord_x, _loc.coord_y, _loc.coord_z, _loc.orientation);
+
+            // We are not in BG anymore
+            SetBattleGroundId(0, BATTLEGROUND_TYPE_NONE);
+            // remove outdated DB data in DB
+            _SaveBGData();
         }
     }
 
@@ -17402,6 +17418,8 @@ void Player::_LoadGroup(QueryResult *result)
                 SetDungeonDifficulty(group->GetDungeonDifficulty());
                 SetRaidDifficulty(group->GetRaidDifficulty());
             }
+            if (group->isLFDGroup())
+                sLFGMgr.LoadLFDGroupPropertiesForPlayer(this);
         }
     }
 }
@@ -18749,7 +18767,7 @@ void Player::SendAttackSwingBadFacingAttack()
 void Player::SendAutoRepeatCancel(Unit *target)
 {
     WorldPacket data(SMSG_CANCEL_AUTO_REPEAT, target->GetPackGUID().size());
-    data << target->GetPackGUID();                          // may be it's target guid
+    data << target->GetPackGUID();
     GetSession()->SendPacket( &data );
 }
 
@@ -19079,7 +19097,7 @@ void Player::PossessSpellInitialize()
 
     WorldPacket data(SMSG_PET_SPELLS, 8+2+4+4+4*MAX_UNIT_ACTION_BAR_INDEX+1+1);
     data << charm->GetObjectGuid();
-    data << uint16(0);
+    data << uint16(((Creature*)charm)->GetCreatureInfo()->family);
     data << uint32(0);
     data << uint32(0);
 
@@ -19110,7 +19128,7 @@ void Player::VehicleSpellInitialize()
 
     WorldPacket data(SMSG_PET_SPELLS, 8+2+4+4+4*MAX_UNIT_ACTION_BAR_INDEX+1+1+cooldownsCount*(4+2+4+4));
     data << charm->GetObjectGuid();
-    data << uint16(0);
+    data << uint16(((Creature*)charm)->GetCreatureInfo()->family);
     data << uint32(0);
     data << uint32(0x08000101);                             // react state
 
@@ -19176,7 +19194,7 @@ void Player::CharmSpellInitialize()
 
     WorldPacket data(SMSG_PET_SPELLS, 8+2+4+4+4*MAX_UNIT_ACTION_BAR_INDEX+1+4*addlist+1);
     data << charm->GetObjectGuid();
-    data << uint16(0);
+    data << uint16(((Creature*)charm)->GetCreatureInfo()->family);
     data << uint32(0);
 
     if(charm->GetTypeId() != TYPEID_PLAYER)
@@ -19236,20 +19254,12 @@ void Player::AddSpellMod(SpellModifier* mod, bool apply)
 
     for(int eff = 0; eff < 96; ++eff)
     {
-        uint64 _mask = 0;
-        uint32 _mask2= 0;
-
-        if (eff < 64)
-            _mask = uint64(1) << (eff - 0);
-        else
-            _mask2= uint32(1) << (eff - 64);
-
-        if ( mod->mask & _mask || mod->mask2 & _mask2)
+        if (mod->mask.test(eff))
         {
             int32 val = 0;
             for (SpellModList::const_iterator itr = m_spellMods[mod->op].begin(); itr != m_spellMods[mod->op].end(); ++itr)
             {
-                if ((*itr)->type == mod->type && ((*itr)->mask & _mask || (*itr)->mask2 & _mask2))
+                if ((*itr)->type == mod->type && (*itr)->mask.test(eff))
                     val += (*itr)->value;
             }
             val += apply ? mod->value : -(mod->value);
@@ -20729,6 +20739,13 @@ void Player::SendComboPoints(ObjectGuid targetGuid, uint8 combopoints)
         data << uint8(combopoints);
         GetSession()->SendPacket(&data);
     }
+    /*else
+    {
+        // can be NULL, and then points=0. Use unknown; to reset points of some sort?
+        data << PackedGuid();
+        data << uint8(0);
+        GetSession()->SendPacket(&data);
+    }*/
 }
 
 void Player::SendPetComboPoints(Unit* pet, ObjectGuid targetGuid, uint8 combopoints)
@@ -21216,7 +21233,16 @@ float Player::GetReputationPriceDiscount( Creature const* pCreature ) const
     return 1.0f - 0.05f* (rank - REP_NEUTRAL);
 }
 
-bool Player::IsSpellFitByClassAndRace( uint32 spell_id ) const
+/**
+ * Check spell availability for training base at SkillLineAbility/SkillRaceClassInfo data.
+ * Checked allowed race/class and dependent from race/class allowed min level
+ *
+ * @param spell_id  checked spell id
+ * @param pReqlevel if arg provided then function work in view mode (level check not applied but detected minlevel returned to var by arg pointer.
+                    if arg not provided then considered train action mode and level checked
+ * @return          true if spell available for show in trainer list (with skip level check) or training.
+ */
+bool Player::IsSpellFitByClassAndRace(uint32 spell_id, uint32* pReqlevel /*= NULL*/) const
 {
     uint32 racemask  = getRaceMask();
     uint32 classmask = getClassMask();
@@ -21225,15 +21251,41 @@ bool Player::IsSpellFitByClassAndRace( uint32 spell_id ) const
     if (bounds.first==bounds.second)
         return true;
 
-    for(SkillLineAbilityMap::const_iterator _spell_idx = bounds.first; _spell_idx != bounds.second; ++_spell_idx)
+    for (SkillLineAbilityMap::const_iterator _spell_idx = bounds.first; _spell_idx != bounds.second; ++_spell_idx)
     {
+        SkillLineAbilityEntry const* abilityEntry = _spell_idx->second;
         // skip wrong race skills
-        if (_spell_idx->second->racemask && (_spell_idx->second->racemask & racemask) == 0)
+        if (abilityEntry->racemask && (abilityEntry->racemask & racemask) == 0)
             continue;
 
         // skip wrong class skills
-        if (_spell_idx->second->classmask && (_spell_idx->second->classmask & classmask) == 0)
+        if (abilityEntry->classmask && (abilityEntry->classmask & classmask) == 0)
             continue;
+
+        SkillRaceClassInfoMapBounds bounds = sSpellMgr.GetSkillRaceClassInfoMapBounds(abilityEntry->skillId);
+        for (SkillRaceClassInfoMap::const_iterator itr = bounds.first; itr != bounds.second; ++itr)
+        {
+            SkillRaceClassInfoEntry const* skillRCEntry = itr->second;
+            if ((skillRCEntry->raceMask & racemask) && (skillRCEntry->classMask & classmask))
+            {
+                if (skillRCEntry->flags & ABILITY_SKILL_NONTRAINABLE)
+                    return false;
+
+                if (pReqlevel)                              // show trainers list case
+                {
+                    if (skillRCEntry->reqLevel)
+                    {
+                        *pReqlevel = skillRCEntry->reqLevel;
+                        return true;
+                    }
+                }
+                else                                        // check availble case at train
+                {
+                    if (skillRCEntry->reqLevel && getLevel() < skillRCEntry->reqLevel)
+                        return false;
+                }
+            }
+        }
 
         return true;
     }
@@ -21452,10 +21504,8 @@ bool Player::CanNoReagentCast(SpellEntry const* spellInfo) const
         return true;
 
     // Check no reagent use mask
-    uint64 noReagentMask_0_1 = GetUInt64Value(PLAYER_NO_REAGENT_COST_1);
-    uint32 noReagentMask_2   = GetUInt32Value(PLAYER_NO_REAGENT_COST_1+2);
-    if (spellInfo->SpellFamilyFlags  & noReagentMask_0_1 ||
-        spellInfo->SpellFamilyFlags2 & noReagentMask_2)
+    ClassFamilyMask noReagentMask(GetUInt64Value(PLAYER_NO_REAGENT_COST_1), GetUInt32Value(PLAYER_NO_REAGENT_COST_1+2));
+    if (spellInfo->IsFitToFamilyMask(noReagentMask))
         return true;
 
     return false;
@@ -23065,7 +23115,13 @@ void Player::SendEquipmentSetList()
         data << itr->second.Name;
         data << itr->second.IconName;
         for(uint32 i = 0; i < EQUIPMENT_SLOT_END; ++i)
-            data << ObjectGuid(HIGHGUID_ITEM, itr->second.Items[i]).WriteAsPacked();
+        {
+            // ignored slots stored in IgnoreMask, client wants "1" as raw GUID, so no HIGHGUID_ITEM
+            if (itr->second.IgnoreMask & (1 << i))
+                data << ObjectGuid(uint64(1)).WriteAsPacked();
+            else
+                data << ObjectGuid(HIGHGUID_ITEM, itr->second.Items[i]).WriteAsPacked();
+        }
 
         ++count;                                            // client have limit but it checked at loading and set
     }
@@ -23131,12 +23187,13 @@ void Player::_SaveEquipmentSets()
                 break;                                      // nothing do
             case EQUIPMENT_SET_CHANGED:
             {
-                SqlStatement stmt = CharacterDatabase.CreateStatement(updSets, "UPDATE character_equipmentsets SET name=?, iconname=?, item0=?, item1=?, item2=?, item3=?, item4=?, "
+                SqlStatement stmt = CharacterDatabase.CreateStatement(updSets, "UPDATE character_equipmentsets SET name=?, iconname=?, ignore_mask=?, item0=?, item1=?, item2=?, item3=?, item4=?, "
                     "item5=?, item6=?, item7=?, item8=?, item9=?, item10=?, item11=?, item12=?, item13=?, item14=?, "
                     "item15=?, item16=?, item17=?, item18=? WHERE guid=? AND setguid=? AND setindex=?");
 
                 stmt.addString(eqset.Name);
                 stmt.addString(eqset.IconName);
+                stmt.addUInt32(eqset.IgnoreMask);
 
                 for (int i = 0; i < EQUIPMENT_SLOT_END; ++i)
                     stmt.addUInt32(eqset.Items[i]);
@@ -23153,12 +23210,13 @@ void Player::_SaveEquipmentSets()
             }
             case EQUIPMENT_SET_NEW:
             {
-                SqlStatement stmt = CharacterDatabase.CreateStatement(insSets, "INSERT INTO character_equipmentsets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                SqlStatement stmt = CharacterDatabase.CreateStatement(insSets, "INSERT INTO character_equipmentsets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 stmt.addUInt32(GetGUIDLow());
                 stmt.addUInt64(eqset.Guid);
                 stmt.addUInt32(index);
                 stmt.addString(eqset.Name);
                 stmt.addString(eqset.IconName);
+                stmt.addUInt32(eqset.IgnoreMask);
 
                 for (int i = 0; i < EQUIPMENT_SLOT_END; ++i)
                     stmt.addUInt32(eqset.Items[i]);

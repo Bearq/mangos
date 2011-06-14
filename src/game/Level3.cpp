@@ -4134,11 +4134,11 @@ bool ChatHandler::HandleNpcInfoCommand(char* /*args*/)
             break;
 
     if (diff < MAX_DIFFICULTY)
-        PSendSysMessage(LANG_NPCINFO_CHAR_DIFFICULTY,  target->GetGUIDLow(), faction, npcflags,
+        PSendSysMessage(LANG_NPCINFO_CHAR_DIFFICULTY, target->GetGuidStr().c_str(), faction, npcflags,
             Entry, target->GetCreatureInfo()->Entry, diff,
             displayid, nativeid);
     else
-        PSendSysMessage(LANG_NPCINFO_CHAR,  target->GetGUIDLow(), faction, npcflags, Entry, displayid, nativeid);
+        PSendSysMessage(LANG_NPCINFO_CHAR, target->GetGuidStr().c_str(), faction, npcflags, Entry, displayid, nativeid);
 
     if (cInfo->vehicleId)
         PSendSysMessage("VehicleId: %u", cInfo->vehicleId);
@@ -4375,7 +4375,7 @@ bool ChatHandler::HandleCharacterLevelCommand(char* args)
         newlevel = STRONG_MAX_LEVEL;
 
     if (newlevel > int32(sWorld.getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL)))
-        newlevel = sWorld.getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL);
+        newlevel = int32(sWorld.getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL));
 
     HandleCharacterLevel(target, target_guid, oldlevel, newlevel);
 
@@ -4423,7 +4423,7 @@ bool ChatHandler::HandleLevelUpCommand(char* args)
         newlevel = STRONG_MAX_LEVEL;
 
     if (newlevel > int32(sWorld.getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL)))
-        newlevel = sWorld.getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL);
+        newlevel = int32(sWorld.getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL));
 
     HandleCharacterLevel(target, target_guid, oldlevel, newlevel);
 
@@ -4531,6 +4531,12 @@ bool ChatHandler::HandleBankCommand(char* /*args*/)
 {
     m_session->SendShowBank(m_session->GetPlayer()->GetObjectGuid());
 
+    return true;
+}
+
+bool ChatHandler::HandleMailBoxCommand(char* /*args*/)
+{
+    m_session->SendShowMailBox(m_session->GetPlayer()->GetObjectGuid());
     return true;
 }
 
