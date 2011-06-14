@@ -5160,7 +5160,7 @@ void Player::JoinLFGChannel()
     {
         if((*i)->IsLFG())
         {
-            (*i)->Join(GetGUID(),"");
+            (*i)->Join(GetObjectGuid(),"");
             break;
         }
     }
@@ -8002,7 +8002,7 @@ void Player::CastItemCombatSpell(Unit* Target, WeaponAttackType attType)
                 else
                 {
                     // Deadly Poison, unique effect needs to be handled before casting triggered spell
-                    if (spellInfo->SpellFamilyName == SPELLFAMILY_ROGUE && spellInfo->SpellFamilyFlags & UI64LIT(0x10000))
+                    if (spellInfo->IsFitToFamily<SPELLFAMILY_ROGUE, CF_ROGUE_DEADLY_POISON>())
                         _HandleDeadlyPoison(Target, attType, spellInfo);
 
                     CastSpell(Target, spellInfo->Id, true, item);
@@ -17418,6 +17418,8 @@ void Player::_LoadGroup(QueryResult *result)
                 SetDungeonDifficulty(group->GetDungeonDifficulty());
                 SetRaidDifficulty(group->GetRaidDifficulty());
             }
+            if (group->isLFDGroup())
+                sLFGMgr.LoadLFDGroupPropertiesForPlayer(this);
         }
     }
 }
@@ -19095,7 +19097,7 @@ void Player::PossessSpellInitialize()
 
     WorldPacket data(SMSG_PET_SPELLS, 8+2+4+4+4*MAX_UNIT_ACTION_BAR_INDEX+1+1);
     data << charm->GetObjectGuid();
-    data << uint16(0);
+    data << uint16(((Creature*)charm)->GetCreatureInfo()->family);
     data << uint32(0);
     data << uint32(0);
 
@@ -19126,7 +19128,7 @@ void Player::VehicleSpellInitialize()
 
     WorldPacket data(SMSG_PET_SPELLS, 8+2+4+4+4*MAX_UNIT_ACTION_BAR_INDEX+1+1+cooldownsCount*(4+2+4+4));
     data << charm->GetObjectGuid();
-    data << uint16(0);
+    data << uint16(((Creature*)charm)->GetCreatureInfo()->family);
     data << uint32(0);
     data << uint32(0x08000101);                             // react state
 
@@ -19192,7 +19194,7 @@ void Player::CharmSpellInitialize()
 
     WorldPacket data(SMSG_PET_SPELLS, 8+2+4+4+4*MAX_UNIT_ACTION_BAR_INDEX+1+4*addlist+1);
     data << charm->GetObjectGuid();
-    data << uint16(0);
+    data << uint16(((Creature*)charm)->GetCreatureInfo()->family);
     data << uint32(0);
 
     if(charm->GetTypeId() != TYPEID_PLAYER)
@@ -19252,20 +19254,12 @@ void Player::AddSpellMod(SpellModifier* mod, bool apply)
 
     for(int eff = 0; eff < 96; ++eff)
     {
-        uint64 _mask = 0;
-        uint32 _mask2= 0;
-
-        if (eff < 64)
-            _mask = uint64(1) << (eff - 0);
-        else
-            _mask2= uint32(1) << (eff - 64);
-
-        if (mod->mask.IsFitToFamilyMask(_mask, _mask2))
+        if (mod->mask.test(eff))
         {
             int32 val = 0;
             for (SpellModList::const_iterator itr = m_spellMods[mod->op].begin(); itr != m_spellMods[mod->op].end(); ++itr)
             {
-                if ((*itr)->type == mod->type && ((*itr)->mask.IsFitToFamilyMask(_mask, _mask2)))
+                if ((*itr)->type == mod->type && (*itr)->mask.test(eff))
                     val += (*itr)->value;
             }
             val += apply ? mod->value : -(mod->value);
@@ -21510,9 +21504,8 @@ bool Player::CanNoReagentCast(SpellEntry const* spellInfo) const
         return true;
 
     // Check no reagent use mask
-    uint64 noReagentMask_0_1 = GetUInt64Value(PLAYER_NO_REAGENT_COST_1);
-    uint32 noReagentMask_2   = GetUInt32Value(PLAYER_NO_REAGENT_COST_1+2);
-    if (spellInfo->IsFitToFamilyMask(noReagentMask_0_1, noReagentMask_2))
+    ClassFamilyMask noReagentMask(GetUInt64Value(PLAYER_NO_REAGENT_COST_1), GetUInt32Value(PLAYER_NO_REAGENT_COST_1+2));
+    if (spellInfo->IsFitToFamilyMask(noReagentMask))
         return true;
 
     return false;
