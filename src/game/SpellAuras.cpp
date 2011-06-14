@@ -1403,7 +1403,7 @@ void Aura::TriggerSpell()
                                 pCaster->RemoveAurasDueToSpell(28096);
                                 pCaster->InterruptNonMeleeSpells(false);
                                 if (!pCaster->HasAura(28097))
-                                    pCaster->CastSpell(pCaster, 28097, true, 0, this, target->GetGUID());
+                                    pCaster->CastSpell(pCaster, 28097, true, 0, this, target->GetObjectGuid());
                             }
                         }
                         return;
@@ -1432,7 +1432,7 @@ void Aura::TriggerSpell()
                                 pCaster->RemoveAurasDueToSpell(28111);
                                 pCaster->InterruptNonMeleeSpells(false);
                                 if (!pCaster->HasAura(28109))
-                                    pCaster->CastSpell(pCaster, 28109, true, 0, this, target->GetGUID());
+                                    pCaster->CastSpell(pCaster, 28109, true, 0, this, target->GetObjectGuid());
                             }
                         }
                         return;
@@ -2265,7 +2265,7 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                          Unit* caster = GetCaster();
 
                          if (caster && unitTarget)
-                              unitTarget->CastCustomSpell(unitTarget, 28836, &damage, NULL, NULL, true, NULL, this, caster->GetGUID());
+                             unitTarget->CastCustomSpell(unitTarget, 28836, &damage, NULL, NULL, true, NULL, this, caster->GetObjectGuid());
                          return;
                     }
                     case 31606:                             // Stormcrow Amulet
