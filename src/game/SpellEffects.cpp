@@ -3842,6 +3842,17 @@ void Spell::EffectTriggerSpell(SpellEffectIndex effIndex)
             unitTarget->RemoveSpellsCausingAura(SPELL_AURA_MOD_ROOT);
             unitTarget->RemoveSpellsCausingAura(SPELL_AURA_MOD_DECREASE_SPEED);
             unitTarget->RemoveSpellsCausingAura(SPELL_AURA_MOD_STALKED);
+
+            // if this spell is given to NPC it must handle rest by it's own AI
+            if (unitTarget->GetTypeId() != TYPEID_PLAYER)
+                return;
+
+            uint32 spellId = 1784;
+            // reset cooldown on it if needed
+            if (((Player*)unitTarget)->HasSpellCooldown(spellId))
+                ((Player*)unitTarget)->RemoveSpellCooldown(spellId);
+
+            m_caster->CastSpell(unitTarget, spellId, true);
             return;
         }
         // just skip
@@ -5058,73 +5069,12 @@ void Spell::EffectSummonChangeItem(SpellEffectIndex eff_idx)
     if (!newitemid)
         return;
 
-    uint16 pos = m_CastItem->GetPos();
+    Item* oldItem = m_CastItem;
 
-    Item *pNewItem = Item::CreateItem( newitemid, 1, player);
-    if (!pNewItem)
-        return;
+    // prevent crash at access and unexpected charges counting with item update queue corrupt
+    ClearCastItem();
 
-    for(uint8 j= PERM_ENCHANTMENT_SLOT; j<=TEMP_ENCHANTMENT_SLOT; ++j)
-    {
-        if (m_CastItem->GetEnchantmentId(EnchantmentSlot(j)))
-            pNewItem->SetEnchantment(EnchantmentSlot(j), m_CastItem->GetEnchantmentId(EnchantmentSlot(j)), m_CastItem->GetEnchantmentDuration(EnchantmentSlot(j)), m_CastItem->GetEnchantmentCharges(EnchantmentSlot(j)));
-    }
-
-    if (m_CastItem->GetUInt32Value(ITEM_FIELD_DURABILITY) < m_CastItem->GetUInt32Value(ITEM_FIELD_MAXDURABILITY))
-    {
-        double loosePercent = 1 - m_CastItem->GetUInt32Value(ITEM_FIELD_DURABILITY) / double(m_CastItem->GetUInt32Value(ITEM_FIELD_MAXDURABILITY));
-        player->DurabilityLoss(pNewItem, loosePercent);
-    }
-
-    if (player->IsInventoryPos(pos))
-    {
-        ItemPosCountVec dest;
-        uint8 msg = player->CanStoreItem( m_CastItem->GetBagSlot(), m_CastItem->GetSlot(), dest, pNewItem, true );
-        if (msg == EQUIP_ERR_OK)
-        {
-            player->DestroyItem(m_CastItem->GetBagSlot(), m_CastItem->GetSlot(), true);
-
-            // prevent crash at access and unexpected charges counting with item update queue corrupt
-            ClearCastItem();
-
-            player->StoreItem( dest, pNewItem, true);
-            return;
-        }
-    }
-    else if (player->IsBankPos (pos))
-    {
-        ItemPosCountVec dest;
-        uint8 msg = player->CanBankItem( m_CastItem->GetBagSlot(), m_CastItem->GetSlot(), dest, pNewItem, true );
-        if (msg == EQUIP_ERR_OK)
-        {
-            player->DestroyItem(m_CastItem->GetBagSlot(), m_CastItem->GetSlot(), true);
-
-            // prevent crash at access and unexpected charges counting with item update queue corrupt
-            ClearCastItem();
-
-            player->BankItem( dest, pNewItem, true);
-            return;
-        }
-    }
-    else if (player->IsEquipmentPos (pos))
-    {
-        uint16 dest;
-        uint8 msg = player->CanEquipItem( m_CastItem->GetSlot(), dest, pNewItem, true );
-        if (msg == EQUIP_ERR_OK)
-        {
-            player->DestroyItem(m_CastItem->GetBagSlot(), m_CastItem->GetSlot(), true);
-
-            // prevent crash at access and unexpected charges counting with item update queue corrupt
-            ClearCastItem();
-
-            player->EquipItem( dest, pNewItem, true);
-            player->AutoUnequipOffhandIfNeed();
-            return;
-        }
-    }
-
-    // fail
-    delete pNewItem;
+    player->ConvertItem(oldItem, newitemid);
 }
 
 void Spell::EffectProficiency(SpellEffectIndex /*eff_idx*/)
@@ -6454,6 +6404,10 @@ void Spell::EffectTaunt(SpellEffectIndex /*eff_idx*/)
             return;
         }
     }
+
+    // if target immune to taunt don't change threat
+    if (unitTarget->GetDiminishing(DIMINISHING_TAUNT) == DIMINISHING_LEVEL_IMMUNE)
+        return;
 
     // Also use this effect to set the taunter's threat to the taunted creature's highest value
     if (unitTarget->CanHaveThreatList() && unitTarget->getThreatManager().getCurrentVictim())
@@ -8475,6 +8429,15 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                 {
                     if (unitTarget)
                         unitTarget->CastSpell(unitTarget, 66334, true);
+                    return;
+                }
+                case 69057:                                 // Bone Spike Graveyard (Icecrown Citadel, ->
+                case 70826:                                 // -> Lord Marrowgar encounter, all difficulties)
+                case 72088:                                 // ----- // -----
+                case 72089:                                 // ----- // -----
+                {
+                    if (unitTarget)
+                        unitTarget->CastSpell(unitTarget, 69062, true);
                     return;
                 }
                 case 70117:                                 // Ice grip (Sindragosa pull effect)
