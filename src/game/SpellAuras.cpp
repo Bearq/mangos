@@ -529,6 +529,13 @@ SingleEnemyTargetAura::~SingleEnemyTargetAura()
 
 Unit* SingleEnemyTargetAura::GetTriggerTarget() const
 {
+    // search for linked dummy aura with the correct target
+    for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
+        if (i != GetEffIndex())
+            if (Aura *aur = GetHolder()->GetAuraByEffectIndex(SpellEffectIndex(i)))
+                if (aur->GetSpellProto()->EffectApplyAuraName[i] == SPELL_AURA_DUMMY)
+                    return aur->GetTarget();
+
     return ObjectAccessor::GetUnit(*(m_spellAuraHolder->GetTarget()), m_castersTargetGuid);
 }
 
@@ -1390,8 +1397,17 @@ void Aura::TriggerSpell()
                         triggerTarget->CastCustomSpell(triggerTarget, 29879, &bpDamage, NULL, NULL, true, NULL, this, casterGUID);
                         return;
                     }
-//                    // Detonate Mana
-//                    case 27819: break;
+                    case 27819:                             // Detonate Mana (Naxxramas: Kel'Thuzad)
+                    {
+                        if (!target->GetMaxPower(POWER_MANA))
+                            return;
+
+                        uint32 uiBurnMana = urand(1800, 2200);
+                        uint32 uiCurrMana = target->GetPower(POWER_MANA);
+                        target->SetPower(POWER_MANA, uiBurnMana > uiCurrMana ? 0 : uiCurrMana - uiBurnMana);
+                        target->CastSpell(target, 27820, true);
+                        return;
+                    }
 //                    // Controller Timer
 //                    case 28095: break;
                     // Stalagg Chain
@@ -1440,8 +1456,11 @@ void Aura::TriggerSpell()
 //                    case 28114: break;
 //                    // Communique Timer, camp
 //                    case 28346: break;
-//                    // Icebolt
-//                    case 28522: break;
+                    case 28522:                             // Icebolt (Sapphiron - Naxxramas)
+                        // dunno if triggered spell id is correct
+                        if (!target->HasAura(45776))
+                            trigger_spell_id = 45776;
+                        break;
 //                    // Silithyst
 //                    case 29519: break;
                     case 29528:                             // Inoculate Nestlewood Owlkin
@@ -5647,6 +5666,12 @@ void Aura::HandlePeriodicTriggerSpell(bool apply, bool /*Real*/)
                     target->CastSpell(target, 32612, true, NULL, this);
 
                 return;
+            case 28522:                                     // Icebolt (Naxxramas: Sapphiron)
+                if (target->HasAura(45776))                 // Should trigger/remove some kind of iceblock
+                    // not sure about ice block spell id
+                    target->RemoveAurasDueToSpell(45776); 
+                
+                return;
             case 42783:                                     // Wrath of the Astrom...
                 if (m_removeMode == AURA_REMOVE_BY_EXPIRE && GetEffIndex() + 1 < MAX_EFFECT_INDEX)
                     target->CastSpell(target, GetSpellProto()->CalculateSimpleValue(SpellEffectIndex(GetEffIndex()+1)), true);
@@ -5688,6 +5713,11 @@ void Aura::HandlePeriodicTriggerSpell(bool apply, bool /*Real*/)
                     if (pCaster->HasAura(GetModifier()->m_amount))
                         pCaster->CastSpell(target, spellId, true);
                 }
+
+                return;
+            case 71441:                                     // Unstable Ooze Explosion (Icecrown Citadel encounter)
+                if (m_removeMode == AURA_REMOVE_BY_EXPIRE)
+                    target->CastSpell(target, 67375, true, NULL, this);
 
                 return;
             default:
@@ -5821,15 +5851,27 @@ void Aura::HandleAuraPeriodicDummy(bool apply, bool Real)
         }
         case SPELLFAMILY_ROGUE:
         {
-            if(!apply)
+            switch (spell->Id)
             {
-                switch(spell->Id)
+                // Master of Subtlety
+                case 31666:
                 {
-                    // Master of Subtlety
-                    case 31666: target->RemoveAurasDueToSpell(31665); break;
+                    if (apply)
+                    {
+                        // for make duration visible
+                        if (SpellAuraHolder* holder = target->GetSpellAuraHolder(31665))
+                        {
+                            holder->SetAuraMaxDuration(GetHolder()->GetAuraDuration());
+                            holder->RefreshHolder();
+                        }
+                    }
+                    else
+                        target->RemoveAurasDueToSpell(31665);
+                    break;
                 }
+                default:
+                    break;
             }
-            break;
         }
         case SPELLFAMILY_WARLOCK:
         {
@@ -8771,7 +8813,6 @@ void Aura::PeriodicDummyTick()
                         case 2: target->CastSpell(target, 55739, true); break;
                     }
                     return;
-
                 case 54798: // FLAMING Arrow Triggered Effect
                 {
                     Unit * caster = GetCaster();
@@ -8811,7 +8852,14 @@ void Aura::PeriodicDummyTick()
 
                     break;
                 }
-
+                case 62566:                                 // Healthy Spore Summon Periodic
+                {
+                    target->CastSpell(target, 62582, true);
+                    target->CastSpell(target, 62591, true);
+                    target->CastSpell(target, 62592, true);
+                    target->CastSpell(target, 62593, true);
+                    return;
+                }
                 case 62717:                                 // Slag Pot (periodic dmg)
                 case 63477:
                 {
@@ -9568,6 +9616,7 @@ m_permanent(false), m_isRemovedOnShapeLost(true), m_deleted(false), m_in_use(0)
         case 34027:                                         // Kill Command
         case 55166:                                         // Tidal Force
         case 58914:                                         // Kill Command (pet part)
+        case 62519:                                         // Attuned to Nature
         case 64455:                                         // Feral Essence
         case 71564:                                         // Deadly Precision
             m_stackAmount = m_spellProto->StackAmount;
