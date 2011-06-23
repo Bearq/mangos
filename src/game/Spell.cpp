@@ -1864,7 +1864,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
             targetUnitMap.push_back(m_caster);
             break;
         }
-        case TARGET_91:
         case TARGET_RANDOM_NEARBY_DEST:
         {
             radius *= sqrtf(rand_norm_f()); // Get a random point in circle. Use sqrt(rand) to correct distribution when converting polar to Cartesian coordinates.
@@ -2639,12 +2638,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 }
             }
             else
-            {
                 FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_FRIENDLY);
-                
-                if (m_spellInfo->Id == 27820) // Detonate Mana
-                    targetUnitMap.remove(m_caster);
-            }
             break;
         // TARGET_SINGLE_PARTY means that the spells can only be casted on a party member and not on the caster (some seals, fire shield from imp, etc..)
         case TARGET_SINGLE_PARTY:
