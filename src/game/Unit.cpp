@@ -6832,6 +6832,10 @@ uint32 Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, u
     if(!spellProto || !pVictim || damagetype==DIRECT_DAMAGE || spellProto->AttributesEx6 & SPELL_ATTR_EX6_NO_DMG_MODS)
         return pdamage;
 
+    // conflagrate gets damage mods from previously calculated immolate aura damage tick
+    if (spellProto->IsFitToFamily<SPELLFAMILY_WARLOCK, CF_WARLOCK_CONFLAGRATE>())
+        return pdamage;
+
     // For totems get damage bonus from owner (statue isn't totem in fact)
     if( GetTypeId()==TYPEID_UNIT && ((Creature*)this)->IsTotem() && ((Totem*)this)->GetTotemType()!=TOTEM_STATUE)
     {
@@ -7602,13 +7606,10 @@ uint32 Unit::SpellCriticalDamageBonus(SpellEntry const *spellProto, uint32 damag
             break;
     }
 
-    // adds additional damage to crit_bonus (from talents)
-    if(Player* modOwner = GetSpellModOwner())
-        modOwner->ApplySpellMod(spellProto->Id, SPELLMOD_CRIT_DAMAGE_BONUS, crit_bonus);
-
     if(!pVictim)
-        return damage += crit_bonus;
+        return damage + crit_bonus;
 
+    // increased critical damage (auras, and some talents)
     int32 critPctDamageMod = 0;
     if(spellProto->DmgClass >= SPELL_DAMAGE_CLASS_MELEE)
     {
@@ -7622,11 +7623,23 @@ uint32 Unit::SpellCriticalDamageBonus(SpellEntry const *spellProto, uint32 damag
 
     critPctDamageMod += GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_CRIT_DAMAGE_BONUS, GetSpellSchoolMask(spellProto));
 
-    if(critPctDamageMod!=0)
-        crit_bonus = int32(crit_bonus * float((100.0f + critPctDamageMod)/100.0f));
+    uint32 creatureTypeMask = pVictim->GetCreatureTypeMask();
+    critPctDamageMod += GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_CRIT_PERCENT_VERSUS, creatureTypeMask);
 
-    if(crit_bonus > 0)
-        damage += crit_bonus;
+    uint32 base_dmg = damage;
+    damage += crit_bonus;
+
+    if(critPctDamageMod!=0)
+        damage += int32(damage) * critPctDamageMod / 100;
+
+    // increased critical damage bonus (from talents)
+    if (damage > base_dmg)
+        if (Player* modOwner = GetSpellModOwner())
+        {
+            damage -= base_dmg;
+            modOwner->ApplySpellMod(spellProto->Id, SPELLMOD_CRIT_DAMAGE_BONUS, damage);
+            damage += base_dmg;
+        }
 
     return damage;
 }
@@ -10975,7 +10988,10 @@ void Unit::ProcDamageAndSpellFor( bool isVictim, Unit * pTarget, uint32 procFlag
                     continue;
             }
 
+            triggeredByAura->SetInUse(true);
             SpellAuraProcResult procResult = (*this.*AuraProcHandler[auraModifier->m_auraname])(pTarget, damage, triggeredByAura, procSpell, procFlag, procExtra, cooldown);
+            triggeredByAura->SetInUse(false);
+
             switch (procResult)
             {
                 case SPELL_AURA_PROC_CANT_TRIGGER:
