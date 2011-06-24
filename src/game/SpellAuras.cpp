@@ -2377,6 +2377,9 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                     case 52921:                             // Arc Lightning (Halls of Lighning: Loken)
                         target->CastSpell(target, 52924, false);
                         return;
+                    case 54852:                             // Cosmetic - Stun (Permanent)
+                        target->addUnitState(UNIT_STAT_STUNNED);
+                        return;
                     case 55328:                                 // Stoneclaw Totem I
                         target->CastSpell(target, 5728, true);
                         return;
@@ -3061,6 +3064,9 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 target->RemoveAurasDueToSpell(41106);
                 return;
             }
+            case 54852:                                     // Cosmetic - Stun (Permanent)
+                target->clearUnitState(UNIT_STAT_STUNNED);
+                return;
             case 56511:                                     // Towers of Certain Doom: Tower Bunny Smoke Flare Effect
             {
                 // Towers of Certain Doom: Skorn Cannonfire
@@ -7676,6 +7682,11 @@ void Aura::HandleSchoolAbsorb(bool apply, bool Real)
             float DoneActualBenefit = 0.0f;
             switch(spellProto->SpellFamilyName)
             {
+                case SPELLFAMILY_GENERIC:
+                    // Stoicism
+                    if (spellProto->Id == 70845)
+                        DoneActualBenefit = caster->GetMaxHealth() * 0.20f;
+                    break;
                 case SPELLFAMILY_PRIEST:
                     // Power Word: Shield
                     if (spellProto->SpellFamilyFlags.test<CF_PRIEST_POWER_WORD_SHIELD>())
@@ -7720,10 +7731,6 @@ void Aura::HandleSchoolAbsorb(bool apply, bool Real)
                         // +75% from spell power
                         DoneActualBenefit = caster->SpellBaseHealingBonusDone(GetSpellSchoolMask(spellProto)) * 0.75f;
                     }
-                    break;
-                case SPELLFAMILY_GENERIC:
-                    if (GetId()==70845)
-                        DoneActualBenefit = caster->GetMaxHealth() * 0.2f;
                     break;
                 default:
                     break;
@@ -10288,7 +10295,8 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
                 case 48108:                                 // Hot Streak (triggered)
                 case 57761:                                 // Fireball! (Brain Freeze triggered)
                 {
-                    if (!apply)
+                    // consumed aura (at proc charges 0)
+                    if (!apply && m_removeMode == AURA_REMOVE_BY_DEFAULT)
                     {
                         Unit* caster = GetCaster();
                         if (caster && caster->HasAura(70752))   // Item - Mage T10 2P Bonus
