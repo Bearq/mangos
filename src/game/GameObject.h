@@ -630,8 +630,8 @@ class MANGOS_DLL_SPEC GameObject : public WorldObject
 /*        void SetWorldRotationAngles(float z_rot, float y_rot, float x_rot);
         void SetWorldRotation(float qx, float qy, float qz, float qw);   
         void SetTransportPathRotation(float qx, float qy, float qz, float qw);      // transforms(rotates) transport's path
-        void UpdateRotationFields(float rotation2 = 0.0f, float rotation3 = 0.0f);
 */
+        void UpdateRotationFields(float rotation2 = 0.0f, float rotation3 = 0.0f);
         int64 GetRotation() const { return m_rotation; }
 
         // overwrite WorldObject function for proper name localization
