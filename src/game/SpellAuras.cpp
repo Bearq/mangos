@@ -9782,14 +9782,10 @@ void SpellAuraHolder::_RemoveSpellAuraHolder()
             dynObj->RemoveAffected(m_target);
 
     // remove at-store spell cast items (for all remove modes?)
-    if (caster && caster->GetTypeId() == TYPEID_PLAYER && m_removeMode != AURA_REMOVE_BY_DEFAULT && m_removeMode != AURA_REMOVE_BY_DELETE)
+    if (m_target->GetTypeId() == TYPEID_PLAYER && m_removeMode != AURA_REMOVE_BY_DEFAULT && m_removeMode != AURA_REMOVE_BY_DELETE)
         if (ObjectGuid castItemGuid = GetCastItemGuid())
-        {
-            error_log("Debug crash item entry: %u, aura %u", GetCastItemGuid().GetEntry(), GetSpellProto()->Id);
-            if (castItemGuid.IsItem() && m_target && m_target->GetTypeId() == TYPEID_PLAYER)
-                if (Item* castItem = ((Player*)m_target)->GetItemByGuid(castItemGuid))
-                    ((Player*)caster)->DestroyItemWithOnStoreSpell(castItem);
-        }
+            if (Item* castItem = ((Player*)m_target)->GetItemByGuid(castItemGuid))
+                ((Player*)m_target)->DestroyItemWithOnStoreSpell(castItem);
 
     //passive auras do not get put in slots - said who? ;)
     // Note: but totem can be not accessible for aura target in time remove (to far for find in grid)
