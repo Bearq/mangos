@@ -7945,7 +7945,7 @@ void Player::DestroyItemWithOnStoreSpell(Item* item)
         if (spellData.SpellTrigger != ITEM_SPELLTRIGGER_ON_STORE)
             continue;
 
-        DestroyItem(item->GetBagSlot(), item->GetSlot(), true);
+//        DestroyItem(item->GetBagSlot(), item->GetSlot(), true);
         break;
     }
 }
@@ -9659,6 +9659,9 @@ Item* Player::GetItemByLimitedCategory(uint32 limitedCategory) const
 
 Item* Player::GetItemByGuid(ObjectGuid guid) const
 {
+    if (guid.IsEmpty())
+        return NULL;
+
     for(int i = EQUIPMENT_SLOT_START; i < INVENTORY_SLOT_ITEM_END; ++i)
         if (Item *pItem = GetItemByPos(INVENTORY_SLOT_BAG_0, i))
             if (pItem->GetObjectGuid() == guid)
