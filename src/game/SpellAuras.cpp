@@ -9786,7 +9786,7 @@ void SpellAuraHolder::_RemoveSpellAuraHolder()
         if (ObjectGuid castItemGuid = GetCastItemGuid())
         {
             error_log("Debug crash item entry: %u, aura %u", GetCastItemGuid().GetEntry(), GetSpellProto()->Id);
-            if (castItemGuid.IsItem())
+            if (castItemGuid.IsItem() && m_target && m_target->GetTypeId() == TYPEID_PLAYER)
                 if (Item* castItem = ((Player*)m_target)->GetItemByGuid(castItemGuid))
                     ((Player*)caster)->DestroyItemWithOnStoreSpell(castItem);
         }
