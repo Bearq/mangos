@@ -176,12 +176,12 @@ bool VehicleKit::AddPassenger(Unit *passenger, int8 seatId)
 
     if (seat->second.seatInfo->m_flags & SEAT_FLAG_UNATTACKABLE || seat->second.seatInfo->m_flags & SEAT_FLAG_CAN_CONTROL)
     {
-        // some exceptions where passengets should be targetable, seems that flag is wrong
         switch (m_pBase->GetEntry())
         {
-            case 33118:                  // Ignis slag pot
-            case 32934:                  // Kologarn Right Arm
-            case 30248:                  // Hover Disk
+            case 33118:                                     // Ignis (Ulduar)
+            case 32934:                                     // Kologarn Right Arm (Ulduar)
+            case 30234:                                     // Nexus Lord's Hover Disk (Eye of Eternity, Malygos Encounter)
+            case 30248:                                     // Scion's of Eternity Hover Disk (Eye of Eternity, Malygos Encounter)
                 break;
             default:
                 passenger->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
