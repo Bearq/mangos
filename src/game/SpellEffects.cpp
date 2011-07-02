@@ -2625,12 +2625,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     unitTarget->CastSpell(unitTarget, 54852, true);
                     return;
                 }
-                case 54850:                                 // Emerge
-                {
-                    // Cast Emerge summon
-                    m_caster->CastSpell(m_caster, 54851, true);
-                    return;
-                }
                 case 55004:                                 // Nitro Boosts
                 {
                     if (!m_CastItem)
