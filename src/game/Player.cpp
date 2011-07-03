@@ -2567,6 +2567,27 @@ void Player::RemoveFromGroup(Group* group, ObjectGuid guid)
 {
     if (group)
     {
+        // remove all auras affecting only group members
+        if (Player *pLeaver = sObjectMgr.GetPlayer(guid))
+        {
+            for(GroupReference *itr = group->GetFirstMember(); itr != NULL; itr = itr->next())
+            {
+                if (Player *pGroupGuy = itr->getSource())
+                {
+                    // dont remove my auras from myself
+                    if (pGroupGuy->GetObjectGuid() == guid)
+                        continue;
+
+                    // remove all buffs cast by me from group members before leaving
+                    pGroupGuy->RemoveAllGroupBuffsFromCaster(guid);
+
+                    // remove from me all buffs cast by group members
+                    pLeaver->RemoveAllGroupBuffsFromCaster(pGroupGuy->GetObjectGuid());
+                }
+            }
+        }
+
+        // remove member from group
         if (group->RemoveMember(guid, 0) <= 1)
         {
             // group->Disband(); already disbanded in RemoveMember
@@ -15820,43 +15841,6 @@ void Player::SendQuestUpdateAddCreatureOrGo( Quest const* pQuest, ObjectGuid gui
 /***                   LOAD SYSTEM                     ***/
 /*********************************************************/
 
-bool Player::MinimalLoadFromDB(uint64 lowguid)
-{
-    if (!lowguid) return false;
-
-     //                                                     0     1     2           3           4           5    6          7          8          9    10     11    12
-    QueryResult* result = CharacterDatabase.PQuery("SELECT guid, name, position_x, position_y, position_z, map, totaltime, leveltime, at_login, zone, level, race, class FROM characters WHERE guid = '%u'",lowguid);
-
-    if (!result)
-        return false;
-
-    Field *fields = result->Fetch();
-
-    Object::_Create(ObjectGuid(HIGHGUID_PLAYER, uint32(lowguid)));
-
-    sLog.outDebug("Player #%d minimal data loaded",lowguid);
-
-    m_name = fields[1].GetCppString();
-    Relocate(fields[2].GetFloat(),fields[3].GetFloat(),fields[4].GetFloat());
-    SetLocationMapId(fields[5].GetUInt32());
-    m_Played_time[PLAYED_TIME_TOTAL] = fields[6].GetUInt32();
-    m_Played_time[PLAYED_TIME_LEVEL] = fields[7].GetUInt32();
-    m_atLoginFlags = fields[8].GetUInt32();
-    uint8 m_race  = fields[11].GetUInt8();
-    uint8 m_class = fields[12].GetUInt8();
-
-    for (int i = 0; i < PLAYER_SLOTS_COUNT; ++i)
-        m_items[i] = NULL;
-
-    if (HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
-        m_deathState = DEAD;
-
-    // all fields read
-    delete result;
-
-    return true;
-}
-
 void Player::_LoadDeclinedNames(QueryResult* result)
 {
     if(!result)
@@ -23490,7 +23474,43 @@ void Player::ActivateSpec(uint8 specNum)
 
             for(int r = 0; r < MAX_TALENT_RANK; ++r)
                 if (talentInfo->RankID[r])
+                {
                     removeSpell(talentInfo->RankID[r],!IsPassiveSpell(talentInfo->RankID[r]),false);
+
+                    // if spell is a buff, remove it from group members
+                    // TODO: this should affect all players, not only group members?
+                    if (SpellEntry const *spellInfo = sSpellStore.LookupEntry(talentInfo->RankID[r]))
+                    {
+                        bool bRemoveAura = false;
+                        for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
+                        {
+                            if ((spellInfo->Effect[i] == SPELL_EFFECT_APPLY_AURA ||
+                                spellInfo->Effect[i] == SPELL_EFFECT_APPLY_AREA_AURA_RAID) &&
+                                IsPositiveEffect(spellInfo, SpellEffectIndex(i)))
+                            {
+                                bRemoveAura = true;
+                                break;
+                            }
+                        }
+
+                        Group *group = GetGroup();
+
+                        if (bRemoveAura && group)
+                        {
+                            for(GroupReference *itr = group->GetFirstMember(); itr != NULL; itr = itr->next())
+                            {
+                                if (Player *pGroupGuy = itr->getSource())
+                                {
+                                    if (pGroupGuy->GetObjectGuid() == GetObjectGuid())
+                                        continue;
+
+                                    if (SpellAuraHolder *holder = pGroupGuy->GetSpellAuraHolder(talentInfo->RankID[r], GetObjectGuid()))
+                                        pGroupGuy->RemoveSpellAuraHolder(holder);
+                                }
+                            }
+                        }
+                    }
+                }
 
             specIter = m_talents[m_activeSpec].begin();
         }
