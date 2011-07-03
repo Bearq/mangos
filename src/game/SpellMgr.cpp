@@ -681,12 +681,23 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
 
     switch(spellproto->Id)
     {
+        case 37675:                                         // Chaos Blast
+        case 42786:                                         // Echo Of Ymiron
+        case 56266:                                         // Vortex
+        case 62470:                                         // Deafening Thunder
+        case 63138:                                         // Sara's Fervor (Ulduar - Yogg Saron encounter)
+        case 63134:                                         // Sara's Blessing (Ulduar - Yogg Saron encounter)
+        case 63355:                                         // Crunch Armor
         case 71010:                                         // Web Wrap (Icecrown Citadel, trash mob Nerub'ar Broodkeeper)
         case 72219:                                         // Gastric Bloat 10 N
         case 72551:                                         // Gastric Bloat 10 H
         case 72552:                                         // Gastric Bloat 25 N
         case 72553:                                         // Gastric Bloat 25 H
             return false;
+        case 552:                                           // Abolish Disease
+        case 12042:                                         // Arcane Power
+        case 36032:                                         // Arcane Blast
+        case 59286:                                         // Opening
         case 47540:                                         // Penance start dummy aura - Rank 1
         case 53005:                                         // Penance start dummy aura - Rank 2
         case 53006:                                         // Penance start dummy aura - Rank 3
@@ -700,6 +711,7 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
         case 67398:                                         // Zergling Periodic Effect
         case 67369:                                         // Grunty Focus
         case 47747:                                         // Charge Rift (Nexus: Anomalus)
+        case 64343:                                         // Impact
         return true;
         default:
             break;
@@ -713,6 +725,8 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
             {
                 case 28441:                                 // AB Effect 000
                     return false;
+                case 48021:                                 // support for quest 12173  
+                    return true;
                 case 49634:                                 // Sergeant's Flare
                 case 54530:                                 // Opening
                 case 62105:                                 // To'kini's Blowgun

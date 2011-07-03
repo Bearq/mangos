@@ -73,6 +73,8 @@ void TargetedMovementGeneratorMedium<T,D>::_setTargetLocation(T &owner)
         if( i_destinationHolder.HasDestination() && i_destinationHolder.GetDestinationDiff(x,y,z) < bothObjectSize )
             return;
     */
+    if (owner.GetTypeId() == TYPEID_UNIT && ((Creature*)&owner)->CanFly())
+        ((Creature&)owner).AddSplineFlag(SPLINEFLAG_FLYING);
 
     //ACE_High_Res_Timer timer = ACE_High_Res_Timer();
     //ACE_hrtime_t elapsed;
@@ -103,6 +105,7 @@ void TargetedMovementGeneratorMedium<T,D>::_setTargetLocation(T &owner)
     if (i_destinationHolder.HasArrived() && m_pathPointsSent)
         --m_pathPointsSent;
 
+    i_targetReached = false;
     Traveller<T> traveller(owner);
     i_path->getNextPosition(x, y, z);
     i_destinationHolder.SetDestination(traveller, x, y, z, false);
@@ -248,8 +251,9 @@ bool TargetedMovementGeneratorMedium<T,D>::Update(T &owner, const uint32 & time_
         else if (!i_angle && !owner.HasInArc(0.01f, next_point.x, next_point.y))
             owner.SetOrientation(owner.GetAngle(next_point.x, next_point.y));
 
-        if ((owner.IsStopped() && !i_destinationHolder.HasArrived()) || i_recalculateTravel)
+        if (!i_targetReached)
         {
+            i_targetReached = true;
             i_recalculateTravel = false;
 
             //Angle update will take place into owner.StopMoving()
@@ -258,6 +262,11 @@ bool TargetedMovementGeneratorMedium<T,D>::Update(T &owner, const uint32 & time_
             owner.StopMoving();
             static_cast<D*>(this)->_reachTarget(owner);
         }
+    }
+    else
+    {
+        if (i_recalculateTravel)
+            _setTargetLocation(owner);
     }
     return true;
 }
