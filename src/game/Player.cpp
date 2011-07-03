@@ -19205,6 +19205,8 @@ void Player::VehicleSpellInitialize()
         return;
     }
 
+    sLog.outDebug("Player::VehicleSpellInitialize(): player %s on vehicle (entry: %u) initializing vehicle spells.", GetName(), charm->GetEntry());
+
     size_t cooldownsCount = charm->m_CreatureSpellCooldowns.size() + charm->m_CreatureCategoryCooldowns.size();
 
     WorldPacket data(SMSG_PET_SPELLS, 8+2+4+4+4*MAX_UNIT_ACTION_BAR_INDEX+1+1+cooldownsCount*(4+2+4+4));
