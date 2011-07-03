@@ -8361,6 +8361,23 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
             break;
         }
+        case 68921: // Soulstorm (Forge of Souls)
+        {
+            UnitList tempTargetUnitMap;
+            FillAreaTargets(tempTargetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+            if (!tempTargetUnitMap.empty())
+            {
+                for (UnitList::const_iterator iter = tempTargetUnitMap.begin(); iter != tempTargetUnitMap.end(); ++iter)
+                {
+                    if (m_caster->GetDistance(*iter) < 10.0f)
+                        continue;
+
+                    targetUnitMap.push_back((*iter));
+                }
+                return true;
+            }
+            break;
+        }
         case 72378: // Blood Nova
         case 73058:
         {
