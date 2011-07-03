@@ -491,7 +491,7 @@ class MANGOS_DLL_SPEC Creature : public Unit
         bool IsGuard() const { return GetCreatureInfo()->flags_extra & CREATURE_FLAG_EXTRA_GUARD; }
 
         bool CanWalk() const { return GetCreatureInfo()->InhabitType & INHABIT_GROUND; }
-        bool CanSwim() const { return GetCreatureInfo()->InhabitType & INHABIT_WATER; }
+        bool CanSwim() const { return IsPet() ? true : GetCreatureInfo()->InhabitType & INHABIT_WATER; }
         bool CanFly()  const { return GetCreatureInfo()->InhabitType & INHABIT_AIR; }
 
         bool IsTrainerOf(Player* player, bool msg) const;
@@ -602,6 +602,9 @@ class MANGOS_DLL_SPEC Creature : public Unit
         std::string GetAIName() const;
         std::string GetScriptName() const;
         uint32 GetScriptId() const;
+
+        bool SD2AIName() const { return !GetScriptName().empty(); }
+        bool HasAIName() const { return !GetAIName().empty(); }
 
         // overwrite WorldObject function for proper name localization
         const char* GetNameForLocaleIdx(int32 locale_idx) const;

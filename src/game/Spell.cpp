@@ -1670,6 +1670,13 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 804:                                   // Explode Bug
                 case 23138:                                 // Gate of Shazzrah
                 case 28560:                                 // Summon Blizzard
+                case 62488:                                 // Activate Construct (Ulduar - Ignis encounter)
+                case 63545:                                 // Icicle Hodir(trigger spell from 62227)
+                case 68950:                                 // Fear (ICC: Forge of Souls)
+                case 48278:                                 // Paralyze (Utgarde Pinnacle)
+                case 63018:                                 // Searing Light nonhero
+                case 65121:                                 // Searing Light hero
+                case 62016:                                 // Charge Orb (Thorim)
                 case 31347:                                 // Doom TODO: exclude top threat target from target selection
                 case 33711:                                 // Murmur's Touch
                 case 38794:                                 // Murmur's Touch (h)
@@ -1679,6 +1686,8 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 63387:                                 // Rapid Burst
                 case 64531:                                 // Rapid Burst (h)
                 case 64218:                                 // Overcharge
+                case 65301:                                 // Psychosis (Yogg-Saron)
+                case 63795:                                 // Psychosis (Yogg-Saron)
                 case 66336:                                 // Mistress' Kiss (Trial of the Crusader, ->
                 case 67077:                                 // -> Lord Jaraxxus encounter, 10 and 10 heroic)
                 case 66001:                                 // Touch of Darkness
@@ -1717,7 +1726,9 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 29213:                                 // Curse of the Plaguebringer
                 case 31298:                                 // Sleep
                 case 39992:                                 // Needle Spine Targeting (Warlord Najentus)
-                case 51904:                                 // Limiting the count of Summoned Ghouls
+                case 62477:                                 // Icicle (Hodir 25man)
+                case 61693:                                 // Arcane Storm (Malygos) (N)
+                case 60936:                                 // Surge of Power (h) (Malygos)
                 case 54522:
                 case 61693:                                 // Arcane Storm (Malygos)
                 case 60936:                                 // Surge of Power (h) (Malygos)
@@ -1736,18 +1747,27 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 63482:                                 // Lightning Whirl (h) (Stormcaller Brundir - Ulduar)
                     unMaxTargets = urand(3, 6);
                     break;
+                case 51904:                                 // Limiting the count of Summoned Ghouls
                 case 71221:                                 // Gas spore - 25
                     unMaxTargets = 4;
                     break;
                 case 30843:                                 // Enfeeble TODO: exclude top threat target from target selection
                 case 42005:                                 // Bloodboil TODO: need to be 5 targets(players) furthest away from caster
                 case 55665:                                 // Life Drain (h)
+                case 64604:                                 // Nature Bomb Freya
                 case 58917:                                 // Consume Minions
                 case 67076:                                 // Mistress' Kiss (Trial of the Crusader, ->
                 case 67078:                                 // -> Lord Jaraxxus encounter, 25 and 25 heroic)
                 case 67700:                                 // Penetrating Cold (25 man)
                 case 68510:                                 // Penetrating Cold (25 man, heroic)
                     unMaxTargets = 5;
+                    break;
+                case 61694:                                 // Arcane Storm(H) (25 man) (Malygos)
+                    unMaxTargets = 7;
+                    break;
+                case 72441:                                 // Boiling Blood (25N)
+                case 72443:                                 // Boiling Blood (25H)
+                    unMaxTargets = 6;
                     break;
                 case 54098:                                 // Poison Bolt Volley (h)
                 case 54835:                                 // Curse of the Plaguebringer (h)
@@ -1756,6 +1776,14 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 25991:                                 // Poison Bolt Volley (Pincess Huhuran)
                     unMaxTargets = 15;
                     break;
+                case 62240:                                 // Solar Flare
+                case 62920:                                 // Solar Flare (h)
+                {
+                    if(Aura *pAura = m_caster->GetAura(62251, EFFECT_INDEX_0))
+                    unMaxTargets = pAura->GetStackAmount();
+                    else unMaxTargets = 1;
+                    break;
+                }
                 default:
                     break;
             }
@@ -2593,11 +2621,15 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
         case TARGET_ALL_FRIENDLY_UNITS_AROUND_CASTER:
             switch (m_spellInfo->Id)
             {
-                case 54171:                                     // Divine Storm
+                case 54171:                                 // Divine Storm
                     FillRaidOrPartyHealthPriorityTargets(targetUnitMap, m_caster, m_caster, radius, 3, true, false, true);
                     break;
                 case 56153:                                 // Guardian Aura - Ahn'Kahet
                     FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_FRIENDLY);
+                    targetUnitMap.remove(m_caster);
+                    break;
+                case 63881:                                 // Malady of the Mind   Ulduar Yogg Saron
+                    FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_FRIENDLY, GetCastingObject());
                     targetUnitMap.remove(m_caster);
                     break;
                 case 64844:                                 // Divine Hymn
@@ -5253,6 +5285,10 @@ SpellCastResult Spell::CheckCast(bool strict)
             else if (target->HasAura(m_spellInfo->excludeTargetAuraSpell))
                 return SPELL_FAILED_CASTER_AURASTATE;
         }
+
+        // totem immunity for channeled spells(needs to be before spell cast)
+        if (IsChanneledSpell(m_spellInfo) && target->GetTypeId() == TYPEID_UNIT && ((Creature*)target)->IsTotem())
+            return SPELL_FAILED_IMMUNE;
 
         bool non_caster_target = target != m_caster && !IsSpellWithCasterSourceTargetsOnly(m_spellInfo);
 
@@ -8354,6 +8390,13 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             }
             if (!targetUnitMap.empty())
                 return true;
+            break;
+        }
+        case 63025:  // Gravity Bomb (XT-002 in Ulduar) - exclude caster from pull and double damage
+        case 64233:
+        {
+            FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_FRIENDLY);
+            targetUnitMap.remove(m_caster);
             break;
         }
         case 65045: // Flame of demolisher

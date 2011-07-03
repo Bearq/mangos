@@ -556,6 +556,7 @@ Player::Player (WorldSession *session): Unit(), m_mover(this), m_camera(this), m
     m_baseSpellPower = 0;
     m_baseFeralAP = 0;
     m_baseManaRegen = 0;
+    m_baseHealthRegen = 0;
     m_armorPenetrationPct = 0.0f;
     m_spellPenetrationItemMod = 0;
 
@@ -2305,6 +2306,7 @@ void Player::RegenerateHealth(uint32 diff)
 
     // always regeneration bonus (including combat)
     addvalue += GetTotalAuraModifier(SPELL_AURA_MOD_HEALTH_REGEN_IN_COMBAT);
+    addvalue += m_baseHealthRegen / 2.5f; //From ITEM_MOD_HEALTH_REGEN. It is correct tick amount?
 
     if(addvalue < 0)
         addvalue = 0;
@@ -6803,41 +6805,42 @@ void Player::UpdateHonorFields()
 
     m_lastHonorUpdateTime = now;
 
+    // START custom PvP Honor Kills Title System
     uint32 HonorKills = GetUInt32Value(PLAYER_FIELD_LIFETIME_HONORBALE_KILLS);
     uint32 victim_rank = 0;
 
     // lets check if player fits to title brackets (none of players reached by now 100k HK. this is bad condition in aspect
     // of making code generic, but allows to save some CPU and avoid fourther steps execution
-    if (HonorKills < 150 || HonorKills > 100000)
+    if (HonorKills < 100 || HonorKills > 50000)
         return;
 
-    if (HonorKills >= 150 && HonorKills < 250)
+    if (HonorKills >= 100 && HonorKills < 200)
         victim_rank = 1;
-    else if (HonorKills >= 250 && HonorKills < 400)
+    else if (HonorKills >= 200 && HonorKills < 500)
         victim_rank = 2;
-    else if (HonorKills >= 400 && HonorKills < 650)
+    else if (HonorKills >= 500 && HonorKills < 1000)
         victim_rank = 3;
-    else if (HonorKills >= 650 && HonorKills < 1100)
+    else if (HonorKills >= 1000 && HonorKills < 2100)
         victim_rank = 4;
-    else if (HonorKills >= 1100 && HonorKills < 1800)
+    else if (HonorKills >= 2100 && HonorKills < 3200)
         victim_rank = 5;
-    else if (HonorKills >= 1800 && HonorKills < 3000)
+    else if (HonorKills >= 3200 && HonorKills < 4300)
         victim_rank = 6;
-    else if (HonorKills >= 3000 && HonorKills < 5000)
+    else if (HonorKills >= 4300 && HonorKills < 5400)
        victim_rank = 7;
-    else if (HonorKills >= 5000 && HonorKills < 8000)
+    else if (HonorKills >= 5400 && HonorKills < 6500)
         victim_rank = 8;
-    else if (HonorKills >= 8000 && HonorKills < 13000)
+    else if (HonorKills >= 6500 && HonorKills < 7600)
         victim_rank = 9;
-    else if (HonorKills >= 13000 && HonorKills < 22000)
+    else if (HonorKills >= 7600 && HonorKills < 9000)
         victim_rank = 10;
-    else if (HonorKills >= 22000 && HonorKills < 36000)
+    else if (HonorKills >= 9000 && HonorKills < 15000)
         victim_rank = 11;
-    else if (HonorKills >= 36000 && HonorKills < 60000)
+    else if (HonorKills >= 15000 && HonorKills < 30000)
         victim_rank = 12;
-    else if (HonorKills >= 60000 && HonorKills < 100000)
+    else if (HonorKills >= 30000 && HonorKills < 50000)
         victim_rank = 13;
-    else if (HonorKills == 100000)
+    else if (HonorKills == 50000)
         victim_rank = 14;
 
     // horde titles starting from 15+
@@ -6861,6 +6864,7 @@ void Player::UpdateHonorFields()
             SetUInt32Value(PLAYER_CHOSEN_TITLE, victim_rank);
         }
     }
+    // END custom PvP Honor Kills Title System
 }
 
 
@@ -7580,6 +7584,9 @@ void Player::_ApplyItemBonuses(ItemPrototype const *proto, uint8 slot, bool appl
                 break;
             case ITEM_MOD_SPELL_POWER:
                 ApplySpellPowerBonus(int32(val), apply);
+                break;
+            case ITEM_MOD_HEALTH_REGEN:  
+                ApplyHealthRegenBonus(int32(val), apply);  
                 break;
             case ITEM_MOD_SPELL_PENETRATION:
                 ApplyModInt32Value(PLAYER_FIELD_MOD_TARGET_RESISTANCE, -int32(val), apply);
