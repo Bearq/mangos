@@ -1698,12 +1698,8 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 67296:
                 case 67297:
                 case 67298:
-                case 62488:                                 // Activate Construct (Ulduar - Ignis encounter)
                 case 63024:                                 // Gravity Bomb (XT-002)
                 case 64234:                                 // Gravity Bomb (h) (XT-002)
-                case 63018:                                 // Searing Light (XT-002)
-                case 65121:                                 // Searing Light (h) (XT-002)
-                case 68950:                                 // Fear
                 case 69140:                                 // Coldflame (Icecrown Citadel, Lord Marrowgar encounter)
                 case 73058:                                 // Blood Nova
                 case 72378:                                 // Blood Nova
@@ -1730,9 +1726,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 61693:                                 // Arcane Storm (Malygos) (N)
                 case 60936:                                 // Surge of Power (h) (Malygos)
                 case 54522:
-                case 61693:                                 // Arcane Storm (Malygos)
-                case 60936:                                 // Surge of Power (h) (Malygos)
-                case 62477:                                 // Icicle (Hodir 25man)
                 case 69055:                                 // Bone Slice (Icecrown Citadel, Lord Marrowgar, normal)
                 case 70814:                                 // Bone Slice (Icecrown Citadel, Lord Marrowgar, heroic)
                 case 70826:                                 // Bone Spike Graveyard (Icecrown Citadel, Lord Marrowgar encounter, 25N)
