@@ -7510,14 +7510,13 @@ bool Spell::CheckTarget( Unit* target, SpellEffectIndex eff )
             return false;
     }
 
-    // Checkout if target is behing particular object (Garfrost - Permafrost, Sapphiron AoE)
+    // Checkout if target is behing particular object
     switch(m_spellInfo->Id)
     {
-        case 68786:
-        //case 28524:
-        //case 29318: //?
+        case 68786:     // Permafrost (Garfrost)
+        case 70336:     // Permafrost Heroic (Garfrost)
         {
-            uint32 uiObjectEntry = m_spellInfo->Id == 68786 ? 196485 : 0; // cant remember right now sapph GO id
+            uint32 uiObjectEntry = 196485;
 
             // Description:
             // code check out if player is hidden behind GO in circle with diameter equal to GO size
