@@ -19213,15 +19213,6 @@ void Player::VehicleSpellInitialize()
     }
 
     size_t cooldownsCount = charm->m_CreatureSpellCooldowns.size() + charm->m_CreatureCategoryCooldowns.size();
-    // small debug. hunting for 'std::bad_alloc' crash cause
-    error_log("Player::VehicleSpellInitialize(): player %s on vehicle (entry: %u, type: %u, cooldownsCount: %i) initializing vehicle spells.", 
-        GetName(), charm->GetEntry(), uint32(charm->GetTypeId()), (int)cooldownsCount);
-
-    if (cooldownsCount > 200 || cooldownsCount < 0)
-    {
-        error_log("BANG CRASH!");
-        cooldownsCount = 0;
-    }
 
     WorldPacket data(SMSG_PET_SPELLS, 8+2+4+4+4*MAX_UNIT_ACTION_BAR_INDEX+1+1+cooldownsCount*(4+2+4+4));
     data << charm->GetObjectGuid();
