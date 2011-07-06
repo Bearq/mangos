@@ -662,6 +662,11 @@ LexicsCutterNoActionOnGM = 1
 #        Amount of honor that new players will start with
 #        Default: 0
 #
+#    AllowHonorKillsTitles
+#        Allow characters to get titles, depending of honor kills amount (something like old 1.xx honor system)
+#        Default: 0 - disallow
+#                 1 - allow
+#
 #    MaxArenaPoints
 #        Max arena points that player can have.
 #        Default: 5000
@@ -921,6 +926,7 @@ StartHeroicPlayerLevel = 55
 StartPlayerMoney = 0
 MaxHonorPoints = 75000
 StartHonorPoints = 0
+AllowHonorKillsTitles = 0
 MaxArenaPoints = 5000
 StartArenaPoints = 0
 InstantLogout = 1
@@ -1699,6 +1705,16 @@ BattleGround.Random.ResetHour = 6
 #        Default Personal Rating at team creation
 #        Default: -1 (use season dependent default value)
 #
+#    Arena.LoserNoChange
+#        If winner or loser rating is below this limit, loser loses no rating
+#        Default: 0 (disable)
+#                 1400
+#
+#    Arena.LoserHalfChange
+#        If loser rating is below this limit, he loses half of rating
+#        Default: 0 (disable)
+#                 1500
+#
 ###################################################################################################################
 
 Arena.MaxRatingDifference = 150
@@ -1712,6 +1728,8 @@ Arena.ArenaSeason.ID = 1
 Arena.ArenaSeasonPrevious.ID = 0
 Arena.StartRating = -1
 Arena.StartPersonalRating = -1
+Arena.LoserNoChange = 0
+Arena.LoserHalfChange = 0
 
 ###################################################################################################################
 # NETWORK CONFIG

@@ -1688,6 +1688,9 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 64218:                                 // Overcharge
                 case 65301:                                 // Psychosis (Yogg-Saron)
                 case 63795:                                 // Psychosis (Yogg-Saron)
+                case 66152:                                 // Bullet Foced Cast (Trial of the Crusader, ->
+                case 66153: 
+                case 66339:                                 // Summon Scarab (Trial of the Crusader, Anub'arak encounter)
                 case 66336:                                 // Mistress' Kiss (Trial of the Crusader, ->
                 case 67077:                                 // -> Lord Jaraxxus encounter, 10 and 10 heroic)
                 case 66001:                                 // Touch of Darkness
@@ -1698,12 +1701,8 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 67296:
                 case 67297:
                 case 67298:
-                case 62488:                                 // Activate Construct (Ulduar - Ignis encounter)
                 case 63024:                                 // Gravity Bomb (XT-002)
                 case 64234:                                 // Gravity Bomb (h) (XT-002)
-                case 63018:                                 // Searing Light (XT-002)
-                case 65121:                                 // Searing Light (h) (XT-002)
-                case 68950:                                 // Fear
                 case 69140:                                 // Coldflame (Icecrown Citadel, Lord Marrowgar encounter)
                 case 73058:                                 // Blood Nova
                 case 72378:                                 // Blood Nova
@@ -1717,6 +1716,8 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 66013:                                 // Penetrating Cold (10 man)
                 case 68509:                                 // Penetrating Cold (10 man heroic)
                 case 62476:                                 // Icicle (Hodir 10man)
+                case 66332:                                 // Nerubian Burrower (Trial of the Crusader, ->
+                case 67755:                                 // -> Anub'arak encounter, 10 and 10 heroic)
                 case 69278:                                 // Gas spore - 10
                 case 71336:                                 // Pact of the Darkfallen
                 case 71390:                                 // Pact of the Darkfallen
@@ -1726,12 +1727,10 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 29213:                                 // Curse of the Plaguebringer
                 case 31298:                                 // Sleep
                 case 39992:                                 // Needle Spine Targeting (Warlord Najentus)
-                case 62477:                                 // Icicle (Hodir 25man)
-                case 61693:                                 // Arcane Storm (Malygos) (N)
-                case 60936:                                 // Surge of Power (h) (Malygos)
+                case 51904:                                 // Limiting the count of Summoned Ghouls
                 case 54522:
-                case 61693:                                 // Arcane Storm (Malygos)
                 case 60936:                                 // Surge of Power (h) (Malygos)
+                case 61693:                                 // Arcane Storm (Malygos) (N)
                 case 62477:                                 // Icicle (Hodir 25man)
                 case 69055:                                 // Bone Slice (Icecrown Citadel, Lord Marrowgar, normal)
                 case 70814:                                 // Bone Slice (Icecrown Citadel, Lord Marrowgar, heroic)
@@ -1748,6 +1747,8 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                     unMaxTargets = urand(3, 6);
                     break;
                 case 51904:                                 // Limiting the count of Summoned Ghouls
+                case 67756:                                 // Nerubian Burrower (Trial of the Crusader, ->
+                case 67757:                                 // -> Anub'arak encounter, 25 and 25 heroic)
                 case 71221:                                 // Gas spore - 25
                     unMaxTargets = 4;
                     break;
@@ -1765,10 +1766,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 61694:                                 // Arcane Storm(H) (25 man) (Malygos)
                     unMaxTargets = 7;
                     break;
-                case 72441:                                 // Boiling Blood (25N)
-                case 72443:                                 // Boiling Blood (25H)
-                    unMaxTargets = 6;
-                    break;
                 case 54098:                                 // Poison Bolt Volley (h)
                 case 54835:                                 // Curse of the Plaguebringer (h)
                     unMaxTargets = 10;
@@ -1776,14 +1773,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 25991:                                 // Poison Bolt Volley (Pincess Huhuran)
                     unMaxTargets = 15;
                     break;
-                case 62240:                                 // Solar Flare
-                case 62920:                                 // Solar Flare (h)
-                {
-                    if(Aura *pAura = m_caster->GetAura(62251, EFFECT_INDEX_0))
-                    unMaxTargets = pAura->GetStackAmount();
-                    else unMaxTargets = 1;
-                    break;
-                }
                 default:
                     break;
             }
@@ -7517,14 +7506,13 @@ bool Spell::CheckTarget( Unit* target, SpellEffectIndex eff )
             return false;
     }
 
-    // Checkout if target is behing particular object (Garfrost - Permafrost, Sapphiron AoE)
+    // Checkout if target is behing particular object
     switch(m_spellInfo->Id)
     {
-        case 68786:
-        //case 28524:
-        //case 29318: //?
+        case 68786:     // Permafrost (Garfrost)
+        case 70336:     // Permafrost Heroic (Garfrost)
         {
-            uint32 uiObjectEntry = m_spellInfo->Id == 68786 ? 196485 : 0; // cant remember right now sapph GO id
+            uint32 uiObjectEntry = 196485;
 
             // Description:
             // code check out if player is hidden behind GO in circle with diameter equal to GO size
@@ -8418,6 +8406,75 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                     targetUnitMap.push_back((*iter));
                 }
                 return true;
+        case 65919: case 67858: case 67859: case 67860: // Anub'arak Cast Check Ice Spell (Trial of the Crusader - Anub'arak)
+        {
+            m_caster->CastSpell(m_caster, 66181, true);
+            m_targets.setDestination(m_caster->GetPositionX(), m_caster->GetPositionY(), m_caster->GetPositionZ());
+            SetTargetMap(SpellEffectIndex(i), m_spellInfo->EffectImplicitTargetB[i], targetUnitMap);
+            break;
+        }
+        case 67470: // Pursuing Spikes (Check Aura and Summon Spikes) (Trial Of The Crusader - Anub'arak)
+        {
+            UnitList tmpUnitMap;
+            bool m_bOneTargetHaveAura = false;
+
+            FillAreaTargets(tmpUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+            if (!tmpUnitMap.empty())
+            {
+                for (UnitList::const_iterator itr = tmpUnitMap.begin(); itr != tmpUnitMap.end(); ++itr)
+                {
+                    if ((*itr)->HasAura(67574))
+                    {
+                        m_bOneTargetHaveAura = true;
+                        break;
+                    }
+                    else
+                    {
+                        if ((*itr)->GetTypeId() == TYPEID_PLAYER)
+                            targetUnitMap.push_back(*itr);
+                    }
+                }
+                if (!m_bOneTargetHaveAura && !targetUnitMap.empty())
+                {
+                    uint32 t = 0;
+                    std::list<Unit*>::iterator iter = targetUnitMap.begin();
+                    while(iter!= targetUnitMap.end() && (*iter)->IsWithinDist(m_caster, radius))
+                        ++t, ++iter;
+
+                    iter = targetUnitMap.begin();
+                    std::advance(iter, rand() % t);
+                    if (*iter)
+                        (*iter)->CastSpell((*iter), 67574, true);
+                }
+            }
+            break;
+        }
+        case 68921: case 69049: // Soulstorm (Forge of Souls - Bronjahm)
+        {
+            UnitList tmpUnitMap;
+            FillAreaTargets(tmpUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+            if (!tmpUnitMap.empty())
+            {
+                for (UnitList::const_iterator itr = tmpUnitMap.begin(); itr != tmpUnitMap.end(); ++itr)
+                {
+                    if (*itr && !(*itr)->IsWithinDistInMap(m_caster, 10.0f))
+                        targetUnitMap.push_back(*itr);
+                }
+            }
+            break;
+        }
+        case 66862: case 67681: // Radiance (Trial of the Champion - Eadric the Pure)
+        {
+            UnitList tmpUnitMap;
+            FillAreaTargets(tmpUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+            if (!tmpUnitMap.empty())
+            {
+                for (UnitList::const_iterator itr = tmpUnitMap.begin(); itr != tmpUnitMap.end(); ++itr)
+                {
+                    if (*itr && (*itr)->isInFrontInMap(m_caster, DEFAULT_VISIBILITY_DISTANCE) && (*itr)->IsWithinLOSInMap(m_caster))
+                        targetUnitMap.push_back(*itr);
+                }
+>>>>>>> fae1e07f289ace4930481d3a974cd0bf5c353133
             }
             break;
         }

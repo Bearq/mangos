@@ -743,9 +743,6 @@ void Creature::DoFleeToGetAssistance()
         SetNoSearchAssistance(true);
         UpdateSpeed(MOVE_RUN, false);
 
-        // Interrupt spells cause of fleeing movement
-        InterruptNonMeleeSpells(false);
-
         if(!pCreature)
             SetFeared(true, getVictim()->GetObjectGuid(), 0 ,sWorld.getConfig(CONFIG_UINT32_CREATURE_FAMILY_FLEE_DELAY));
         else
@@ -2451,7 +2448,7 @@ void Creature::SetActiveObjectState( bool on )
 void Creature::SendMonsterMoveWithSpeedToCurrentDestination(Player* player)
 {
     float x, y, z;
-    if(GetMotionMaster()->GetDestination(x, y, z))
+    if (!IsStopped() && GetMotionMaster()->GetDestination(x, y, z))
         SendMonsterMoveWithSpeed(x, y, z, 0, player);
 }
 

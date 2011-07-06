@@ -402,6 +402,7 @@ class BattleGround
         BattleGroundScoreMap::const_iterator GetPlayerScoresBegin() const { return m_PlayerScores.begin(); }
         BattleGroundScoreMap::const_iterator GetPlayerScoresEnd() const { return m_PlayerScores.end(); }
         uint32 GetPlayerScoresSize() const { return m_PlayerScores.size(); }
+        uint32 GetPlayerScore(Player *Source, uint32 type);
 
         void StartBattleGround();
 
@@ -568,7 +569,6 @@ class BattleGround
         std::map<uint8, uint8> m_ActiveEvents;
 
         uint32 GetDamageDoneForTeam(Team team);
-
 
     protected:
         //this method is called, when BG cannot spawn its own spirit guide, or something is wrong, It correctly ends BattleGround
