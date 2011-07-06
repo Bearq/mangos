@@ -1746,7 +1746,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 63482:                                 // Lightning Whirl (h) (Stormcaller Brundir - Ulduar)
                     unMaxTargets = urand(3, 6);
                     break;
-                case 51904:                                 // Limiting the count of Summoned Ghouls
                 case 67756:                                 // Nerubian Burrower (Trial of the Crusader, ->
                 case 67757:                                 // -> Anub'arak encounter, 25 and 25 heroic)
                 case 71221:                                 // Gas spore - 25
@@ -8392,20 +8391,6 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
             break;
         }
-        case 68921: // Soulstorm (Forge of Souls)
-        {
-            UnitList tempTargetUnitMap;
-            FillAreaTargets(tempTargetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_AOE_DAMAGE);
-            if (!tempTargetUnitMap.empty())
-            {
-                for (UnitList::const_iterator iter = tempTargetUnitMap.begin(); iter != tempTargetUnitMap.end(); ++iter)
-                {
-                    if (m_caster->GetDistance(*iter) < 10.0f)
-                        continue;
-
-                    targetUnitMap.push_back((*iter));
-                }
-                return true;
         case 65919: case 67858: case 67859: case 67860: // Anub'arak Cast Check Ice Spell (Trial of the Crusader - Anub'arak)
         {
             m_caster->CastSpell(m_caster, 66181, true);
@@ -8474,7 +8459,6 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                     if (*itr && (*itr)->isInFrontInMap(m_caster, DEFAULT_VISIBILITY_DISTANCE) && (*itr)->IsWithinLOSInMap(m_caster))
                         targetUnitMap.push_back(*itr);
                 }
->>>>>>> fae1e07f289ace4930481d3a974cd0bf5c353133
             }
             break;
         }

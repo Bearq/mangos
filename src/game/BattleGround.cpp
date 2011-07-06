@@ -1387,22 +1387,6 @@ uint32 BattleGround::GetPlayerScore(Player *Source, uint32 type)
     }
 }
 
-uint32 BattleGround::GetDamageDoneForTeam(Team team)
-{
-    uint32 finaldamage = 0;
-    for(BattleGroundPlayerMap::iterator itr = m_Players.begin(); itr != m_Players.end(); ++itr)
-    {
-        Team bgTeam = itr->second.PlayerTeam;
-        Player *plr = sObjectMgr.GetPlayer(itr->first);
-        if (!plr)
-            continue;
-        if(!bgTeam) bgTeam = plr->GetTeam();
-        if(bgTeam == team)
-            finaldamage += GetPlayerScore(plr, SCORE_DAMAGE_DONE);
-    }
-    return finaldamage;
-}
-
 /* this method adds player to his team's bg group, or sets his correct group if player is already in bg group */
 void BattleGround::AddOrSetPlayerToCorrectBgGroup(Player *plr, ObjectGuid plr_guid, Team team)
 {
@@ -2011,23 +1995,4 @@ void BattleGround::SetBracket( PvPDifficultyEntry const* bracketEntry )
 {
     m_BracketId  = bracketEntry->GetBracketId();
     SetLevelRange(bracketEntry->minLevel,bracketEntry->maxLevel);
-}
-
-uint32 BattleGround::GetPlayerScore(Player *Source, uint32 type)
-{
-    BattleGroundScoreMap::const_iterator itr = m_PlayerScores.find(Source->GetGUID());
-
-    if(itr == m_PlayerScores.end())                         // player not found...
-        return 0;
-
-    switch(type)
-    {
-        case SCORE_KILLING_BLOWS:                           // Killing blows
-            return itr->second->KillingBlows;
-        case SCORE_DEATHS:                                  // Deaths
-            return itr->second->Deaths;
-        default:
-            sLog.outError("BattleGround: Unknown player score type %u", type);
-            return 0;
-    }
 }

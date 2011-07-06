@@ -8081,12 +8081,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     ((Creature*)unitTarget)->ForcedDespawn();
                     break;
                 }
-                case 52124:                                 // Sky Darkener Assault
-                {
-                    if (unitTarget && unitTarget != m_caster)
-                        m_caster->CastSpell(unitTarget, 52125, false);
-                    break;
-                }
                 case 52694:                                 // Recall Eye of Acherus
                 {
                     if (!m_caster || m_caster->GetTypeId() != TYPEID_UNIT)
