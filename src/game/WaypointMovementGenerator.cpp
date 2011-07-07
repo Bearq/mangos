@@ -139,14 +139,10 @@ void WaypointMovementGenerator<Creature>::OnArrived(Creature& creature)
         if (behavior->model1 != 0)
             creature.SetDisplayId(behavior->model1);
 
-<<<<<<< HEAD
             // Now we re-set destination to same node and start travel
             MoveToNextNode(traveller);
         }
         else // if( !i_nextMoveTime.Passed())
-=======
-        if (behavior->textid[0])
->>>>>>> c0ece0c5eba73ee8e9c13165bbdb78babbc4b826
         {
             // Not only one text is set
             if (behavior->textid[1])
@@ -231,13 +227,9 @@ bool WaypointMovementGenerator<Creature>::Update(Creature &creature, const uint3
         if (creature.IsStopped())
             Stop(STOP_TIME_FOR_PLAYER);
 
-<<<<<<< HEAD
             MoveToNextNode(traveller);
         }
         else
-=======
-        if (i_destinationHolder.HasArrived())
->>>>>>> c0ece0c5eba73ee8e9c13165bbdb78babbc4b826
         {
             OnArrived(creature);
             StartMove(creature);
