@@ -23,12 +23,11 @@
 #include "Log.h"
 #include "Transports.h"
 #include "GridDefines.h"
-#include "InstanceData.h"
-#include "DestinationHolderImp.h"
 #include "World.h"
 #include "CellImpl.h"
 #include "Corpse.h"
 #include "ObjectMgr.h"
+#include "InstanceData.h"
 
 #define CLASS_LOCK MaNGOS::ClassLevelLockable<MapManager, ACE_Recursive_Thread_Mutex>
 INSTANTIATE_SINGLETON_2(MapManager, CLASS_LOCK);
