@@ -468,8 +468,8 @@ void Spell::FillTargetMap()
             AddUnitTarget(m_caster, SpellEffectIndex(i));
 
         UnitList tmpUnitMap;
-        if (!FillCustomTargetMap(SpellEffectIndex(i),tmpUnitMap))
 
+        if (!FillCustomTargetMap(SpellEffectIndex(i),tmpUnitMap))
         // TargetA/TargetB dependent from each other, we not switch to full support this dependences
         // but need it support in some know cases
         switch(m_spellInfo->EffectImplicitTargetA[i])

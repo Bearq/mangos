@@ -1181,9 +1181,14 @@ void Aura::HandleAddModifier(bool apply, bool Real)
                 // divide by 4 with additional target from Glyph of Chain Lightning
                 m_modifier.m_amount = (int32)(ceil(m_modifier.m_amount / (GetTarget()->HasAura(55449) ? 4.0f : 3.0f)));
                 break;
+            case 53257:                                     // Cobra strike 2 stack on apply (maximal value! not +2)
+                GetHolder()->SetStackAmount(2);
+                break;
+            default:
+                break;
         }
 
-		// if spellmod modifying cast time affects a spell that is currently being cast:
+        // if spellmod modifying cast time affects a spell that is currently being cast:
         // HACK: add 1 charge so it applies to the next spell cast
         Spell *currSpell = GetTarget()->GetCurrentSpell(CURRENT_GENERIC_SPELL);
 
@@ -1438,7 +1443,7 @@ void Aura::TriggerSpell()
                                 pCaster->RemoveAurasDueToSpell(28096);
                                 pCaster->InterruptNonMeleeSpells(false);
                                 if (!pCaster->HasAura(28097))
-                                    pCaster->CastSpell(pCaster, 28097, true, 0, this, target->GetObjectGuid());
+                                    pCaster->CastSpell(pCaster, 28097, true, 0, this, target->GetGUID());
                             }
                         }
                         return;
@@ -1467,7 +1472,7 @@ void Aura::TriggerSpell()
                                 pCaster->RemoveAurasDueToSpell(28111);
                                 pCaster->InterruptNonMeleeSpells(false);
                                 if (!pCaster->HasAura(28109))
-                                    pCaster->CastSpell(pCaster, 28109, true, 0, this, target->GetObjectGuid());
+                                    pCaster->CastSpell(pCaster, 28109, true, 0, this, target->GetGUID());
                             }
                         }
                         return;
@@ -2118,14 +2123,14 @@ void Aura::TriggerSpell()
             }
             case 28084:                                     // Negative Charge
             {
-                if (triggerTarget->HasAura(29660) )
-                    triggerTarget->RemoveAura(29660, EFFECT_INDEX_0);
+                if (triggerTarget->HasAura(29660))
+                    triggerTarget->RemoveAurasDueToSpell(29660);
                 break;
             }
             case 28059:                                     // Positive Charge
             {
-                if (triggerTarget->HasAura(29659) )
-                    triggerTarget->RemoveAura(29659, EFFECT_INDEX_0);
+                if (triggerTarget->HasAura(29659))
+                    triggerTarget->RemoveAurasDueToSpell(29659);
                 break;
             }
             case 33525:                                     // Ground Slam
@@ -2378,7 +2383,7 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                             Caster->CombatStop(true);
                         }
                         return;
-                    } 
+                    }
                     case 47977:                             // Magic Broom
                         Spell::SelectMountByAreaAndSkill(target, GetSpellProto(), 42680, 42683, 42667, 42668, 0);
                         return;
@@ -2802,13 +2807,17 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 return;
             }
             case 28059:                                     // Positive Charge (Thaddius)
-                if (target->HasAura(29659, EFFECT_INDEX_0) )
+            {
+                if (target->HasAura(29659))
                     target->RemoveAurasDueToSpell(29659);
                 return;
+            }
             case 28084:                                     // Negative Charge (Thaddius)
-                if (target->HasAura(29660, EFFECT_INDEX_0) )
+            {
+                if (target->HasAura(29660))
                     target->RemoveAurasDueToSpell(29660);
                 return;
+            }
             case 28169:                                     // Mutating Injection
             {
                 // Mutagen Explosion
@@ -4588,7 +4597,6 @@ void Aura::HandleModPossessPet(bool apply, bool Real)
         else
         {
             pet->GetMotionMaster()->MoveFollow(caster, PET_FOLLOW_DIST, PET_FOLLOW_ANGLE);
-            pet->AddSplineFlag(SPLINEFLAG_WALKMODE);
         }
     }
 }
@@ -4841,7 +4849,7 @@ void Aura::HandleAuraModStun(bool apply, bool Real)
             Unit* caster = GetCaster();
             if(!caster)
                 return;
-            caster->CastSpell(target, 71757, true); 
+            caster->CastSpell(target, 71757, true);
         }
 
         // Summon the Naj'entus Spine GameObject on target if spell is Impaling Spine
@@ -4909,7 +4917,7 @@ void Aura::HandleAuraModStun(bool apply, bool Real)
             Unit* pCaster = GetCaster();
             if(!pCaster)
                 return;
-            
+
             pCaster->InterruptSpell(CURRENT_CHANNELED_SPELL,false);
             return;
         }
@@ -5321,11 +5329,11 @@ void Aura::HandleAuraModIncreaseSpeed(bool apply, bool Real)
     // all applied/removed only at real aura add/remove
     if(!Real)
         return;
-        
+
     Unit *target = GetTarget();
 
     GetTarget()->UpdateSpeed(MOVE_RUN, true);
-    
+
     if (apply && GetSpellProto()->Id == 58875)
         target->CastSpell(target, 58876, true);
 }
@@ -5700,8 +5708,8 @@ void Aura::HandlePeriodicTriggerSpell(bool apply, bool /*Real*/)
             case 28522:                                     // Icebolt (Naxxramas: Sapphiron)
                 if (target->HasAura(45776))                 // Should trigger/remove some kind of iceblock
                     // not sure about ice block spell id
-                    target->RemoveAurasDueToSpell(45776); 
-                
+                    target->RemoveAurasDueToSpell(45776);
+
                 return;
             case 42783:                                     // Wrath of the Astrom...
                 if (m_removeMode == AURA_REMOVE_BY_EXPIRE && GetEffIndex() + 1 < MAX_EFFECT_INDEX)
@@ -7907,7 +7915,7 @@ void Aura::HandleSchoolAbsorb(bool apply, bool Real)
                 }
             }
         }
-        else if (caster && caster->GetTypeId() == TYPEID_PLAYER && spellProto->Id == 47788 && 
+        else if (caster && caster->GetTypeId() == TYPEID_PLAYER && spellProto->Id == 47788 &&
             m_removeMode == AURA_REMOVE_BY_EXPIRE)
         {
             if (Aura *aur = caster->GetAura(63231, EFFECT_INDEX_0))
@@ -10336,7 +10344,7 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
                     break;
                 }
                 case 63277:                                 // Shadow Crash (General Vezax - Ulduar)
-                {   
+                {
                     spellId1 = 65269;
                     break;
                 }
@@ -10565,6 +10573,31 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
                     spellId1 = 63311;
                 else
                     return;
+            }
+            // Shadow embrace (healing reduction part)
+            else if (m_spellProto->SpellFamilyFlags.test<CF_WARLOCK_MISC_DEBUFFS>() && m_spellProto->SpellIconID == 2209)
+            {
+                switch(GetId())
+                {
+                    case 32386:
+                        spellId1 = 60448;
+                        break;
+                    case 32388:
+                        spellId1 = 60465;
+                        break;
+                    case 32389:
+                        spellId1 = 60466;
+                        break;
+                    case 32390:
+                        spellId1 = 60467;
+                        break;
+                    case 32394:
+                        spellId1 = 60468;
+                        break;
+                    default:
+                        break;
+                }
+                break;
             }
             else
                 return;

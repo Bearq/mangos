@@ -2763,8 +2763,7 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                     if (GetTypeId() != TYPEID_PLAYER)
                         return SPELL_AURA_PROC_FAILED;
 
-                    if (procSpell->SpellFamilyFlags.test<CF_SHAMAN_LIGHTNING_BOLT>()
-                        || procSpell->SpellFamilyFlags.test<CF_SHAMAN_CHAIN_LIGHTNING>())
+                    if (procSpell->SpellFamilyFlags.test<CF_SHAMAN_LIGHTNING_BOLT, CF_SHAMAN_CHAIN_LIGHTNING>())
                     {
                         ((Player*)this)->SendModifyCooldown(16166,-triggerAmount);
                         return SPELL_AURA_PROC_OK;
@@ -4564,11 +4563,16 @@ SpellAuraProcResult Unit::HandleAddFlatModifierAuraProc(Unit* /*pVictim*/, uint3
 {
     SpellEntry const *spellInfo = triggeredByAura->GetSpellProto();
 
-    if (spellInfo->Id == 55166)                             // Tidal Force
+    switch (spellInfo->Id)
     {
-        // Remove only single aura from stack
-        if (triggeredByAura->GetStackAmount() > 1 && !triggeredByAura->GetHolder()->ModStackAmount(-1))
-            return SPELL_AURA_PROC_CANT_TRIGGER;
+        case 53257:                             // Cobra strike
+        case 55166:                             // Tidal Force
+            // Remove only single aura from stack
+            if (triggeredByAura->GetStackAmount() > 1 && !triggeredByAura->GetHolder()->ModStackAmount(-1))
+                return SPELL_AURA_PROC_CANT_TRIGGER;
+            break;
+        default:
+            break;
     }
 
     return SPELL_AURA_PROC_OK;
