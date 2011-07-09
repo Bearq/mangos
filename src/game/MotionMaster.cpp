@@ -67,8 +67,6 @@ void MotionMaster::UpdateMotion(uint32 diff)
     if (m_owner->hasUnitState(UNIT_STAT_CAN_NOT_MOVE))
         return;
 
-    if ( !empty() )
-    {
     MANGOS_ASSERT( !empty() );
     m_cleanFlag |= MMCF_UPDATE;
 
@@ -101,7 +99,6 @@ void MotionMaster::UpdateMotion(uint32 diff)
             m_cleanFlag &= ~MMCF_RESET;
         }
     }
-  } else return;
 }
 
 void MotionMaster::DirectClean(bool reset, bool all)
@@ -110,21 +107,16 @@ void MotionMaster::DirectClean(bool reset, bool all)
     {
         MovementGenerator *curr = top();
         pop();
+        curr->Finalize(*m_owner);
 
-        if (m_owner && m_owner->IsInWorld())
-            curr->Finalize(*m_owner);
-
-        if (!isStatic( curr ))
+        if (!isStatic(curr))
             delete curr;
     }
 
     if (!all && reset)
     {
-        if (!empty())
-        {
-            MANGOS_ASSERT( !empty() );
-            top()->Reset(*m_owner);
-        }
+        MANGOS_ASSERT( !empty() );
+        top()->Reset(*m_owner);
     }
 }
 
@@ -145,11 +137,9 @@ void MotionMaster::DelayedClean(bool reset, bool all)
     {
         MovementGenerator *curr = top();
         pop();
+        curr->Finalize(*m_owner);
 
-        if (m_owner && m_owner->IsInWorld())
-            curr->Finalize(*m_owner);
-
-        if (!isStatic( curr ))
+        if (!isStatic(curr))
             m_expList->push_back(curr);
     }
 }
@@ -308,14 +298,14 @@ void MotionMaster::MoveFollow(Unit* target, float dist, float angle)
         Mutate(new FollowMovementGenerator<Creature>(*target,dist,angle));
 }
 
-void MotionMaster::MovePoint(uint32 id, float x, float y, float z, bool usePathfinding)
+void MotionMaster::MovePoint(uint32 id, float x, float y, float z, bool generatePath)
 {
     DEBUG_FILTER_LOG(LOG_FILTER_AI_AND_MOVEGENSS, "%s targeted point (Id: %u X: %f Y: %f Z: %f)", m_owner->GetGuidStr().c_str(), id, x, y, z );
 
     if (m_owner->GetTypeId() == TYPEID_PLAYER)
-        Mutate(new PointMovementGenerator<Player>(id,x,y,z));
+        Mutate(new PointMovementGenerator<Player>(id,x,y,z,generatePath));
     else
-        Mutate(new PointMovementGenerator<Creature>(id,x,y,z));
+        Mutate(new PointMovementGenerator<Creature>(id,x,y,z,generatePath));
 }
 
 void MotionMaster::MoveSeekAssistance(float x, float y, float z)
@@ -449,12 +439,10 @@ void MotionMaster::propagateSpeedChange()
 
 MovementGeneratorType MotionMaster::GetCurrentMovementGeneratorType() const
 {
-    MovementGenerator* curr = empty() ? NULL : top();
-
-    if (curr)
-        return curr->GetMovementGeneratorType();
-    else
+    if (empty())
         return IDLE_MOTION_TYPE;
+
+    return top()->GetMovementGeneratorType();
 }
 
 bool MotionMaster::GetDestination(float &x, float &y, float &z)
