@@ -112,8 +112,7 @@ class AuctionHouseObject
 
         uint32 GetCount() { return AuctionsMap.size(); }
 
-        AuctionEntryMap *GetAuctions() { return &AuctionsMap; }
-
+        AuctionEntryMap const& GetAuctions() const { return AuctionsMap; }
         AuctionEntryMapBounds GetAuctionsBounds() const {return AuctionEntryMapBounds(AuctionsMap.begin(), AuctionsMap.end()); }
 
         void AddAuction(AuctionEntry *ah)
@@ -130,7 +129,7 @@ class AuctionHouseObject
 
         bool RemoveAuction(uint32 id)
         {
-            return AuctionsMap.erase(id) ? true : false;
+            return AuctionsMap.erase(id);
         }
 
         void Update();
