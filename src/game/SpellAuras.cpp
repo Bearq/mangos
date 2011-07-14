@@ -1055,7 +1055,7 @@ bool Aura::IsEffectStacking()
     SpellEntry const *spellProto = GetSpellProto();
 
     // generic check
-    if (spellProto->AttributesEx6 & (SPELL_ATTR_EX6_NO_STACK_DEBUFF | SPELL_ATTR_EX6_NO_STACK_BUFF))
+    if (spellProto->AttributesEx6 & (SPELL_ATTR_EX6_NO_STACK_DEBUFF_MAJOR | SPELL_ATTR_EX6_NO_STACK_BUFF))
     {
         // Mark/Gift of the Wild early exception check
         if (spellProto->IsFitToFamily(SPELLFAMILY_DRUID, UI64LIT(0x0000000000040000)))

@@ -288,7 +288,11 @@ enum UnitModifierType
     BASE_PCT = 1,
     TOTAL_VALUE = 2,
     TOTAL_PCT = 3,
-    MODIFIER_TYPE_END = 4
+    NONSTACKING_VALUE_POS = 4,
+    NONSTACKING_VALUE_NEG = 5,
+    NONSTACKING_PCT = 6,
+    NONSTACKING_PCT_MINOR = 7,
+    MODIFIER_TYPE_END = 8
 };
 
 enum WeaponDamageRange
@@ -360,6 +364,7 @@ enum BaseModGroup
     RANGED_CRIT_PERCENTAGE,
     OFFHAND_CRIT_PERCENTAGE,
     SHIELD_BLOCK_VALUE,
+    NONSTACKING_CRIT_PERCENTAGE,
     BASEMOD_END
 };
 
@@ -1355,7 +1360,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
 
         bool IsAllowedDamageInArea(Unit * pVictim) const;
 
-        void CalculateSpellDamage(SpellNonMeleeDamage *damageInfo, int32 damage, SpellEntry const *spellInfo, WeaponAttackType attackType = BASE_ATTACK);
+        void CalculateSpellDamage(SpellNonMeleeDamage *damageInfo, int32 damage, SpellEntry const *spellInfo, WeaponAttackType attackType = BASE_ATTACK, float targetSpellCoeff = 1.0f);
         void DealSpellDamage(SpellNonMeleeDamage *damageInfo, bool durabilityLoss);
 
         // player or player's pet resilience (-1%)
@@ -1600,6 +1605,8 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
 
         void _AddAura(uint32 spellID, uint32 duration = 60000);
 
+        float CheckAuraStackingAndApply(Aura *Aur, UnitMods unitMod, UnitModifierType modifierType, float amount, bool apply, int32 miscMask = 0, int32 miscValue = 0);
+
         // removing specific aura stack
         void RemoveAura(Aura* aura, AuraRemoveMode mode = AURA_REMOVE_BY_DEFAULT);
         void RemoveAura(uint32 spellId, SpellEffectIndex effindex, Aura* except = NULL);
@@ -1615,6 +1622,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         void RemoveAurasByCasterSpell(uint32 spellId, ObjectGuid casterGuid);
         void RemoveAurasDueToSpellBySteal(uint32 spellId, ObjectGuid casterGuid, Unit *stealer);
         void RemoveAurasDueToSpellByCancel(uint32 spellId);
+        void RemoveAllGroupBuffsFromCaster(ObjectGuid guidCaster);
 
         // removing unknown aura stacks by diff reasons and selections
         void RemoveNotOwnSingleTargetAuras(uint32 newPhase = 0x0);
@@ -1648,7 +1656,11 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
             for(int i = STAT_STRENGTH; i < MAX_STATS; ++i) SetFloatValue(UNIT_FIELD_POSSTAT0+i, 0);
             for(int i = STAT_STRENGTH; i < MAX_STATS; ++i) SetFloatValue(UNIT_FIELD_NEGSTAT0+i, 0);
         }
-        void ApplyStatBuffMod(Stats stat, float val, bool apply) { ApplyModSignedFloatValue((val > 0 ? UNIT_FIELD_POSSTAT0+stat : UNIT_FIELD_NEGSTAT0+stat), val, apply); }
+        void ApplyStatBuffMod(Stats stat, float val, bool apply)
+        {
+            val *= GetModifierValue(UnitMods(UNIT_MOD_STAT_STRENGTH+stat), TOTAL_PCT);
+            ApplyModSignedFloatValue((val > 0 ? UNIT_FIELD_POSSTAT0+stat : UNIT_FIELD_NEGSTAT0+stat), val, apply);
+        }
         void ApplyStatPercentBuffMod(Stats stat, float val, bool apply)
         {
             ApplyPercentModFloatValue(UNIT_FIELD_POSSTAT0+stat, val, apply);
@@ -1720,7 +1732,9 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         int32 m_baseSpellCritChance;
 
         float m_threatModifier[MAX_SPELL_SCHOOL];
-        float m_modAttackSpeedPct[3];
+        float m_modAttackSpeedPct[MAX_ATTACK + 2];
+        float m_modSpellSpeedPctNeg;
+        float m_modSpellSpeedPctPos;
 
         // Event handler
         EventProcessor m_Events;
@@ -1823,18 +1837,18 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
 
         int32 GetTotalAuraModifier(AuraType auratype) const;
         float GetTotalAuraMultiplier(AuraType auratype) const;
-        int32 GetMaxPositiveAuraModifier(AuraType auratype) const;
-        int32 GetMaxNegativeAuraModifier(AuraType auratype) const;
+        int32 GetMaxPositiveAuraModifier(AuraType auratype, bool nonStackingOnly = false) const;
+        int32 GetMaxNegativeAuraModifier(AuraType auratype, bool nonStackingOnly = false) const;
 
         int32 GetTotalAuraModifierByMiscMask(AuraType auratype, uint32 misc_mask) const;
         float GetTotalAuraMultiplierByMiscMask(AuraType auratype, uint32 misc_mask) const;
-        int32 GetMaxPositiveAuraModifierByMiscMask(AuraType auratype, uint32 misc_mask) const;
-        int32 GetMaxNegativeAuraModifierByMiscMask(AuraType auratype, uint32 misc_mask) const;
+        int32 GetMaxPositiveAuraModifierByMiscMask(AuraType auratype, uint32 misc_mask, bool nonStackingOnly = false) const;
+        int32 GetMaxNegativeAuraModifierByMiscMask(AuraType auratype, uint32 misc_mask, bool nonStackingOnly = false) const;
 
         int32 GetTotalAuraModifierByMiscValue(AuraType auratype, int32 misc_value) const;
         float GetTotalAuraMultiplierByMiscValue(AuraType auratype, int32 misc_value) const;
-        int32 GetMaxPositiveAuraModifierByMiscValue(AuraType auratype, int32 misc_value) const;
-        int32 GetMaxNegativeAuraModifierByMiscValue(AuraType auratype, int32 misc_value) const;
+        int32 GetMaxPositiveAuraModifierByMiscValue(AuraType auratype, int32 misc_value, bool nonStackingOnly = false) const;
+        int32 GetMaxNegativeAuraModifierByMiscValue(AuraType auratype, int32 misc_value, bool nonStackingOnly = false) const;
 
         // misc have plain value but we check it fit to provided values mask (mask & (1 << (misc-1)))
         float GetTotalAuraMultiplierByMiscValueForMask(AuraType auratype, uint32 mask) const;
@@ -1878,7 +1892,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         int32 SpellBonusWithCoeffs(SpellEntry const *spellProto, int32 total, int32 benefit, int32 ap_benefit, DamageEffectType damagetype, bool donePart, float defCoeffMod = 1.0f);
         int32 SpellBaseDamageBonusDone(SpellSchoolMask schoolMask);
         int32 SpellBaseDamageBonusTaken(SpellSchoolMask schoolMask);
-        uint32 SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, uint32 pdamage, DamageEffectType damagetype, uint32 stack = 1);
+        uint32 SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, uint32 pdamage, DamageEffectType damagetype, uint32 stack = 1, float targetSpellCoeff = 1.0f);
         uint32 SpellDamageBonusTaken(Unit *pCaster, SpellEntry const *spellProto, uint32 pdamage, DamageEffectType damagetype, uint32 stack = 1);
         int32 SpellBaseHealingBonusDone(SpellSchoolMask schoolMask);
         int32 SpellBaseHealingBonusTaken(SpellSchoolMask schoolMask);
@@ -2066,6 +2080,8 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         bool IsAINotifyScheduled() const { return m_AINotifyScheduled;}
         void _SetAINotifyScheduled(bool on) { m_AINotifyScheduled = on;}       // only for call from RelocationNotifyEvent code
         void OnRelocated();
+        // grid searcher ported from mangos
+        void GetGameObjectListWithEntryInGrid(std::list<GameObject*>& lList , WorldObject* pSource, uint32 uiEntry, float fMaxSearchRange);
 
     protected:
         explicit Unit ();
