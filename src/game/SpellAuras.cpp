@@ -1055,7 +1055,7 @@ bool Aura::IsEffectStacking()
     SpellEntry const *spellProto = GetSpellProto();
 
     // generic check
-    if (spellProto->AttributesEx6 & (SPELL_ATTR_EX6_NO_STACK_DEBUFF | SPELL_ATTR_EX6_NO_STACK_BUFF))
+    if (spellProto->AttributesEx6 & (SPELL_ATTR_EX6_NO_STACK_DEBUFF_MAJOR | SPELL_ATTR_EX6_NO_STACK_BUFF))
     {
         // Mark/Gift of the Wild early exception check
         if (spellProto->IsFitToFamily(SPELLFAMILY_DRUID, UI64LIT(0x0000000000040000)))
@@ -6221,6 +6221,9 @@ void Aura::HandlePeriodicDamage(bool apply, bool Real)
             target->CastSpell(target, 74607, true, NULL, NULL, GetCasterGuid());
         else if (spellProto->Id == 74792) // SPELL_SOUL_CONSUMPTION - Ruby sanctum boss Halion
             target->CastSpell(target, 74799, true, NULL, NULL, GetCasterGuid());
+        // Void Shifted 
+        else if (spellProto->Id == 54361 || spellProto->Id == 59743) 
+            target->CastSpell(target, 54343, true, NULL, NULL, GetCaster()->GetObjectGuid());
     }
 }
 

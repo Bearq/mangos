@@ -9255,6 +9255,7 @@ void Unit::SetDeathState(DeathState s)
         UnsummonAllTotems();
 
         StopMoving();
+        DisableSpline();
 
         ModifyAuraState(AURA_STATE_HEALTHLESS_20_PERCENT, false);
         ModifyAuraState(AURA_STATE_HEALTHLESS_35_PERCENT, false);
@@ -12168,6 +12169,11 @@ SpellAuraHolder* Unit::GetSpellAuraHolder (uint32 spellid, ObjectGuid casterGuid
             return iter->second;
 
     return NULL;
+}
+
+void Unit::RemoveUnitFromHostileRefManager(Unit* pUnit) 
+{ 
+    getHostileRefManager().deleteReference(pUnit); 
 }
 
 void Unit::_AddAura(uint32 spellID, uint32 duration)
