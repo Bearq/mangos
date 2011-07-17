@@ -205,7 +205,7 @@ pEffect SpellEffects[TOTAL_SPELL_EFFECTS]=
     &Spell::EffectTriggerSpellWithValue,                    //142 SPELL_EFFECT_TRIGGER_SPELL_WITH_VALUE
     &Spell::EffectApplyAreaAura,                            //143 SPELL_EFFECT_APPLY_AREA_AURA_OWNER
     &Spell::EffectNULL,                                     //144 SPELL_EFFECT_144                      Spectral Blast
-    &Spell::EffectSuspendGravity,                           //145 SPELL_EFFECT_145                      Black Hole Effect
+    &Spell::EffectSuspendGravity,                           //145 SPELL_EFFECT_SUSPEND_GRAVITY          Black Hole Effect
     &Spell::EffectActivateRune,                             //146 SPELL_EFFECT_ACTIVATE_RUNE
     &Spell::EffectQuestFail,                                //147 SPELL_EFFECT_QUEST_FAIL               quest fail
     &Spell::EffectNULL,                                     //148 SPELL_EFFECT_148                      single spell: Inflicts Fire damage to an enemy.
@@ -228,18 +228,6 @@ pEffect SpellEffects[TOTAL_SPELL_EFFECTS]=
 };
 
 
-void Spell::EffectSuspendGravity(SpellEffectIndex eff_idx)
-{
-    if (!unitTarget)
-        return;                
-
-    float fTargetX, fTargetY, fTargetZ;
-    unitTarget->GetPosition(fTargetX, fTargetY, fTargetZ);
-    float mapZ = unitTarget->GetTerrain()->GetHeight(fTargetX, fTargetY, fTargetZ);
-    float radius = m_spellInfo->EffectMiscValue[eff_idx]/10;
-    if (fTargetZ < mapZ + 0.5)
-        unitTarget->KnockBackFrom(m_caster, -radius, radius);
-}
 void Spell::EffectEmpty(SpellEffectIndex /*eff_idx*/)
 {
     // NOT NEED ANY IMPLEMENTATION CODE, EFFECT POSISBLE USED AS MARKER OR CLIENT INFORM
@@ -372,6 +360,15 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                         damage+= uint32(m_caster->GetTotalAttackPowerValue(BASE_ATTACK) * 0.12f);
                         break;
                     }
+                    // Mana Detonation
+                    case 27820:
+                    {
+                        if (unitTarget == m_caster)
+                            damage = 0;
+                        else
+                            damage = m_caster->GetMaxPower(POWER_MANA);
+                        break;
+                    }
                     case 28375: // Decimate (Gluth encounter)
                     {
                         // leave only 5% HP
@@ -381,15 +378,6 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                             damage = 0;
                             unitTarget->SetHealthPercent(5.0f);
                         }
-                    }
-                    // Mana Detonation
-                    case 27820:
-                    {
-                        if (unitTarget == m_caster)
-                            damage = 0;
-                        else
-                            damage = m_caster->GetMaxPower(POWER_MANA);
-                        break;
                     }
                     // percent max target health
                     case 29142:                             // Eyesore Blaster
@@ -470,7 +458,8 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                     // Flame Tsunami (Sartharion encounter)
                     case 57491:
                     {
-                        if (!unitTarget || (unitTarget && unitTarget->HasAura(60241)) )
+                        // knock back only once
+                        if (unitTarget->HasAura(60241))
                             return;
 
                         unitTarget->SetOrientation(m_caster->GetOrientation()+M_PI_F);
@@ -2617,15 +2606,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     }
                     return;
                 }
-                case 54850:                                 // Emerge (Gundrak: Colossus)
-                {
-                    if (!unitTarget)
-                        return;
-                    // Emerge Summon and Cosmetic - Stun (Permanent) Colossus
-                    unitTarget->CastSpell(unitTarget, 54851, true);
-                    unitTarget->CastSpell(unitTarget, 54852, true);
-                    return;
-                }
                 case 54092:                                 // Monster Slayer's Kit 
                 { 
                     uint32 spell_id = 0; 
@@ -2639,6 +2619,15 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     } 
                     m_caster->CastSpell(unitTarget,spell_id,true,NULL); 
                     return; 
+                }
+                case 54850:                                 // Emerge (Gundrak: Colossus)
+                {
+                    if (!unitTarget)
+                        return;
+                    // Emerge Summon and Cosmetic - Stun (Permanent) Colossus
+                    unitTarget->CastSpell(unitTarget, 54851, true);
+                    unitTarget->CastSpell(unitTarget, 54852, true);
+                    return;
                 }
                 case 55004:                                 // Nitro Boosts
                 {
@@ -4592,7 +4581,7 @@ void Spell::EffectPowerBurn(SpellEffectIndex eff_idx)
     }
 }
 
-void Spell::EffectHeal(SpellEffectIndex /*eff_idx*/)
+void Spell::EffectHeal(SpellEffectIndex eff_idx)
 {
     if (unitTarget && unitTarget->isAlive() && damage >= 0)
     {
@@ -4692,13 +4681,15 @@ void Spell::EffectHeal(SpellEffectIndex /*eff_idx*/)
         }
 
         addhealth = caster->SpellHealingBonusDone(unitTarget, m_spellInfo, addhealth, HEAL);
+        if (m_applyMultiplierMask & (1 << eff_idx))
+            addhealth = int32(addhealth * m_damageMultipliers[eff_idx]);
         addhealth = unitTarget->SpellHealingBonusTaken(caster, m_spellInfo, addhealth, HEAL);
 
         m_healing += addhealth;
     }
 }
 
-void Spell::EffectHealPct(SpellEffectIndex /*eff_idx*/)
+void Spell::EffectHealPct(SpellEffectIndex eff_idx)
 {
     if (unitTarget && unitTarget->isAlive() && damage >= 0)
     {
@@ -4710,6 +4701,8 @@ void Spell::EffectHealPct(SpellEffectIndex /*eff_idx*/)
         uint32 addhealth = unitTarget->GetMaxHealth() * damage / 100;
 
         addhealth = caster->SpellHealingBonusDone(unitTarget, m_spellInfo, addhealth, HEAL);
+        if (m_applyMultiplierMask & (1 << eff_idx))
+            addhealth = int32(addhealth * m_damageMultipliers[eff_idx]);
         addhealth = unitTarget->SpellHealingBonusTaken(caster, m_spellInfo, addhealth, HEAL);
 
         uint32 absorb = 0;
@@ -4720,7 +4713,7 @@ void Spell::EffectHealPct(SpellEffectIndex /*eff_idx*/)
     }
 }
 
-void Spell::EffectHealMechanical(SpellEffectIndex /*eff_idx*/)
+void Spell::EffectHealMechanical(SpellEffectIndex eff_idx)
 {
     // Mechanic creature type should be correctly checked by targetCreatureType field
     if (unitTarget && unitTarget->isAlive() && damage >= 0)
@@ -4731,6 +4724,8 @@ void Spell::EffectHealMechanical(SpellEffectIndex /*eff_idx*/)
             return;
 
         uint32 addhealth = caster->SpellHealingBonusDone(unitTarget, m_spellInfo, damage, HEAL);
+        if (m_applyMultiplierMask & (1 << eff_idx))
+            addhealth = int32(addhealth * m_damageMultipliers[eff_idx]);
         addhealth = unitTarget->SpellHealingBonusTaken(caster, m_spellInfo, addhealth, HEAL);
 
         uint32 absorb = 0;
@@ -7379,14 +7374,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                         DoCreateItem(eff_idx,item);
                     return;
                 }
-                case 28560:                                 // Summon Blizzard
-                {
-                    if (!unitTarget)
-                        return;
-
-                    m_caster->SummonCreature(16474, unitTarget->GetPositionX(), unitTarget->GetPositionY(), unitTarget->GetPositionZ(), 0.0f, TEMPSUMMON_TIMED_DESPAWN, 30000);
-                    return;
-                }
                 case 28374:                                 // Decimate (Gluth encounter)
                 {
                     if (unitTarget && unitTarget != m_caster)
@@ -7395,6 +7382,14 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                             m_caster->CastSpell(unitTarget, 28375, true);
                     }
                     break;
+                }
+                case 28560:                                 // Summon Blizzard
+                {
+                    if (!unitTarget)
+                        return;
+
+                    m_caster->SummonCreature(16474, unitTarget->GetPositionX(), unitTarget->GetPositionY(), unitTarget->GetPositionZ(), 0.0f, TEMPSUMMON_TIMED_DESPAWN, 30000);
+                    return;
                 }
                 case 29830:                                 // Mirren's Drinking Hat
                 {
@@ -10288,11 +10283,6 @@ void Spell::EffectKnockBack(SpellEffectIndex eff_idx)
     if(!unitTarget)
         return;
 
-    // Can't knockback world bosses (don't know any exceptions)
-    if (unitTarget->GetTypeId() != TYPEID_PLAYER)
-        if (((Creature*)unitTarget)->IsWorldBoss())
-            return;
-
     // Can't knockback unit underwater
     if (unitTarget->IsInWater())
         return;
@@ -10301,18 +10291,23 @@ void Spell::EffectKnockBack(SpellEffectIndex eff_idx)
     if (unitTarget->hasUnitState(UNIT_STAT_ROOT))
         return;
 
+    // Can't knockback world bosses (don't know any exceptions)
+    if (unitTarget->GetTypeId() != TYPEID_PLAYER)
+        if (((Creature*)unitTarget)->IsWorldBoss())
+            return;
+
     // Typhoon
-    if (m_spellInfo->SpellFamilyName == SPELLFAMILY_DRUID && m_spellInfo->SpellFamilyFlags & UI64LIT(0x100000000000000) )
+    if (m_spellInfo->SpellFamilyName == SPELLFAMILY_DRUID && m_spellInfo->SpellFamilyFlags.test<CF_DRUID_TYPHOON>())
         if (m_caster->HasAura(62135)) // Glyph of Typhoon
             return;
 
     // Thunderstorm
-    if (m_spellInfo->SpellFamilyName == SPELLFAMILY_SHAMAN && m_spellInfo->SpellFamilyFlags & UI64LIT(0x00200000000000))
+    if (m_spellInfo->SpellFamilyName == SPELLFAMILY_SHAMAN && m_spellInfo->SpellFamilyFlags.test<CF_SHAMAN_THUNDERSTORM>())
         if (m_caster->HasAura(62132)) // Glyph of Thunderstorm
             return;
 
     // Blast Wave
-    if (m_spellInfo->SpellFamilyName == SPELLFAMILY_MAGE && m_spellInfo->SpellFamilyFlags & UI64LIT(0x0004000000000))
+    if (m_spellInfo->SpellFamilyName == SPELLFAMILY_MAGE && m_spellInfo->SpellFamilyFlags.test<CF_MAGE_BLAST_WAVE2, CF_MAGE_BLAST_WAVE1>())
         if (m_caster->HasAura(62126)) // Glyph of Blast Wave
             return;
 
@@ -11194,4 +11189,17 @@ void Spell::EffectServerSide(SpellEffectIndex eff_idx)
         default:
             break;
     }
+}
+
+void Spell::EffectSuspendGravity(SpellEffectIndex eff_idx)
+{
+    if (!unitTarget)
+        return;                
+
+    float fTargetX, fTargetY, fTargetZ;
+    unitTarget->GetPosition(fTargetX, fTargetY, fTargetZ);
+    float mapZ = unitTarget->GetTerrain()->GetHeight(fTargetX, fTargetY, fTargetZ);
+    float radius = m_spellInfo->EffectMiscValue[eff_idx]/10;
+    if (fTargetZ < mapZ + 0.5)
+        unitTarget->KnockBackFrom(m_caster, -radius, radius);
 }

@@ -2887,6 +2887,11 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                     if (currSpell->m_targets.getUnitTarget() != pVictim)
                         return SPELL_AURA_PROC_FAILED;
 
+                // proc for main target only
+                if (Spell *currSpell = GetCurrentSpell(CURRENT_GENERIC_SPELL))
+                    if (currSpell->m_targets.getUnitTarget() != pVictim)
+                        return SPELL_AURA_PROC_FAILED;
+
                 // custom cooldown processing case
                 if( cooldown && GetTypeId()==TYPEID_PLAYER && ((Player*)this)->HasSpellCooldown(dummySpell->Id))
                     return SPELL_AURA_PROC_FAILED;
@@ -3571,10 +3576,13 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
                     return SPELL_AURA_PROC_FAILED;
             }
             // Missile Barrage
-            else if (auraSpellInfo->SpellIconID == 3261 && procSpell->SpellIconID != 2294)
+            else if (auraSpellInfo->SpellIconID == 3261)
             {
                 // proc chance for spells other than Arcane Blast is always 2 times lower, so we have to roll for 50% now
-                if(!roll_chance_i(50))
+                if(procSpell->SpellIconID != 2294 && !roll_chance_i(50))
+                    return SPELL_AURA_PROC_FAILED;
+
+                if (HasAura(44401) || HasAura(57761))
                     return SPELL_AURA_PROC_FAILED;
                 break;
             }
