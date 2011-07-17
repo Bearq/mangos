@@ -696,6 +696,7 @@ int AuctionEntry::CompareAuctionEntry(uint32 column, const AuctionEntry *auc, Pl
             else if (bidder > auc->bidder)
                 return +1;
             break;
+/*
         case 5:                                             // name = 5
         {
             int32 loc_idx = viewPlayer->GetSession()->GetSessionDbLocaleIndex();
@@ -720,6 +721,7 @@ int AuctionEntry::CompareAuctionEntry(uint32 column, const AuctionEntry *auc, Pl
             Utf8toWStr(name2, wname2);
             return wname1.compare(wname2);
         }
+*/
         case 6:                                             // minbidbuyout = 6
             if (bid)
             {
