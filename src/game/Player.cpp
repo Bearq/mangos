@@ -277,26 +277,6 @@ std::ostringstream& operator<< (std::ostringstream& ss, PlayerTaxi const& taxi)
         ss << taxi.m_taximask[i] << " ";
     return ss;
 }
-
-SpellModifier::SpellModifier( SpellModOp _op, SpellModType _type, int32 _value, SpellEntry const* spellEntry, SpellEffectIndex eff, int16 _charges /*= 0*/ ) : op(_op), type(_type), charges(_charges), value(_value), spellId(spellEntry->Id), lastAffected(NULL)
-{
-    mask = spellEntry->GetEffectSpellClassMask(eff);
-}
-
-SpellModifier::SpellModifier( SpellModOp _op, SpellModType _type, int32 _value, Aura const* aura, int16 _charges /*= 0*/ ) : op(_op), type(_type), charges(_charges), value(_value), spellId(aura->GetId()), lastAffected(NULL)
-{
-    mask = aura->GetAuraSpellClassMask();
-}
-
-bool SpellModifier::isAffectedOnSpell( SpellEntry const *spell ) const
-{
-    SpellEntry const *affect_spell = sSpellStore.LookupEntry(spellId);
-    // False if affect_spell == NULL or spellFamily not equal
-    if (!affect_spell || affect_spell->SpellFamilyName != spell->SpellFamilyName)
-        return false;
-    return spell->IsFitToFamilyMask(mask);
-}
-
 //== TradeData =================================================
 
 TradeData* TradeData::GetTraderData() const
@@ -440,8 +420,6 @@ Player::Player (WorldSession *session): Unit(), m_mover(this), m_camera(this), m
     m_nextSave = urand(m_nextSave/2,m_nextSave*3/2);
 
     clearResurrectRequestData();
-
-    m_SpellModRemoveCount = 0;
 
     memset(m_items, 0, sizeof(Item*)*PLAYER_SLOTS_COUNT);
 
@@ -6689,13 +6667,13 @@ void Player::RewardReputation(Unit *pVictim, float rate)
     uint32 Repfaction1 = Rep->repfaction1;
     uint32 Repfaction2 = Rep->repfaction2;
     uint32 tabardFactionID = 0;
-    
+
     // Championning tabard reputation system
     if(HasAura(Rep->championingAura))
     {
         if( Item* pItem = GetItemByPos( INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_TABARD ) )
-        {                 
-            if ( tabardFactionID = pItem->GetProto()->RequiredReputationFaction ) 
+        {
+            if ( tabardFactionID = pItem->GetProto()->RequiredReputationFaction )
             {
                 Repfaction1 = tabardFactionID;
                 Repfaction2 = tabardFactionID;
@@ -7602,8 +7580,8 @@ void Player::_ApplyItemBonuses(ItemPrototype const *proto, uint8 slot, bool appl
             case ITEM_MOD_SPELL_POWER:
                 ApplySpellPowerBonus(int32(val), apply);
                 break;
-            case ITEM_MOD_HEALTH_REGEN:  
-                ApplyHealthRegenBonus(int32(val), apply);  
+            case ITEM_MOD_HEALTH_REGEN:
+                ApplyHealthRegenBonus(int32(val), apply);
                 break;
             case ITEM_MOD_SPELL_PENETRATION:
                 ApplyModInt32Value(PLAYER_FIELD_MOD_TARGET_RESISTANCE, -int32(val), apply);
@@ -9218,6 +9196,41 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
             }
             break;
         case 3703:                                          // Shattrath City
+            break;
+        case 4384:                                          // SA
+            if (bg && bg->GetTypeID(true) == BATTLEGROUND_SA)
+                bg->FillInitialWorldStates(data, count);
+            else
+            {
+                // 1-3 A defend, 4-6 H defend, 7-9 unk defend, 1 - ok, 2 - half destroyed, 3 - destroyed
+                data << uint32(0xf09) << uint32(0x4);       // 7  3849 Gate of Temple
+                data << uint32(0xe36) << uint32(0x4);       // 8  3638 Gate of Yellow Moon
+                data << uint32(0xe27) << uint32(0x4);       // 9  3623 Gate of Green Emerald
+                data << uint32(0xe24) << uint32(0x4);       // 10 3620 Gate of Blue Sapphire
+                data << uint32(0xe21) << uint32(0x4);       // 11 3617 Gate of Red Sun
+                data << uint32(0xe1e) << uint32(0x4);       // 12 3614 Gate of Purple Ametyst
+
+                data << uint32(0xdf3) << uint32(0x0);       // 13 3571 bonus timer (1 - on, 0 - off)
+                data << uint32(0xded) << uint32(0x0);       // 14 3565 Horde Attacker
+                data << uint32(0xdec) << uint32(0x1);       // 15 3564 Alliance Attacker
+                // End Round (timer), better explain this by example, eg. ends in 19:59 -> A:BC
+                data << uint32(0xde9) << uint32(0x9);       // 16 3561 C
+                data << uint32(0xde8) << uint32(0x5);       // 17 3560 B
+                data << uint32(0xde7) << uint32(0x19);      // 18 3559 A
+                data << uint32(0xe35) << uint32(0x1);       // 19 3637 East g - Horde control
+                data << uint32(0xe34) << uint32(0x1);       // 20 3636 West g - Horde control
+                data << uint32(0xe33) << uint32(0x1);       // 21 3635 South g - Horde control
+                data << uint32(0xe32) << uint32(0x0);       // 22 3634 East g - Alliance control
+                data << uint32(0xe31) << uint32(0x0);       // 23 3633 West g - Alliance control
+                data << uint32(0xe30) << uint32(0x0);       // 24 3632 South g - Alliance control
+                data << uint32(0xe2f) << uint32(0x1);       // 25 3631 Chamber of Ancients - Horde control
+                data << uint32(0xe2e) << uint32(0x0);       // 26 3630 Chamber of Ancients - Alliance control
+                data << uint32(0xe2d) << uint32(0x0);       // 27 3629 Beach1 - Horde control
+                data << uint32(0xe2c) << uint32(0x0);       // 28 3628 Beach2 - Horde control
+                data << uint32(0xe2b) << uint32(0x1);       // 29 3627 Beach1 - Alliance control
+                data << uint32(0xe2a) << uint32(0x1);       // 30 3626 Beach2 - Alliance control
+                // and many unks...
+            }
             break;
         default:
             FillInitialWorldState(data,count, 0x914, 0x0);  // 2324 7
@@ -14119,36 +14132,13 @@ void Player::SendPreparedQuest(ObjectGuid guid)
             {
                 qe = gossiptext->Options[0].Emotes[0];
 
-                if(!gossiptext->Options[0].Text_0.empty())
-                {
-                    title = gossiptext->Options[0].Text_0;
+                int loc_idx = GetSession()->GetSessionDbLocaleIndex();
 
-                    int loc_idx = GetSession()->GetSessionDbLocaleIndex();
-                    if (loc_idx >= 0)
-                    {
-                        NpcTextLocale const *nl = sObjectMgr.GetNpcTextLocale(textid);
-                        if (nl)
-                        {
-                            if ((int32)nl->Text_0[0].size() > loc_idx && !nl->Text_0[0][loc_idx].empty())
-                                title = nl->Text_0[0][loc_idx];
-                        }
-                    }
-                }
-                else
-                {
-                    title = gossiptext->Options[0].Text_1;
+                std::string title0 = gossiptext->Options[0].Text_0;
+                std::string title1 = gossiptext->Options[0].Text_1;
+                sObjectMgr.GetNpcTextLocaleStrings0(textid, loc_idx, &title0, &title1);
 
-                    int loc_idx = GetSession()->GetSessionDbLocaleIndex();
-                    if (loc_idx >= 0)
-                    {
-                        NpcTextLocale const *nl = sObjectMgr.GetNpcTextLocale(textid);
-                        if (nl)
-                        {
-                            if ((int32)nl->Text_1[0].size() > loc_idx && !nl->Text_1[0][loc_idx].empty())
-                                title = nl->Text_1[0][loc_idx];
-                        }
-                    }
-                }
+                title = !title0.empty() ? title0 : title1;
             }
         }
         PlayerTalkClass->SendQuestGiverQuestList(qe, title, guid);
@@ -14578,14 +14568,14 @@ void Player::RewardQuest(Quest const *pQuest, uint32 reward, Object* questGiver,
             DestroyItemCount(pQuest->ReqItemId[i], pQuest->ReqItemCount[i], true);
     }
 
-    // Destroy quest item  
-    uint32 srcitem = pQuest->GetSrcItemId();  
-    if (srcitem > 0)  
-    {  
-        uint32 count = pQuest->GetSrcItemCount();  
-        if (count <= 0)  
-            count = 1;  
-        DestroyItemCount(srcitem, count, true, true);  
+    // Destroy quest item
+    uint32 srcitem = pQuest->GetSrcItemId();
+    if (srcitem > 0)
+    {
+        uint32 count = pQuest->GetSrcItemCount();
+        if (count <= 0)
+            count = 1;
+        DestroyItemCount(srcitem, count, true, true);
     }
 
     RemoveTimedQuest(quest_id);
@@ -15826,22 +15816,13 @@ void Player::SendQuestConfirmAccept(const Quest* pQuest, Player* pReceiver)
 {
     if (pReceiver)
     {
-        std::string strTitle = pQuest->GetTitle();
-
         int loc_idx = pReceiver->GetSession()->GetSessionDbLocaleIndex();
+        std::string title = pQuest->GetTitle();
+        sObjectMgr.GetQuestLocaleStrings(pQuest->GetQuestId(), loc_idx, &title);
 
-        if (loc_idx >= 0)
-        {
-            if (const QuestLocale* pLocale = sObjectMgr.GetQuestLocale(pQuest->GetQuestId()))
-            {
-                if ((int32)pLocale->Title.size() > loc_idx && !pLocale->Title[loc_idx].empty())
-                    strTitle = pLocale->Title[loc_idx];
-            }
-        }
-
-        WorldPacket data(SMSG_QUEST_CONFIRM_ACCEPT, (4 + strTitle.size() + 8));
+        WorldPacket data(SMSG_QUEST_CONFIRM_ACCEPT, (4 + title.size() + 8));
         data << uint32(pQuest->GetQuestId());
-        data << strTitle;
+        data << title;
         data << GetObjectGuid();
         pReceiver->GetSession()->SendPacket(&data);
 
@@ -17750,7 +17731,7 @@ void Player::SendRaidInfo()
                 data << ObjectGuid(state->GetInstanceGuid());   // instance guid
                 data << uint8((state->GetResetTime() > now) ? 1 : 0 );   // expired = 0
                 data << uint8(itr->second.extend ? 1 : 0);      // extended = 1
-                data << uint32(state->GetResetTime() > now ? state->GetResetTime() - now 
+                data << uint32(state->GetResetTime() > now ? state->GetResetTime() - now
                     : DungeonResetScheduler::CalculateNextResetTime(GetMapDifficultyData(state->GetMapId(), state->GetDifficulty()), now));    // reset time
                 ++counter;
             }
@@ -19425,110 +19406,34 @@ void Player::RemovePetActionBar()
     SendDirectMessage(&data);
 }
 
-bool Player::IsAffectedBySpellmod(SpellEntry const *spellInfo, SpellModifier *mod, Spell const* spell)
+void Player::AddSpellMod(Aura* aura, bool apply)
 {
-    if (!mod || !spellInfo)
-        return false;
-
-    if(mod->charges == -1 && mod->lastAffected )            // marked as expired but locked until spell casting finish
-    {
-        // prevent apply to any spell except spell that trigger expire
-        if(spell)
-        {
-            if(mod->lastAffected != spell)
-                return false;
-        }
-        else if(mod->lastAffected != FindCurrentSpellBySpellId(spellInfo->Id))
-            return false;
-    }
-
-    return mod->isAffectedOnSpell(spellInfo);
-}
-
-void Player::AddSpellMod(SpellModifier* mod, bool apply)
-{
-    if (!mod)
-        return;
-
-    uint16 Opcode= (mod->type == SPELLMOD_FLAT) ? SMSG_SET_FLAT_SPELL_MODIFIER : SMSG_SET_PCT_SPELL_MODIFIER;
+    Modifier const* mod = aura->GetModifier();
+    uint16 Opcode= (mod->m_auraname == SPELL_AURA_ADD_FLAT_MODIFIER) ? SMSG_SET_FLAT_SPELL_MODIFIER : SMSG_SET_PCT_SPELL_MODIFIER;
 
     for(int eff = 0; eff < 96; ++eff)
     {
-        if (mod->mask.test(eff))
+        if (aura->GetSpellProto()->SpellFamilyFlags.test(eff))
         {
             int32 val = 0;
-            for (SpellModList::const_iterator itr = m_spellMods[mod->op].begin(); itr != m_spellMods[mod->op].end(); ++itr)
+            for (AuraList::const_iterator itr = m_spellMods[mod->m_miscvalue].begin(); itr != m_spellMods[mod->m_miscvalue].end(); ++itr)
             {
-                if ((*itr)->type == mod->type && (*itr)->mask.test(eff))
-                    val += (*itr)->value;
+                if ((*itr)->GetModifier()->m_auraname == mod->m_auraname && ((*itr)->GetSpellProto()->SpellFamilyFlags.test(eff)))
+                    val += (*itr)->GetModifier()->m_amount;
             }
-            val += apply ? mod->value : -(mod->value);
+            val += apply ? mod->m_amount : -(mod->m_amount);
             WorldPacket data(Opcode, (1+1+4));
             data << uint8(eff);
-            data << uint8(mod->op);
+            data << uint8(mod->m_miscvalue);
             data << int32(val);
             SendDirectMessage(&data);
         }
     }
 
     if (apply)
-        m_spellMods[mod->op].push_back(mod);
+        m_spellMods[mod->m_miscvalue].push_back(aura);
     else
-    {
-        if (mod->charges == -1)
-            --m_SpellModRemoveCount;
-        m_spellMods[mod->op].remove(mod);
-        delete mod;
-    }
-}
-
-void Player::RemoveSpellMods(Spell const* spell)
-{
-    if (!spell || (m_SpellModRemoveCount == 0))
-        return;
-
-    for(int i = 0; i < MAX_SPELLMOD; ++i)
-    {
-        for (SpellModList::const_iterator itr = m_spellMods[i].begin(); itr != m_spellMods[i].end();)
-        {
-            SpellModifier *mod = *itr;
-            ++itr;
-
-            if (mod && mod->charges == -1 && (mod->lastAffected == spell || mod->lastAffected==NULL))
-            {
-                RemoveAurasDueToSpell(mod->spellId);
-                if (m_spellMods[i].empty())
-                    break;
-                else
-                    itr = m_spellMods[i].begin();
-            }
-        }
-    }
-}
-
-void Player::ResetSpellModsDueToCanceledSpell (Spell const* spell)
-{
-    for(int i = 0; i < MAX_SPELLMOD; ++i )
-    {
-        for (SpellModList::const_iterator itr = m_spellMods[i].begin(); itr != m_spellMods[i].end(); ++itr)
-        {
-            SpellModifier *mod = *itr;
-
-            if (mod->lastAffected != spell)
-                continue;
-
-            mod->lastAffected = NULL;
-
-            if (mod->charges == -1)
-            {
-                mod->charges = 1;
-                if (m_SpellModRemoveCount > 0)
-                    --m_SpellModRemoveCount;
-            }
-            else if (mod->charges > 0)
-                ++mod->charges;
-        }
-    }
+        m_spellMods[mod->m_miscvalue].remove(aura);
 }
 
 // send Proficiency
@@ -24036,7 +23941,7 @@ ReferAFriendError Player::GetReferFriendError(Player * target, bool summon)
     return ERR_REFER_A_FRIEND_NONE;
 }
 
-void Player::ChangeGrantableLevels(uint8 increase) 
+void Player::ChangeGrantableLevels(uint8 increase)
 {
     if (increase)
     {
@@ -24045,10 +23950,10 @@ void Player::ChangeGrantableLevels(uint8 increase)
     }
     else
     {
-        m_GrantableLevelsCount -= 1; 
+        m_GrantableLevelsCount -= 1;
 
-        if (m_GrantableLevelsCount < 0) 
-            m_GrantableLevelsCount = 0; 
+        if (m_GrantableLevelsCount < 0)
+            m_GrantableLevelsCount = 0;
     }
 
     // set/unset flag - granted levels
@@ -24249,7 +24154,7 @@ AreaLockStatus Player::GetAreaTriggerLockStatus(AreaTrigger const* at, Difficult
     return AREA_LOCKSTATUS_OK;
 };
 
-AreaLockStatus Player::GetAreaLockStatus(uint32 mapId, Difficulty difficulty) 
+AreaLockStatus Player::GetAreaLockStatus(uint32 mapId, Difficulty difficulty)
 {
     return GetAreaTriggerLockStatus(sObjectMgr.GetMapEntranceTrigger(mapId), difficulty);
 };

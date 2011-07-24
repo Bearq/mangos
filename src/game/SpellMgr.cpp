@@ -71,7 +71,7 @@ int32 CalculateSpellDuration(SpellEntry const *spellInfo, Unit const* caster)
         int32 maxduration = GetSpellMaxDuration(spellInfo);
 
         if (duration != maxduration)
-            duration += int32((maxduration - duration) * ((Player*)caster)->GetComboPoints() / 5);
+            duration += int32((maxduration - duration) * caster->GetComboPoints() / 5);
 
         if (Player* modOwner = caster->GetSpellModOwner())
         {
@@ -747,12 +747,40 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
         case SPELL_EFFECT_THREAT:
             return false;
 
-            // non-positive aura use
+        case SPELL_EFFECT_PERSISTENT_AREA_AURA:
+            switch(spellproto->Id)
+            {
+                case 62821:                                 // Toasty Fire (Ulduar Hodir); unclear why this spell has SPELL_ATTR_EX_NEGATIVE
+                    return true;
+                case 63540:                                 // Paralytic Field (Ulduar Thorim)
+                case 62241:
+                    return false;
+                default:
+                    break;
+            }
+            break;
+
+        // non-positive aura use
         case SPELL_EFFECT_APPLY_AURA:
         case SPELL_EFFECT_APPLY_AREA_AURA_FRIEND:
         {
             switch(spellproto->EffectApplyAuraName[effIndex])
             {
+                case SPELL_AURA_PHASE:
+                {
+                    switch(spellproto->Id)
+                    {
+                        case 57508:                         // Insanity (Volazj ecounter)
+                        case 57509:
+                        case 57510:
+                        case 57511:
+                        case 57512:
+                            return false;
+                        default:
+                            break;
+                    }
+                    break;
+                }
                 case SPELL_AURA_DUMMY:
                 {
                     // dummy aura can be positive or negative dependent from casted spell
