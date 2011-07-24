@@ -2029,7 +2029,7 @@ const char* GameObject::GetNameForLocaleIdx(int32 loc_idx) const
     return GetName();
 }
 
-/*using G3D::Quat;
+using G3D::Quat;
 struct QuaternionCompressed
 {
     QuaternionCompressed() : m_raw(0) {}
@@ -2092,7 +2092,7 @@ void GameObject::SetWorldRotationAngles(float z_rot, float y_rot, float x_rot)
 {
     Quat quat( G3D::Matrix3::fromEulerAnglesZYX(z_rot, y_rot, x_rot) );
     SetWorldRotation(quat.x, quat.y, quat.z, quat.w);
-}*/
+}
 void GameObject::UpdateRotationFields(float rotation2 /*=0.0f*/, float rotation3 /*=0.0f*/)
 {
     static double const atan_pow = atan(pow(2.0f, -20.0f));
