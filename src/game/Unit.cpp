@@ -4350,7 +4350,7 @@ bool Unit::AddSpellAuraHolder(SpellAuraHolder *holder)
     }
 
     // passive and persistent auras can stack with themselves any number of times
-    if ((!holder->IsPassive() && !holder->IsPersistent()) || holder->IsAreaAura())
+    if ((!holder->IsPassive() && !holder->IsPersistent() && !(aurSpellInfo->AttributesEx & SPELL_ATTR_EX_HIDDEN_AURA)) || holder->IsAreaAura())
     {
         SpellAuraHolderBounds spair = GetSpellAuraHolderBounds(aurSpellInfo->Id);
 
@@ -4366,6 +4366,7 @@ bool Unit::AddSpellAuraHolder(SpellAuraHolder *holder)
                 {
                     // can be created with >1 stack by some spell mods
                     foundHolder->ModStackAmount(holder->GetStackAmount());
+                    foundHolder->HandleSpellSpecificBoostsForward(true);
                     delete holder;
                     return false;
                 }
@@ -4449,7 +4450,7 @@ bool Unit::AddSpellAuraHolder(SpellAuraHolder *holder)
     }
 
     // passive auras not stackable with other ranks
-    if (!IsPassiveSpellStackableWithRanks(aurSpellInfo))
+    if (!IsPassiveSpellStackableWithRanks(aurSpellInfo) && !(aurSpellInfo->AttributesEx & SPELL_ATTR_EX_HIDDEN_AURA))
     {
         if (!RemoveNoStackAurasDueToAuraHolder(holder))
         {
@@ -6041,6 +6042,26 @@ bool Unit::IsNeutralToAll() const
     return my_faction->IsNeutralToAll();
 }
 
+Unit* Unit::getAttackerForHelper()
+{
+    if (getVictim())
+        return getVictim();
+
+    if (!m_attackers.empty())
+    {
+        for(AttackerSet::iterator i = m_attackers.begin(); i != m_attackers.end();)
+        {
+            ObjectGuid guid = *i;
+            Unit* attacker = GetMap()->GetUnit(guid);
+            if (!attacker || !attacker->isAlive())
+                m_attackers.erase(i);
+            else
+                return attacker;
+        }
+    }
+    return NULL;
+}
+
 bool Unit::Attack(Unit *victim, bool meleeAttack)
 {
     if(!victim || victim == this)
@@ -6234,7 +6255,8 @@ void Unit::RemoveAllAttackers()
     while (!m_attackers.empty())
     {
         AttackerSet::iterator iter = m_attackers.begin();
-        if(!(*iter)->AttackStop())
+        Unit* attacker = GetMap()->GetUnit(*iter);
+        if(!attacker || !attacker->AttackStop())
         {
             sLog.outError("WORLD: Unit has an attacker that isn't attacking it!");
             m_attackers.erase(iter);
@@ -7330,15 +7352,24 @@ bool Unit::IsSpellCrit(Unit *pVictim, SpellEntry const *spellProto, SpellSchoolM
         return false;
 
     // not critting spell
-    if((spellProto->AttributesEx2 & SPELL_ATTR_EX2_CANT_CRIT))
+    if ((spellProto->AttributesEx2 & SPELL_ATTR_EX2_CANT_CRIT))
         return false;
 
     float crit_chance = 0.0f;
-    switch(spellProto->DmgClass)
+    switch (spellProto->DmgClass)
     {
         case SPELL_DAMAGE_CLASS_NONE:
-            if (spellProto->Id != 379 && spellProto->Id != 33778) // Earth Shield and Lifebloom heal should be able to crit
-                return false;
+            // Some heal should be able to crit
+            // We need more spells to find a general way (if there is any)
+            switch (spellProto->Id)
+            {
+                case 379:   // Earth Shield
+                case 33778: // Lifebloom Final Bloom
+                case 64844: // Divine Hymn
+                    break;
+                default:
+                    return false;
+            }
         case SPELL_DAMAGE_CLASS_MAGIC:
         {
             if (schoolMask & SPELL_SCHOOL_MASK_NORMAL)
@@ -9476,7 +9507,8 @@ bool Unit::SelectHostileTarget()
     {
         for(AttackerSet::const_iterator itr = m_attackers.begin(); itr != m_attackers.end(); ++itr)
         {
-            if ((*itr)->IsInMap(this) && (*itr)->isTargetableForAttack() && (*itr)->isInAccessablePlaceFor((Creature*)this))
+            Unit* attacker = GetMap()->GetUnit(*itr);
+            if (attacker && attacker->IsInMap(this) && attacker->isTargetableForAttack() && attacker->isInAccessablePlaceFor((Creature*)this))
                 return false;
         }
     }
@@ -10577,104 +10609,18 @@ void Unit::DoPetAction( Player* owner, uint8 flag, uint32 spellid, ObjectGuid pe
             }
             break;
         case ACT_DISABLED:                                  // 0x81    spell (disabled), ignore
+        case ACT_CASTABLE:                                  // 0x80    spell (disabled), toggle state
         case ACT_PASSIVE:                                   // 0x01
         case ACT_ENABLED:                                   // 0xC1    spell
+        case ACT_ACTIVE:                                    // 0xC0    spell
         {
             Unit* unit_target = NULL;
 
             if (!targetGuid.IsEmpty())
                 unit_target = owner->GetMap()->GetUnit(targetGuid);
 
-            // do not cast unknown spells
-            SpellEntry const *spellInfo = sSpellStore.LookupEntry(spellid );
-            if(!spellInfo)
-            {
-                sLog.outError("WORLD: unknown PET spell id %i", spellid);
-                return;
-            }
+            DoPetCastSpell(unit_target, spellid);
 
-            if (GetCharmInfo() && GetCharmInfo()->GetGlobalCooldownMgr().HasGlobalCooldown(spellInfo))
-                return;
-
-            for(int i = 0; i < MAX_EFFECT_INDEX;++i)
-            {
-                if(spellInfo->EffectImplicitTargetA[i] == TARGET_ALL_ENEMY_IN_AREA || spellInfo->EffectImplicitTargetA[i] == TARGET_ALL_ENEMY_IN_AREA_INSTANT || spellInfo->EffectImplicitTargetA[i] == TARGET_ALL_ENEMY_IN_AREA_CHANNELED)
-                    return;
-            }
-
-            // do not cast not learned spells
-            if(!HasSpell(spellid) || IsPassiveSpell(spellid))
-                return;
-
-            clearUnitState(UNIT_STAT_MOVING);
-
-            Spell *spell = new Spell(this, spellInfo, false);
-
-            SpellCastResult result = spell->CheckPetCast(unit_target);
-
-            //auto turn to target unless possessed
-            if(result == SPELL_FAILED_UNIT_NOT_INFRONT && !HasAuraType(SPELL_AURA_MOD_POSSESS))
-            {
-                if(unit_target)
-                {
-                    SetInFront(unit_target);
-                    if (unit_target->GetTypeId() == TYPEID_PLAYER)
-                        SendCreateUpdateToPlayer( (Player*)unit_target );
-                }
-                else if(Unit *unit_target2 = spell->m_targets.getUnitTarget())
-                {
-                    SetInFront(unit_target2);
-                    if (unit_target2->GetTypeId() == TYPEID_PLAYER)
-                        SendCreateUpdateToPlayer( (Player*)unit_target2 );
-                }
-                if (Unit* powner = GetCharmerOrOwner())
-                    if(powner->GetTypeId() == TYPEID_PLAYER)
-                        SendCreateUpdateToPlayer((Player*)powner);
-                result = SPELL_CAST_OK;
-            }
-
-            if(result == SPELL_CAST_OK)
-            {
-                ((Creature*)this)->AddCreatureSpellCooldown(spellid);
-
-                unit_target = spell->m_targets.getUnitTarget();
-
-                //10% chance to play special pet attack talk, else growl
-                //actually this only seems to happen on special spells, fire shield for imp, torment for voidwalker, but it's stupid to check every spell
-                if(((Creature*)this)->IsPet() && (((Pet*)this)->getPetType() == SUMMON_PET) && (this != unit_target) && (urand(0, 100) < 10))
-                    SendPetTalk((uint32)PET_TALK_SPECIAL_SPELL);
-                else
-                    SendPetAIReaction();
-
-                if( unit_target && !owner->IsFriendlyTo(unit_target) && !HasAuraType(SPELL_AURA_MOD_POSSESS))
-                {
-                    // This is true if pet has no target or has target but targets differs.
-                    if (getVictim() != unit_target)
-                    {
-                        if (getVictim())
-                            AttackStop();
-                        GetMotionMaster()->Clear();
-                        if (((Creature*)this)->AI())
-                            ((Creature*)this)->AI()->AttackStart(unit_target);
-                    }
-                }
-
-                spell->prepare(&(spell->m_targets));
-            }
-            else
-            {
-                if(HasAuraType(SPELL_AURA_MOD_POSSESS))
-                    Spell::SendCastResult(owner,spellInfo,0,result);
-                else
-                    SendPetCastFail(spellid, result);
-
-                if (!((Creature*)this)->HasSpellCooldown(spellid))
-                    owner->SendClearCooldown(spellid, this);
-
-                spell->finish(false);
-                delete spell;
-            }
-            break;
         }
         default:
             sLog.outError("WORLD: unknown PET flag Action %i and spellid %i.", uint32(flag), spellid);
@@ -10682,17 +10628,87 @@ void Unit::DoPetAction( Player* owner, uint8 flag, uint32 spellid, ObjectGuid pe
 
 }
 
-void Unit::DoPetCastSpell( Player *owner, uint8 cast_count, SpellCastTargets* targets, SpellEntry const* spellInfo )
+void Unit::DoPetCastSpell(Unit* target, uint32 spellId)
 {
+    // do not cast unknown spells
+    SpellEntry const *spellInfo = sSpellStore.LookupEntry(spellId);
+    if(!spellInfo)
+    {
+        sLog.outError("WORLD: unknown PET spell id %i", spellInfo->Id);
+        return;
+    }
+
+    Unit*   owner  = GetObjectGuid().IsPet() ? ((Pet*)this)->GetOwner() : GetCharmerOrOwner();
+    Player* powner = (owner && owner->GetTypeId() == TYPEID_PLAYER) ? (Player*)owner : NULL;
+
+    SpellCastTargets targets;
+    targets.setUnitTarget(target);
+    uint8 cast_count = 1;
+
+    if (powner)
+        powner->CallForAllControlledUnits(DoPetCastWithHelper(powner, cast_count, &targets, spellInfo),CONTROLLED_PET|CONTROLLED_GUARDIANS|CONTROLLED_CHARM);
+    else
+        DoPetCastSpell(NULL, cast_count, &targets, spellInfo);
+
+}
+
+void Unit::DoPetCastSpell(Player *owner, uint8 cast_count, SpellCastTargets* targets, SpellEntry const* spellInfo )
+{
+    if (!spellInfo)
+        return;
+
+    if (GetCharmInfo() && GetCharmInfo()->GetGlobalCooldownMgr().HasGlobalCooldown(spellInfo))
+        return;
+
+    // do not cast not learned spells
+    if(IsPassiveSpell(spellInfo->Id))
+        return;
+    if((GetObjectGuid().IsPet() && !((Pet*)this)->HasSpell(spellInfo->Id)))
+        return;
+    else if ((GetObjectGuid().IsCreatureOrVehicle() && !((Creature*)this)->HasSpell(spellInfo->Id)))
+        return;
+
     Creature* pet = dynamic_cast<Creature*>(this);
+
+    Unit* unit_target = targets ? targets->getUnitTarget() : NULL;
+    if (!unit_target)
+    {
+        DEBUG_LOG("DoPetCastSpell: %s guid %u tryed to cast spell %u without target!.",GetObjectGuid().IsPet() ? "Pet" : "Creature",GetObjectGuid().GetCounter(), spellInfo->Id);
+    }
+
+    Spell* spell = new Spell(this, spellInfo, false);
+    spell->m_cast_count = cast_count;                       // probably pending spell cast
+
+    Unit* unit_target2 = spell->m_targets.getUnitTarget();
+
+    SpellCastResult result = spell->CheckPetCast(unit_target);
+
+    //auto turn to target unless possessed
+    if (result == SPELL_FAILED_UNIT_NOT_INFRONT && !HasAuraType(SPELL_AURA_MOD_POSSESS))
+    {
+        if (unit_target)
+        {
+            SetInFront(unit_target);
+            if (unit_target->GetTypeId() == TYPEID_PLAYER)
+                SendCreateUpdateToPlayer( (Player*)unit_target );
+        }
+        else if (unit_target2)
+        {
+            SetInFront(unit_target2);
+            if (unit_target2->GetTypeId() == TYPEID_PLAYER)
+                SendCreateUpdateToPlayer( (Player*)unit_target2 );
+        }
+
+        if (owner)
+            SendCreateUpdateToPlayer(owner);
+        result = SPELL_CAST_OK;
+    }
+
+    if (unit_target && targets)
+        spell->m_targets = *targets;
 
     clearUnitState(UNIT_STAT_MOVING);
 
-    Spell *spell = new Spell(pet, spellInfo, false);
-    spell->m_cast_count = cast_count;                       // probably pending spell cast
-    spell->m_targets = *targets;
-
-    SpellCastResult result = spell->CheckPetCast(NULL);
     if (result == SPELL_CAST_OK)
     {
         pet->AddCreatureSpellCooldown(spellInfo->Id);
@@ -10706,12 +10722,31 @@ void Unit::DoPetCastSpell( Player *owner, uint8 cast_count, SpellCastTargets* ta
                 pet->SendPetAIReaction();
         }
 
+        if( unit_target && !owner->IsFriendlyTo(unit_target) && !HasAuraType(SPELL_AURA_MOD_POSSESS))
+        {
+            // This is true if pet has no target or has target but targets differs.
+            if (getVictim() != unit_target)
+            {
+                if (getVictim())
+                    AttackStop();
+
+                GetMotionMaster()->Clear();
+
+                if (pet->AI())
+                    pet->AI()->AttackStart(unit_target);
+            }
+        }
+
         spell->prepare(&(spell->m_targets));
     }
     else
     {
-        pet->SendPetCastFail(spellInfo->Id, result);
-        if (!pet->HasSpellCooldown(spellInfo->Id))
+        if (owner && HasAuraType(SPELL_AURA_MOD_POSSESS))
+            Spell::SendCastResult(owner,spellInfo,0,result);
+        else
+            SendPetCastFail(spellInfo->Id, result);
+
+        if (owner && !((Creature*)this)->HasSpellCooldown(spellInfo->Id))
             owner->SendClearCooldown(spellInfo->Id, pet);
 
         spell->finish(false);
@@ -11719,19 +11754,24 @@ void Unit::MonsterMoveWithSpeed(float x, float y, float z, float speed)
 
 void Unit::MonsterMoveJump(float x, float y, float z, float o, float speed, float height, bool isKnockBack)
 {
+    float ox, oy, oz;
+    GetPosition(ox, oy, oz);
 
-    if (GetTypeId() != TYPEID_PLAYER)
+    MaNGOS::NormalizeMapCoord(x);
+    MaNGOS::NormalizeMapCoord(y);
+
+    if (GetTerrain()->CheckPathAccurate(ox,oy,oz,x,y,z, NULL))
+        DEBUG_LOG("Unit::MonsterMoveJump unit %u jumped  on %f",GetObjectGuid().GetCounter(), GetDistance(x,y,z));
+    else
+        DEBUG_LOG("Unit::MonsterMoveJump unit %u NOT jumped on full distance, real distance is %f",GetObjectGuid().GetCounter(), GetDistance(x,y,z));
+
+    if (isKnockBack && GetTypeId() != TYPEID_PLAYER)
     {
         // Interrupt spells cause of movement
         InterruptNonMeleeSpells(false);
     }
-
-    Movement::MoveSplineInit init(*this);
-    init.MoveTo(x,y,z);
-    init.SetParabolic(height,0,isKnockBack);
-    init.SetVelocity(speed);
-    init.Launch();
-
+    UpdateAllowedPositionZ(x, y, z);
+    GetMotionMaster()->MoveJump(x,y,z,speed, height);
 }
 
 struct SetPvPHelper
@@ -11897,36 +11937,23 @@ void Unit::KnockBackFrom(Unit* target, float horizontalSpeed, float verticalSpee
     float vsin = sin(angle);
     float vcos = cos(angle);
 
-    // Effect properly implemented only for players
-    if(GetTypeId()==TYPEID_PLAYER)
+    if (GetTypeId() == TYPEID_PLAYER)
     {
         KnockBackPlayerWithAngle(angle, horizontalSpeed, verticalSpeed);
     }
     else
     {
-        float dh = verticalSpeed*verticalSpeed / (2*19.23f); // maximum parabola height
-        float time = (verticalSpeed) ? sqrtf(dh/(0.124976 * verticalSpeed)) : 0.0f;  //full move time in seconds
+        float moveTimeHalf = verticalSpeed / Movement::gravity;
+        float max_height = -Movement::computeFallElevation(moveTimeHalf,false,-verticalSpeed);
 
-        float dis = time * horizontalSpeed;
-
+        float dis = 2 * moveTimeHalf * horizontalSpeed;
         float ox, oy, oz;
         GetPosition(ox, oy, oz);
-
         float fx = ox + dis * vcos;
         float fy = oy + dis * vsin;
         float fz = oz;
 
-        MaNGOS::NormalizeMapCoord(fx);
-        MaNGOS::NormalizeMapCoord(fy);
-
-        if (GetTerrain()->CheckPathAccurate(ox,oy,oz,fx,fy,fz, NULL))
-            DEBUG_LOG("Unit::KnockBack unit %u knockbacked back on %f",GetObjectGuid().GetCounter(), GetDistance(fx,fy,fz));
-        else
-            DEBUG_LOG("Unit::KnockBack unit %u NOT knockbacked on full distance, real distance is %f",GetObjectGuid().GetCounter(), GetDistance(fx,fy,fz));
-
-        UpdateAllowedPositionZ(fx, fy, fz);
-
-        MonsterMoveJump(fx, fy, fz, GetOrientation(), verticalSpeed, dh, true);
+        MonsterMoveJump(fx,fy,fz,horizontalSpeed,max_height, true);
     }
 }
 
@@ -11938,7 +11965,7 @@ void Unit::KnockBackPlayerWithAngle(float angle, float horizontalSpeed, float ve
     // Effect propertly implemented only for players
     if(GetTypeId()==TYPEID_PLAYER)
     {
-        WorldPacket data(SMSG_MOVE_KNOCK_BACK, 8+4+4+4+4+4);
+        WorldPacket data(SMSG_MOVE_KNOCK_BACK, 9+4+4+4+4+4);
         data << GetPackGUID();
         data << uint32(0);                                  // Sequence
         data << float(vcos);                                // x direction
@@ -11946,6 +11973,7 @@ void Unit::KnockBackPlayerWithAngle(float angle, float horizontalSpeed, float ve
         data << float(horizontalSpeed);                     // Horizontal speed
         data << float(-verticalSpeed);                      // Z Movement speed (vertical)
         ((Player*)this)->GetSession()->SendPacket(&data);
+
     }
     else
         sLog.outError("KnockBackPlayer: Target of KnockBackPlayer must be player!");
@@ -12054,9 +12082,10 @@ void Unit::StopAttackFaction(uint32 faction_id)
     AttackerSet const& attackers = getAttackers();
     for(AttackerSet::const_iterator itr = attackers.begin(); itr != attackers.end();)
     {
-        if ((*itr)->getFactionTemplateEntry()->faction==faction_id)
+        Unit* attacker = GetMap()->GetUnit(*itr);
+        if (attacker && attacker->getFactionTemplateEntry()->faction==faction_id)
         {
-            (*itr)->AttackStop();
+            attacker->AttackStop();
             itr = attackers.begin();
         }
         else
