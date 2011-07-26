@@ -286,7 +286,8 @@ void GameObject::Update(uint32 update_diff, uint32 diff)
                 {
                     // Arming Time for GAMEOBJECT_TYPE_TRAP (6)
                     Unit* owner = GetOwner();
-                    if (owner && ((Player*)owner)->isInCombat())
+                    if (owner && ((Player*)owner)->isInCombat()
+                        || GetEntry() == 190752) // SoTA Seaforium Charges
                         m_cooldownTime = time(NULL) + GetGOInfo()->trap.startDelay;
                     m_lootState = GO_READY;
                     break;
@@ -396,9 +397,14 @@ void GameObject::Update(uint32 update_diff, uint32 diff)
                         }
                     }
 
+                    // SoTA Seaforium Charge
+                    if (GetEntry() == 190752)
+                    {
+                        ok = owner;
+                    }
                     // Note: this hack with search required until GO casting not implemented
                     // search unfriendly creature
-                    if (owner && goInfo->trap.charges > 0)  // hunter trap
+                    else if (owner && goInfo->trap.charges > 0)  // hunter trap
                     {
                         MaNGOS::AnyUnfriendlyUnitInObjectRangeCheck u_check(this, owner, radius);
                         MaNGOS::UnitSearcher<MaNGOS::AnyUnfriendlyUnitInObjectRangeCheck> checker(ok, u_check);
@@ -2029,7 +2035,7 @@ const char* GameObject::GetNameForLocaleIdx(int32 loc_idx) const
     return GetName();
 }
 
-/*using G3D::Quat;
+using G3D::Quat;
 struct QuaternionCompressed
 {
     QuaternionCompressed() : m_raw(0) {}
@@ -2092,7 +2098,7 @@ void GameObject::SetWorldRotationAngles(float z_rot, float y_rot, float x_rot)
 {
     Quat quat( G3D::Matrix3::fromEulerAnglesZYX(z_rot, y_rot, x_rot) );
     SetWorldRotation(quat.x, quat.y, quat.z, quat.w);
-}*/
+}
 void GameObject::UpdateRotationFields(float rotation2 /*=0.0f*/, float rotation3 /*=0.0f*/)
 {
     static double const atan_pow = atan(pow(2.0f, -20.0f));

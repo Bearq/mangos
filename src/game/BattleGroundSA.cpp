@@ -513,9 +513,9 @@ bool BattleGroundSA::SetupShips()
                     sLog.outError("SA_ERROR: Can't spawn ships!");
                     return false;
                 }
-                // something missing in GameObject.h?
-                /*if (GameObject* boat = GetBGObject(i))
-                    boat->SetTransportPathRotation(0.0f, 0.0f, 1.0f, 0.0002f);*/
+
+                if (GameObject* boat = GetBGObject(i))
+                    boat->SetTransportPathRotation(0.0f, 0.0f, 1.0f, 0.0002f);
                 break;
             case BG_SA_BOAT_TWO:
                 boatid = GetDefender() == ALLIANCE ? BG_SA_BOAT_TWO_H : BG_SA_BOAT_TWO_A;
@@ -525,8 +525,8 @@ bool BattleGroundSA::SetupShips()
                     return false;
                 }
                 
-                /*if (GameObject* boat = GetBGObject(i))
-                    boat->SetTransportPathRotation(0, 0, 1.0f, 0.00001f);*/
+                if (GameObject* boat = GetBGObject(i))
+                    boat->SetTransportPathRotation(0, 0, 1.0f, 0.00001f);
                 break;
         }
     }
