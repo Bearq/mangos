@@ -1379,7 +1379,7 @@ void Spell::DoSpellHitOnUnit(Unit *unit, uint32 effectMask, bool isReflected)
                 // Fully diminished
                 if (duration == 0)
                 {
-                    delete m_spellAuraHolder;
+                    unit->AddSpellAuraHolderToRemoveList(m_spellAuraHolder);
                     return;
                 }
             }
@@ -1397,18 +1397,7 @@ void Spell::DoSpellHitOnUnit(Unit *unit, uint32 effectMask, bool isReflected)
         }
         else
         {
-            if (!m_spellAuraHolder || m_spellAuraHolder->IsDeleted())
-                return;
-
-            m_spellAuraHolder->SetInUse(false);
-
-            if (m_spellAuraHolder->IsInUse())
-            {
-                m_spellAuraHolder->SetDeleted();
-                unit->AddSpellAuraHolderToRemoveList(m_spellAuraHolder);
-            }
-            else
-                delete m_spellAuraHolder;
+            unit->AddSpellAuraHolderToRemoveList(m_spellAuraHolder);
         }
     }
 }
@@ -3812,11 +3801,11 @@ void Spell::cast(bool skipCheck)
         // critical hit related part is currently done on hit so proc there, 
         // 0 damage since any damage based procs should be on hit
         // 0 victim proc since there is no victim proc dependent on successfull cast for caster
-        m_caster->ProcDamageAndSpell(m_targets.getUnitTarget(), m_procAttacker, 0, PROC_EX_NORMAL_HIT, 0, m_attackType, m_spellInfo);
+        m_caster->ProcDamageAndSpell(m_caster, m_procAttacker, 0, PROC_EX_NORMAL_HIT, 0, m_attackType, m_spellInfo);
     }
     else
     {
-        m_caster->ProcDamageAndSpell(m_targets.getUnitTarget(), m_procAttacker, 0, PROC_EX_NORMAL_HIT, 0, m_attackType, m_spellInfo);
+        m_caster->ProcDamageAndSpell(m_caster, m_procAttacker, 0, PROC_EX_NORMAL_HIT, 0, m_attackType, m_spellInfo);
 
         // Immediate spell, no big deal
         handle_immediate();
@@ -5283,10 +5272,6 @@ SpellCastResult Spell::CheckCast(bool strict)
             else if (target->HasAura(m_spellInfo->excludeTargetAuraSpell))
                 return SPELL_FAILED_CASTER_AURASTATE;
         }
-
-        // totem immunity for channeled spells(needs to be before spell cast)
-        if (IsChanneledSpell(m_spellInfo) && target->GetTypeId() == TYPEID_UNIT && ((Creature*)target)->IsTotem())
-            return SPELL_FAILED_IMMUNE;
 
         bool non_caster_target = target != m_caster && !IsSpellWithCasterSourceTargetsOnly(m_spellInfo);
 

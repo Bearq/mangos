@@ -907,19 +907,6 @@ void Aura::ApplyModifier(bool apply, bool Real)
 
 bool Aura::isAffectedOnSpell(SpellEntry const *spell) const
 {
-    // hacks for bad DBC data
-    switch (GetId())
-    {
-        case 46924:
-            if (spell->Id == 1680 || spell->Id == 44949)
-                return false;
-            else if (spell->Id == 50622)
-                return true;
-            break;
-        default:
-            break;
-    }
-
     return spell->IsFitToFamily(SpellFamily(GetSpellProto()->SpellFamilyName), GetAuraSpellClassMask());
 }
 
@@ -4770,7 +4757,6 @@ void Aura::HandleAuraModDisarm(bool apply, bool Real)
 
     if (apply)
     {
-        target->RemoveAurasDueToSpell(46924); // Disarm should stop bladestorm
         target->SetAttackTime(BASE_ATTACK,BASE_ATTACK_TIME);
     }
     else
