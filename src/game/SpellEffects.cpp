@@ -8797,19 +8797,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                         unitTarget->CastSpell(unitTarget, 66334, true);
                     return;
                 }
-                case 69057:                                 // Bone Spike Graveyard (Icecrown Citadel, ->
-                case 70826:                                 // -> Lord Marrowgar encounter, all difficulties)
-                case 72088:                                 // ----- // -----
-                case 72089:                                 // ----- // -----
-                case 73142:                                 // Bone Spike Graveyard (during Bone Storm) ->
-                case 73143:                                 // (Icecrown Citadel, -> Lord Marrowgar encounter, ->
-                case 73144:                                 // all difficulties)
-                case 73145:                                 // ----- // -----
-                {
-                    if (unitTarget)
-                        unitTarget->CastSpell(unitTarget, 69062, true);
-                    return;
-                }
                 case 69140:                                 // Coldflame (Lord Marrowgar - Icecrown Citadel)
                 {
                     if (unitTarget)
