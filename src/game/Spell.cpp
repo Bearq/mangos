@@ -1657,6 +1657,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 38794:                                 // Murmur's Touch (h)
                 case 48278:                                 // Paralyze (Utgarde Pinnacle)
                 case 50988:                                 // Glare of the Tribunal (Halls of Stone)
+                case 54148:                                 // Svala Get Random Target
                 case 55479:                                 // Forced Obedience (Naxxramas - Razovius encounter)
                 case 59870:                                 // Glare of the Tribunal (h) (Halls of Stone)
                 case 62016:                                 // Charge Orb (Thorim)
@@ -3780,6 +3781,10 @@ void Spell::cast(bool skipCheck)
 
     InitializeDamageMultipliers();
 
+    Unit *procTarget = m_targets.getUnitTarget();
+    if (!procTarget)
+        procTarget = m_caster;
+
     // Okay, everything is prepared. Now we need to distinguish between immediate and evented delayed spells
     if (m_spellInfo->speed > 0.0f)
     {
@@ -3801,11 +3806,11 @@ void Spell::cast(bool skipCheck)
         // critical hit related part is currently done on hit so proc there, 
         // 0 damage since any damage based procs should be on hit
         // 0 victim proc since there is no victim proc dependent on successfull cast for caster
-        m_caster->ProcDamageAndSpell(m_caster, m_procAttacker, 0, PROC_EX_NORMAL_HIT, 0, m_attackType, m_spellInfo);
+        m_caster->ProcDamageAndSpell(procTarget, m_procAttacker, 0, PROC_EX_CAST_END, 0, m_attackType, m_spellInfo);
     }
     else
     {
-        m_caster->ProcDamageAndSpell(m_caster, m_procAttacker, 0, PROC_EX_NORMAL_HIT, 0, m_attackType, m_spellInfo);
+        m_caster->ProcDamageAndSpell(procTarget, m_procAttacker, 0, PROC_EX_CAST_END, 0, m_attackType, m_spellInfo);
 
         // Immediate spell, no big deal
         handle_immediate();
@@ -5273,6 +5278,15 @@ SpellCastResult Spell::CheckCast(bool strict)
                 return SPELL_FAILED_CASTER_AURASTATE;
         }
 
+        // totem immunity for channeled spells(needs to be before spell cast)
+        // spell attribs for player channeled spells
+        // (from rsa - very strange attributes set...)
+        if ((m_spellInfo->AttributesEx & SPELL_ATTR_EX_CHANNEL_TRACKING_TARGET)
+            && (m_spellInfo->AttributesEx5 & SPELL_ATTR_EX5_AFFECTED_BY_HASTE)
+            && target->GetTypeId() == TYPEID_UNIT 
+            && ((Creature*)target)->IsTotem())
+            return SPELL_FAILED_IMMUNE;
+
         bool non_caster_target = target != m_caster && !IsSpellWithCasterSourceTargetsOnly(m_spellInfo);
 
         if(non_caster_target)
@@ -6418,7 +6432,15 @@ SpellCastResult Spell::CheckPetCast(Unit* target)
                                    || m_spellInfo->EffectImplicitTargetA[j] == TARGET_EFFECT_SELECT
                                    || m_spellInfo->EffectImplicitTargetA[j] == TARGET_CASTER_COORDINATES);
                 }
-                if (!m_caster->GetVehicleKit() && m_caster->IsFriendlyTo(_target) && !(!m_caster->GetCharmerOrOwner() || !m_caster->GetCharmerOrOwner()->IsFriendlyTo(_target))
+                if (!dualEffect && m_caster->getVictim() && (!IsPositiveSpell(m_spellInfo->Id) || IsDispelSpell(m_spellInfo)))
+                {
+                    if (!m_caster->IsHostileTo(_target) && (m_caster->GetCharmerOrOwner() && m_caster->GetCharmerOrOwner()->IsFriendlyTo(_target)))
+                    {
+                        DEBUG_LOG("Charmed creature attempt to cast negative spell %d, but target (guid %u) is friendly",m_spellInfo->Id, target->GetObjectGuid().GetRawValue());
+                        return SPELL_FAILED_BAD_TARGETS;
+                    }
+                }
+                else if (!m_caster->GetVehicleKit() && m_caster->IsFriendlyTo(_target) && !(!m_caster->GetCharmerOrOwner() || !m_caster->GetCharmerOrOwner()->IsFriendlyTo(_target))
                      && !dualEffect && !IsDispelSpell(m_spellInfo))
                 {
                     DEBUG_LOG("Charmed creature attempt to cast spell %d, but target (guid %u) is not valid",m_spellInfo->Id,_target->GetObjectGuid().GetRawValue());
@@ -8067,7 +8089,7 @@ void Spell::DoSummonSnakes(SpellEffectIndex eff_idx)
         {
             sLog.outError("EffectSummonSnakes failed to summon snakes for Unit %s (GUID: %u) bacause of invalid position (x = %f, y = %f, z = %f map = %u)"
                 ,m_caster->GetName(), m_caster->GetObjectGuid().GetCounter(), position_x, position_y, position_z, m_caster->GetMap());
-            delete pSummon;
+            sWorld.AddObjectToRemoveList((WorldObject*)pSummon);
             continue;
         }
 
@@ -8314,12 +8336,87 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                 return true;
             break;
         }
+        case 48278: //Svala - Banshee Paralize
+        {
+            UnitList tmpUnitMap;
+            FillAreaTargets(tmpUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+
+            if (tmpUnitMap.empty())
+                break;
+
+            for (UnitList::const_iterator itr = tmpUnitMap.begin(); itr != tmpUnitMap.end(); ++itr)
+            {
+                 if (!*itr) continue;
+
+                 if ((*itr)->HasAura(48267))
+                     targetUnitMap.push_back(*itr);
+            }
+            break;
+        }
+        case 54148: //Svala Choose Only Player
+        {
+            UnitList tmpUnitMap;
+            FillAreaTargets(tmpUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+
+            if (tmpUnitMap.empty())
+                break;
+
+            for (UnitList::const_iterator itr = tmpUnitMap.begin(); itr != tmpUnitMap.end(); ++itr)
+            {
+                 if (!*itr) continue;
+
+                 if ((*itr)->GetTypeId() == TYPEID_PLAYER)
+                     targetUnitMap.push_back(*itr);
+            }
+
+            break;
+        }
         case 58912: // Deathstorm
         {
             if (!m_caster->GetObjectGuid().IsVehicle())
                 break;
 
             SetTargetMap(SpellEffectIndex(i), TARGET_RANDOM_ENEMY_CHAIN_IN_AREA, targetUnitMap);
+            break;
+        }
+        case 57496: // Volazj Insanity
+        {
+            UnitList PlayerList;
+            FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+
+            if (targetUnitMap.empty())
+                break;
+
+            for (UnitList::const_iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end(); ++itr)
+            {
+                 if (!*itr) continue;
+
+                 if ((*itr)->GetTypeId() == TYPEID_PLAYER)
+                     PlayerList.push_back(*itr);
+            }
+
+            if (PlayerList.empty() || PlayerList.size() > 5 || PlayerList.size() < 2)
+                break;
+
+            uint32 uiPhaseIndex = 0;
+            uint32 uiSummonIndex;
+            for (UnitList::const_iterator itr = PlayerList.begin(); itr != PlayerList.end(); ++itr)
+            {
+                if (!*itr) continue;
+
+                (*itr)->CastSpell((*itr), 57508+uiPhaseIndex, true);
+
+                uiSummonIndex = 0;
+                for (UnitList::const_iterator iter = PlayerList.begin(); iter != PlayerList.end(); ++iter)
+                {
+                    if (!*iter) continue;
+
+                    if ((*itr) != (*iter))
+                        (*itr)->CastSpell((*itr), 57500+uiSummonIndex, true);
+                    uiSummonIndex++;
+                }
+                uiPhaseIndex++;
+            }
             break;
         }
         case 61999: // Raise ally

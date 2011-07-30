@@ -28,6 +28,7 @@
 #include "DBCStructure.h"
 #include "DBCStores.h"
 #include "SQLStorages.h"
+#include "Unit.h"
 
 #include "Utilities/UnorderedMapSet.h"
 
@@ -162,6 +163,41 @@ inline bool IsPeriodicRegenerateEffect(SpellEntry const *spellInfo, SpellEffectI
         case SPELL_AURA_PERIODIC_HEAL:
         case SPELL_AURA_PERIODIC_HEALTH_FUNNEL:
             return true;
+        default:
+            return false;
+    }
+}
+
+inline bool IsCastEndProcModifierAura(SpellEntry const *spellInfo, SpellEffectIndex effecIdx, SpellEntry const *procSpell)
+{
+    // modifier auras that can proc on cast end
+    switch (AuraType(spellInfo->EffectApplyAuraName[effecIdx]))
+    {
+        case SPELL_AURA_ADD_FLAT_MODIFIER:
+        case SPELL_AURA_ADD_PCT_MODIFIER:
+        {
+            switch (spellInfo->EffectMiscValue[effecIdx])
+            {
+                case SPELLMOD_RANGE:
+                case SPELLMOD_RADIUS:
+                case SPELLMOD_NOT_LOSE_CASTING_TIME:
+                case SPELLMOD_CASTING_TIME:
+                case SPELLMOD_COOLDOWN:
+                case SPELLMOD_COST:
+                case SPELLMOD_GLOBAL_COOLDOWN:
+                    return true;
+                default:
+                    break;
+            }
+        }
+        case SPELL_AURA_MOD_DAMAGE_PERCENT_DONE:
+        {
+            for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+                if (IsEffectHandledOnDelayedSpellLaunch(procSpell, SpellEffectIndex(i)))
+                    return true;
+
+            return false;
+        }
         default:
             return false;
     }
@@ -663,7 +699,8 @@ enum ProcFlagsEx
     PROC_EX_EX_TRIGGER_ALWAYS   = 0x0010000,                // If set trigger always ( no matter another flags) used for drop charges
     PROC_EX_EX_ONE_TIME_TRIGGER = 0x0020000,                // If set trigger always but only one time (not used)
     PROC_EX_PERIODIC_POSITIVE   = 0x0040000,                // For periodic heal
-    PROC_EX_DIRECT_DAMAGE       = 0x0080000                 // do not proc from absorbed damage
+    PROC_EX_CAST_END            = 0x0080000,                // procs on end of cast
+    PROC_EX_DIRECT_DAMAGE       = 0x0100000                 // do not proc from absorbed damage
 };
 
 struct SpellProcEventEntry

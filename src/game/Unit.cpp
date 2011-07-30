@@ -245,7 +245,8 @@ Unit::Unit() :
         m_auraModifiersGroup[i][NONSTACKING_PCT] = 0.0f;
         m_auraModifiersGroup[i][NONSTACKING_PCT_MINOR] = 0.0f;
     }
-                                                            // implement 50% base damage from offhand
+
+    // implement 50% base damage from offhand
     m_auraModifiersGroup[UNIT_MOD_DAMAGE_OFFHAND][TOTAL_PCT] = 0.5f;
 
     for (int i = 0; i < MAX_ATTACK; ++i)
@@ -310,7 +311,6 @@ Unit::~Unit()
 
     delete m_charmInfo;
     delete m_vehicleInfo;
-    CleanupDeletedAuras();
 
     delete movespline;
 
@@ -373,6 +373,11 @@ void Unit::Update( uint32 update_diff, uint32 p_time )
         setAttackTimer(BASE_ATTACK, (update_diff >= base_att ? 0 : base_att - update_diff) );
     }
 
+    if (uint32 base_att = getAttackTimer(OFF_ATTACK))
+    {
+        setAttackTimer(OFF_ATTACK, (update_diff >= base_att ? 0 : base_att - update_diff) );
+    }
+
     // update abilities available only for fraction of time
     UpdateReactives( update_diff );
 
@@ -391,7 +396,15 @@ bool Unit::haveOffhandWeapon() const
     if(GetTypeId() == TYPEID_PLAYER)
         return ((Player*)this)->GetWeaponForAttack(OFF_ATTACK,true,true);
     else
+    {
+        uint32 ItemId = GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + 1);
+        ItemEntry const* itemInfo = sItemStore.LookupEntry(ItemId);
+
+        if (itemInfo && itemInfo->Class == ITEM_CLASS_WEAPON)
+            return true;
+
         return false;
+    }
 }
 
 bool Unit::SetPosition(float x, float y, float z, float orientation, bool teleport)
@@ -2964,7 +2977,6 @@ uint32 Unit::CalculateDamage (WeaponAttackType attType, bool normalized)
                 min_damage = GetFloatValue(UNIT_FIELD_MINOFFHANDDAMAGE);
                 max_damage = GetFloatValue(UNIT_FIELD_MAXOFFHANDDAMAGE);
                 break;
-                // Just for good manner
             default:
                 min_damage = 0.0f;
                 max_damage = 0.0f;
@@ -6220,7 +6232,7 @@ void Unit::CombatStop(bool includingCast)
     AttackStop();
     RemoveAllAttackers();
 
-    if( GetTypeId()==TYPEID_PLAYER )
+    if( GetTypeId()==TYPEID_PLAYER && IsInWorld() && !IsDeleted())
         ((Player*)this)->SendAttackSwingCancelAttack();     // melee and ranged forced attack cancel
     else if (GetTypeId() == TYPEID_UNIT)
     {
@@ -10227,7 +10239,7 @@ void Unit::AddToWorld()
     ScheduleAINotify(0);
 }
 
-void Unit::RemoveFromWorld()
+void Unit::RemoveFromWorld(bool remove)
 {
     // cleanup
     if (IsInWorld())
@@ -10239,7 +10251,10 @@ void Unit::RemoveFromWorld()
         UnsummonAllTotems();
         RemoveAllGameObjects();
         RemoveAllDynObjects();
-        CleanupDeletedAuras();
+        if (remove)
+            CleanupDeletedAuras();
+        else
+            RemoveAllAuras(AURA_REMOVE_BY_DELETE);
         GetViewPoint().Event_RemovedFromWorld();
     }
 
@@ -10803,7 +10818,7 @@ uint32 createProcExtendMask(SpellNonMeleeDamage *damageInfo, SpellMissInfo missC
 void Unit::ProcDamageAndSpellFor( bool isVictim, Unit * pTarget, uint32 procFlag, uint32 procExtra, WeaponAttackType attType, SpellEntry const * procSpell, uint32 damage )
 {
     // For melee/ranged based attack need update skills and set some Aura states
-    if ((damage != 0 || procExtra != PROC_EX_NORMAL_HIT) && procFlag & MELEE_BASED_TRIGGER_MASK)
+    if (!(procExtra & PROC_EX_CAST_END) && procFlag & MELEE_BASED_TRIGGER_MASK)
     {
         // Update skills here for players
         if (GetTypeId() == TYPEID_PLAYER)
@@ -10931,10 +10946,16 @@ void Unit::ProcDamageAndSpellFor( bool isVictim, Unit * pTarget, uint32 procFlag
                         if (!procSpell->IsFitToFamilyMask(spellProcEvent->spellFamilyMask[i]))
                             continue;
 
-                        // modifier aura procs by default are not active and only allowed with non zero charges
-                        // procEx == PROC_EX_NORMAL_HIT only for real "on cast" cases
-                        if (!useCharges && damage == 0 && procExtra == PROC_EX_NORMAL_HIT && (procFlag & SPELL_CAST_TRIGGER_MASK))
+                        // don't allow proc from cast end for non modifier spells
+                        // unless they have proc ex defined for that
+                        if (IsCastEndProcModifierAura(triggeredByHolder->GetSpellProto(), SpellEffectIndex(i), procSpell))
+                        {
+                            if (useCharges && procExtra != PROC_EX_CAST_END && spellProcEvent->procEx == PROC_EX_NONE)
+                                continue;
+                        }
+                        else if (spellProcEvent->procEx == PROC_EX_NONE && procExtra == PROC_EX_CAST_END)
                             continue;
+
                     }
                     // don't check dbc FamilyFlags if schoolMask exists
                     else if (!triggeredByAura->CanProcFrom(procSpell, procFlag, spellProcEvent->procEx, procExtra, damage != 0, !spellProcEvent->schoolMask))
@@ -11285,7 +11306,7 @@ void Unit::UpdateModelData()
         if (GetTypeId() == TYPEID_PLAYER)
             SetFloatValue(UNIT_FIELD_COMBATREACH, 1.5f);
         else
-            SetFloatValue(UNIT_FIELD_COMBATREACH, GetObjectScale() * ( modelInfo->bounding_radius < 2.0 ? modelInfo->combat_reach : modelInfo->combat_reach / modelInfo->bounding_radius ));
+            SetFloatValue(UNIT_FIELD_COMBATREACH, GetObjectScale() * modelInfo->combat_reach);
     }
 }
 
@@ -12461,7 +12482,7 @@ bool Unit::HasMorePoweredBuff(uint32 spellId)
             continue;
 
         for (Unit::AuraList::const_iterator itr = auras.begin(); itr != auras.end(); ++itr)
-            if ((*itr)->GetSpellProto()->AttributesEx7 & SPELL_ATTR_EX7_REPLACEABLE_AURA)
+            if ((*itr) && (*itr)->GetHolder() && !(*itr)->GetHolder()->IsDeleted() && (*itr)->GetSpellProto()->AttributesEx7 & SPELL_ATTR_EX7_REPLACEABLE_AURA)
                 if (spellInfo->CalculateSimpleValue(SpellEffectIndex(i)) < (*itr)->GetModifier()->m_amount)
                     return true;
     }

@@ -693,6 +693,12 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
         case 72551:                                         // Gastric Bloat 10 H
         case 72552:                                         // Gastric Bloat 25 N
         case 72553:                                         // Gastric Bloat 25 H
+        case 57508:                                         // Volazj Insanity Phase 1
+        case 57509:                                         // Volazj Insanity Phase 2
+        case 57510:                                         // Volazj Insanity Phase 3
+        case 57511:                                         // Volazj Insanity Phase 4
+        case 57512:                                         // Volazj Insanity Phase 5
+        case 55126:                                         // Sladran Snake Trap
             return false;
         case 552:                                           // Abolish Disease
         case 12042:                                         // Arcane Power
@@ -1724,8 +1730,8 @@ bool SpellMgr::IsSpellProcEventCanTriggeredBy(SpellProcEventEntry const * spellP
         if (EventProcFlag & (PROC_FLAG_ON_DO_PERIODIC | PROC_FLAG_ON_TAKE_PERIODIC) && (procExtra & PROC_EX_PERIODIC_POSITIVE))
             return false;
 
-        // No extra req, so can trigger for (damage/healing present) and hit/crit
-        if(procExtra & (PROC_EX_NORMAL_HIT|PROC_EX_CRITICAL_HIT))
+        // No extra req, so can trigger for (damage/healing present) and cast end/hit/crit
+        if (procExtra & (PROC_EX_CAST_END|PROC_EX_NORMAL_HIT|PROC_EX_CRITICAL_HIT))
             return true;
     }
     else // all spells hits here only if resist/reflect/immune/evade
@@ -3021,8 +3027,7 @@ void SpellMgr::LoadSpellPetAuras()
                (spellInfo->Effect[eff] != SPELL_EFFECT_APPLY_AURA ||
                 spellInfo->EffectApplyAuraName[eff] != SPELL_AURA_DUMMY))
             {
-                sLog.outError("Spell %u listed in `spell_pet_auras` does not have dummy aura or dummy effect", spell);
-                continue;
+                DEBUG_LOG("PetAuras load: Spell %u listed in `spell_pet_auras` does not have dummy aura or dummy effect", spell);
             }
 
             SpellEntry const* spellInfo2 = sSpellStore.LookupEntry(aura);
@@ -4011,6 +4016,9 @@ DiminishingGroup GetDiminishingReturnsGroupForSpell(SpellEntry const* spellproto
         {
             // Judgement of Justice - limit to 10 seconds in PvP
             if (spellproto->SpellFamilyFlags.test<CF_PALADIN_JUDGEMENT_OF_JUSTICE>())
+                return DIMINISHING_LIMITONLY;
+            // Turn Evil - limit to 10 seconds in PvP
+            else if (spellproto->SpellFamilyFlags.test<CF_PALADIN_TURN_EVIL>())
                 return DIMINISHING_LIMITONLY;
             break;
         }
