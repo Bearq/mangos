@@ -423,6 +423,12 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                         damage = unitTarget->GetMaxHealth() / 2;
                         break;
                     }
+                    // Ymiron Dark Slash
+                    case 48292:
+                    {
+                        damage = unitTarget->GetHealth() / 2;
+                        break;
+                    }
                     // Explode
                     case 47496:
                     {
@@ -1257,7 +1263,7 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                         unitTarget->GetPositionX(), unitTarget->GetPositionY(), unitTarget->GetPositionZ(),
                         unitTarget->GetOrientation(), 0.0f, 0.0f, 0.0f, 0.0f, GO_ANIMPROGRESS_DEFAULT, GO_STATE_READY))
                     {
-                        delete pGameObj;
+                        sWorld.AddObjectToRemoveList((WorldObject*)pGameObj);
                         return;
                     }
 
@@ -1313,7 +1319,7 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                         creatureTarget->GetPositionX(), creatureTarget->GetPositionY(), creatureTarget->GetPositionZ(),
                         creatureTarget->GetOrientation(), 0.0f, 0.0f, 0.0f, 0.0f, GO_ANIMPROGRESS_DEFAULT, GO_STATE_READY) )
                     {
-                        delete pGameObj;
+                        sWorld.AddObjectToRemoveList((WorldObject*)pGameObj);
                         return;
                     }
 
@@ -1644,7 +1650,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                         m_caster->CastSpell(m_caster, 42289, true, m_CastItem);
                     else
                         m_caster->CastSpell(m_caster, 42288, true);
-
                     return;
                 }
                 case 42793:                                 // Burn Body
@@ -1780,7 +1785,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     m_caster->CastSpell(m_caster, spellId, true);
                     //Arcane Prisoner Kill Credit
                     unitTarget->CastSpell(m_caster, 45456, true);
-
                     break;
                 }
                 case 45583:                                 // Throw Gnomish Grenade
@@ -1854,7 +1858,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                         if (unitTarget->GetTypeId() == TYPEID_UNIT)
                             ((Creature*)unitTarget)->ForcedDespawn();
                     }
-
                     return;
                 }
                 case 45685:                                 // Magnataur On Death 2
@@ -1876,7 +1879,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                         unitTarget->CastSpell(unitTarget, pSpell, true);
                         ((Creature*)unitTarget)->ForcedDespawn(GetSpellDuration(pSpell) + 1);
                     }
-
                     return;
                 }
                 case 46167:                                 // Planning for the Future: Create Snowfall Glade Pup Cover
@@ -1940,7 +1942,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                         pGo->SetRespawnTime(MINUTE/2);
                         pGo->Refresh();
                     }
-
                     return;
                 }
                 case 46485:                                 // Greatmother's Soulcatcher
@@ -1957,7 +1958,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
 
                         ((Creature*)unitTarget)->ForcedDespawn();
                     }
-
                     return;
                 }
                 case 46606:                                 // Plague Canister Dummy
@@ -2087,6 +2087,11 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
 
                     // Iron Dwarf Snapshot Credit
                     m_caster->CastSpell(m_caster, 48047, true, m_CastItem, NULL, unitTarget->GetObjectGuid());
+                    return;
+                }
+                case 48386:                                 // Ymiron Summon Fountain
+                {
+                    m_caster->CastSpell(m_caster, 48385, true);
                     return;
                 }
                 case 48790:                                 // Neltharion's Flame
@@ -2555,6 +2560,14 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     m_caster->CastSpell(m_caster, spellShrink, true);
                     return;
                 }
+                case 54148:                                 // Svala - Ritual Of Sword
+                {
+                    unitTarget->CastSpell(unitTarget, 48267, true);    // Teleport Player
+                    unitTarget->CastSpell(unitTarget, 48271, true);    // Target Summon Banshee
+                    unitTarget->CastSpell(unitTarget, 48274, true);    // Target Summon Banshee
+                    unitTarget->CastSpell(unitTarget, 48275, true);    // Target Summon Banshee
+                    return;
+                }
                 case 54577:                                 // Throw U.D.E.D.
                 {
                     if (!unitTarget || unitTarget->GetTypeId() != TYPEID_UNIT)
@@ -2655,6 +2668,11 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     for(uint32 i = 0; i < random; ++i)
                         m_caster->CastSpell(m_caster, 55528, true);
 
+                    return;
+                }
+                case 57496:                                 // Volazj - Insanity
+                {
+                    m_caster->CastSpell(m_caster, 57561, true);
                     return;
                 }
                 case 57908:                                 // Stain Cloth
@@ -4932,7 +4950,7 @@ void Spell::EffectPersistentAA(SpellEffectIndex eff_idx)
     if (!dynObj->Create(pCaster->GetMap()->GenerateLocalLowGuid(HIGHGUID_DYNAMICOBJECT), pCaster, m_spellInfo->Id,
         eff_idx, m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ, m_duration, radius, DYNAMIC_OBJECT_AREA_SPELL))
     {
-        delete dynObj;
+        sWorld.AddObjectToRemoveList((WorldObject*)dynObj);
         return;
     }
 
@@ -5484,7 +5502,7 @@ void Spell::DoSummonGroupPets(SpellEffectIndex eff_idx)
                     {
                         DEBUG_LOG("Pet (guidlow %d, entry %d) found in database, but not loaded. Counter is %d ",
                                      pet->GetGUIDLow(), pet->GetEntry(), pet->GetPetCounter());
-                        delete pet;
+                        sWorld.AddObjectToRemoveList((WorldObject*)pet);
                     }
                 }
             }
@@ -5507,7 +5525,7 @@ void Spell::DoSummonGroupPets(SpellEffectIndex eff_idx)
         if (!pet->Create(0, pos, cInfo, 0, m_caster))
         {
             sLog.outErrorDb("Spell::EffectSummonGroupPets: not possible create creature entry %u",m_spellInfo->EffectMiscValue[eff_idx]);
-            delete pet;
+            sWorld.AddObjectToRemoveList((WorldObject*)pet);
             return;
         }
 
@@ -5515,7 +5533,7 @@ void Spell::DoSummonGroupPets(SpellEffectIndex eff_idx)
         {
             sLog.outError("Pet (guidlow %d, entry %d) not summoned by undefined reason. ",
                 pet->GetGUIDLow(), pet->GetEntry());
-            delete pet;
+            sWorld.AddObjectToRemoveList((WorldObject*)pet);
             return;
         }
         DEBUG_LOG("New Pet (guidlow %d, entry %d) summoned (default). Counter is %d ", pet->GetGUIDLow(), pet->GetEntry(), pet->GetPetCounter());
@@ -5807,7 +5825,7 @@ void Spell::EffectAddFarsight(SpellEffectIndex eff_idx)
     if(!dynObj->Create(m_caster->GetMap()->GenerateLocalLowGuid(HIGHGUID_DYNAMICOBJECT), m_caster,
         m_spellInfo->Id, eff_idx, m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ, duration, 0, DYNAMIC_OBJECT_FARSIGHT_FOCUS))
     {
-        delete dynObj;
+        sWorld.AddObjectToRemoveList((WorldObject*)dynObj);
         return;
     }
 
@@ -5993,7 +6011,7 @@ void Spell::DoSummonGuardian(SpellEffectIndex eff_idx, uint32 forceFaction)
         if (!spawnCreature->Create(0, pos, cInfo, 0, m_caster))
         {
             sLog.outError("Spell::DoSummonGuardian: can't create creature entry %u for spell %u.", pet_entry, m_spellInfo->Id);
-            delete spawnCreature;
+            sWorld.AddObjectToRemoveList((WorldObject*)spawnCreature);
             return;
         }
         spawnCreature->setFaction(forceFaction ? forceFaction : m_caster->getFaction());
@@ -6003,7 +6021,7 @@ void Spell::DoSummonGuardian(SpellEffectIndex eff_idx, uint32 forceFaction)
         {
             sLog.outError("Guardian pet (guidlow %d, entry %d) not summoned by undefined reason. ",
                 spawnCreature->GetGUIDLow(), spawnCreature->GetEntry());
-            delete spawnCreature;
+            sWorld.AddObjectToRemoveList((WorldObject*)spawnCreature);
             return;
         }
 
@@ -6397,7 +6415,7 @@ void Spell::EffectTameCreature(SpellEffectIndex /*eff_idx*/)
 
     if(!pet->CreateBaseAtCreature(creatureTarget, (Unit*)plr))
     {
-        delete pet;
+        sWorld.AddObjectToRemoveList((WorldObject*)pet);
         return;
     }
 
@@ -6412,7 +6430,7 @@ void Spell::EffectTameCreature(SpellEffectIndex /*eff_idx*/)
     {
         sLog.outError("Pet (guidlow %d, entry %d) not summoned from tame effect by undefined reason. ",
             pet->GetGUIDLow(), pet->GetEntry());
-        delete pet;
+        sWorld.AddObjectToRemoveList((WorldObject*)pet);
         return;
     }
 
@@ -6482,7 +6500,7 @@ void Spell::EffectSummonPet(SpellEffectIndex eff_idx)
     // not error in case fail hunter call pet
     if (!petentry)
     {
-        delete NewSummon;
+        sWorld.AddObjectToRemoveList((WorldObject*)NewSummon);
         return;
     }
 
@@ -6493,7 +6511,7 @@ void Spell::EffectSummonPet(SpellEffectIndex eff_idx)
 
     if (!NewSummon->Create(0, pos, cInfo, 0, m_caster))
     {
-        delete NewSummon;
+        sWorld.AddObjectToRemoveList((WorldObject*)NewSummon);
         return;
     }
 
@@ -6501,7 +6519,7 @@ void Spell::EffectSummonPet(SpellEffectIndex eff_idx)
     {
         sLog.outError("Pet (guidlow %d, entry %d) not summoned by undefined reason. ",
             NewSummon->GetGUIDLow(), NewSummon->GetEntry());
-        delete NewSummon;
+        sWorld.AddObjectToRemoveList((WorldObject*)NewSummon);
         return;
     }
 
@@ -7004,7 +7022,7 @@ void Spell::EffectSummonObjectWild(SpellEffectIndex eff_idx)
     if(!pGameObj->Create(map->GenerateLocalLowGuid(HIGHGUID_GAMEOBJECT), gameobject_id, map,
         m_caster->GetPhaseMask(), x, y, z, target->GetOrientation(), 0.0f, 0.0f, 0.0f, 0.0f, GO_ANIMPROGRESS_DEFAULT, GO_STATE_READY))
     {
-        delete pGameObj;
+        sWorld.AddObjectToRemoveList((WorldObject*)pGameObj);
         return;
     }
 
@@ -7992,6 +8010,15 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
 
                     return;
                 }
+                case 50255:                                  // Skadi Poison Spear (N/H)
+                case 59331:
+                {
+                    if (!unitTarget)
+                        return;
+
+                    unitTarget->CastSpell(unitTarget, m_spellInfo->CalculateSimpleValue(eff_idx), true);
+                    return;
+                }
                 case 50439:                                 // Script Cast Summon Image of Drakuru 05
                 {
                     // TODO: check if summon already exist, if it does in this instance, return.
@@ -8088,7 +8115,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                 }
                 case 51904:                                 // Summon Ghouls Of Scarlet Crusade
                 {
-                    if(!unitTarget)
+                    if (!unitTarget)
                         return;
 
                     unitTarget->CastSpell(unitTarget, 54522, true);
@@ -8104,8 +8131,9 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
 
                 case 52357:                                 // Into the realm of shadows
                 {
-                    if(!unitTarget)
+                    if (!unitTarget)
                         return;
+
                     unitTarget->CastSpell(unitTarget, m_spellInfo->CalculateSimpleValue(eff_idx), true);
                     break;
                 }
@@ -8147,7 +8175,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
 
                     if (spellId)
                         m_caster->CastSpell(m_caster, spellId, true);
-
                     break;
                 }
                 case 53110:									// Devour Humanoid
@@ -8239,16 +8266,22 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                 {
                     if (!unitTarget)    // Stoneclaw Totem owner
                         return;
+
                     // Absorb shield for totems
                     for(int itr = 0; itr < MAX_TOTEM_SLOT; ++itr)
                         if (Totem* totem = unitTarget->GetTotem(TotemSlot(itr)))
                             m_caster->CastCustomSpell(totem, 55277, &damage, NULL, NULL, true);
                     // Glyph of Stoneclaw Totem
-                    if(Aura* auraGlyph = unitTarget->GetAura(63298, EFFECT_INDEX_0))
+                    if (Aura* auraGlyph = unitTarget->GetAura(63298, EFFECT_INDEX_0))
                     {
                         int32 playerAbsorb = damage * auraGlyph->GetModifier()->m_amount;
                         m_caster->CastCustomSpell(unitTarget, 55277, &playerAbsorb, NULL, NULL, true);
                     }
+                    return;
+                }
+                case 55299:                                 // Galdarah Transform to Troll!
+                {
+                    m_caster->RemoveAurasDueToSpell(55297);
                     return;
                 }
                 case 55693:                                 // Remove Collapsing Cave Aura
@@ -8295,7 +8328,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
 
                     if (((Player*)unitTarget)->GetQuestStatus(questID) == QUEST_STATUS_COMPLETE && !((Player*)unitTarget)->GetQuestRewardStatus (questID))
                         unitTarget->CastSpell(unitTarget, spellID, true);
-
                     return;
                 }
                 case 58941:                                 // Rock Shards
@@ -8318,7 +8350,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     // teleport atop
                     else
                         unitTarget->CastSpell(unitTarget, 59314, true);
-
                     return;
                 }
                 case 58916:                                 // Gift of the Lich King
@@ -8332,7 +8363,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
 
                     if (Unit* master = m_caster->GetCharmerOrOwner())
                         master->CastSpell(master, 58987, true);
-
                     return;
                 }
                 case 58917:                                 // Consume minions
@@ -8401,7 +8431,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
 
                     for (uint32 i = 0; i < 10; ++i)
                         m_caster->CastSpell(m_caster, spellId, true);
-
                     return;
                 }
                 case 63845:                                 // Create lance
@@ -8432,7 +8461,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     // learn random explicit discovery recipe (if any)
                     if (uint32 discoveredSpell = GetExplicitDiscoverySpell(m_spellInfo->Id, (Player*)m_caster))
                         ((Player*)m_caster)->learnSpell(discoveredSpell, false);
-
                     return;
                 }
                 case 69200:                                 // Raging Spirit
@@ -8464,7 +8492,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                             return;
                     }
                     Aura* chargesaura = m_caster->GetAura(59907, EFFECT_INDEX_0);
-                    if(chargesaura && chargesaura->GetHolder() && chargesaura->GetHolder()->GetAuraCharges() >= 1)
+                    if (chargesaura && chargesaura->GetHolder() && chargesaura->GetHolder()->GetAuraCharges() >= 1)
                     {
                         chargesaura->GetHolder()->SetAuraCharges(chargesaura->GetHolder()->GetAuraCharges() - 1);
                         m_caster->CastSpell(unitTarget, spellID, false, NULL, NULL);
@@ -8619,6 +8647,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                 {
                     if (!unitTarget)
                         return;
+
                     if (unitTarget->HasAura(62297))
                         unitTarget->RemoveAurasDueToSpell(62297);   // Remove Hodir's Fury
                     break;
@@ -8653,7 +8682,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
 
                     if (Unit* charmer = unitTarget->GetCharmer())
                         charmer->CastSpell(charmer, damage, true);
-
                     return;
                 }
                 case 66477:                                 // Bountiful Feast
@@ -8723,9 +8751,8 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                 {
                     if (!unitTarget)
                         return;
-
-                                                            // Only usable on Grunty companion
-                    Unit* pZerg = unitTarget->GetMiniPet();
+                                                            
+                    Unit* pZerg = unitTarget->GetMiniPet(); // Only usable on Grunty companion
                     if (pZerg && pZerg->isAlive() && pZerg->GetEntry() == 11327)
                     {
                         m_caster->CastSpell(unitTarget, m_spellInfo->CalculateSimpleValue(eff_idx), true);
@@ -8735,9 +8762,11 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     return;
                 }
                 case 68861:                                 // Consume Soul (ICC FoS: Bronjahm)
+                {
                     if (unitTarget)
                         unitTarget->CastSpell(unitTarget, m_spellInfo->CalculateSimpleValue(eff_idx), true);
                     return;
+                }
                 case 69377:                                 // Fortitude
                 {
                     if (!unitTarget)
@@ -8795,19 +8824,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                 {
                     if (unitTarget)
                         unitTarget->CastSpell(unitTarget, 66334, true);
-                    return;
-                }
-                case 69057:                                 // Bone Spike Graveyard (Icecrown Citadel, ->
-                case 70826:                                 // -> Lord Marrowgar encounter, all difficulties)
-                case 72088:                                 // ----- // -----
-                case 72089:                                 // ----- // -----
-                case 73142:                                 // Bone Spike Graveyard (during Bone Storm) ->
-                case 73143:                                 // (Icecrown Citadel, -> Lord Marrowgar encounter, ->
-                case 73144:                                 // all difficulties)
-                case 73145:                                 // ----- // -----
-                {
-                    if (unitTarget)
-                        unitTarget->CastSpell(unitTarget, 69062, true);
                     return;
                 }
                 case 69140:                                 // Coldflame (Lord Marrowgar - Icecrown Citadel)
@@ -9380,7 +9396,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                 // Raise dead script effect
                 case 46584:
                 {
-                    if ( !unitTarget || m_caster->GetTypeId() != TYPEID_PLAYER)
+                    if (!unitTarget || m_caster->GetTypeId() != TYPEID_PLAYER)
                         return;
 
                     // If have 52143 spell - summoned pet from dummy effect
@@ -9391,7 +9407,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
 
                     m_caster->GetClosePoint(x, y, z, m_caster->GetObjectBoundingRadius(), PET_FOLLOW_DIST);
 
-                    if ( unitTarget != (Unit*)m_caster )
+                    if (unitTarget != (Unit*)m_caster)
                     {
                         m_caster->CastSpell(unitTarget->GetPositionX(),unitTarget->GetPositionY(),unitTarget->GetPositionZ(),triggered_spell_id, true, NULL, NULL, m_caster->GetObjectGuid(), m_spellInfo);
                         unitTarget->RemoveFromWorld();
@@ -9418,6 +9434,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     CancelGlobalCooldown();
                     return;
                 }
+
                 // Raise ally
                 case 61999:
                 {
@@ -9543,7 +9560,7 @@ void Spell::EffectDuel(SpellEffectIndex eff_idx)
         m_caster->GetPositionZ(),
         m_caster->GetOrientation(), 0.0f, 0.0f, 0.0f, 0.0f, GO_ANIMPROGRESS_DEFAULT, GO_STATE_READY))
     {
-        delete pGameObj;
+        sWorld.AddObjectToRemoveList((WorldObject*)pGameObj);
         return;
     }
 
@@ -9706,7 +9723,7 @@ void Spell::DoSummonTotem(SpellEffectIndex eff_idx, uint8 slot_dbc)
 
     if (!pTotem->Create(m_caster->GetMap()->GenerateLocalLowGuid(HIGHGUID_UNIT), pos, cinfo, m_caster))
     {
-        delete pTotem;
+        sWorld.AddObjectToRemoveList((WorldObject*)pTotem);
         return;
     }
 
@@ -9919,7 +9936,7 @@ void Spell::EffectSummonObject(SpellEffectIndex eff_idx)
     if(!pGameObj->Create(map->GenerateLocalLowGuid(HIGHGUID_GAMEOBJECT), go_id, map,
         m_caster->GetPhaseMask(), x, y, z, m_caster->GetOrientation(), 0.0f, 0.0f, 0.0f, 0.0f, GO_ANIMPROGRESS_DEFAULT, GO_STATE_READY))
     {
-        delete pGameObj;
+        sWorld.AddObjectToRemoveList((WorldObject*)pGameObj);
         return;
     }
 
@@ -10260,7 +10277,7 @@ void Spell::DoSummonCritter(SpellEffectIndex eff_idx, uint32 forceFaction)
     {
         sLog.outError("Mini pet (guidlow %d, entry %d) not summoned",
             critter->GetGUIDLow(), critter->GetEntry());
-        delete critter;
+        sWorld.AddObjectToRemoveList((WorldObject*)critter);
         return;
     }
 
@@ -10270,7 +10287,7 @@ void Spell::DoSummonCritter(SpellEffectIndex eff_idx, uint32 forceFaction)
     {
         sLog.outError("Mini pet (guidlow %d, entry %d) not summoned by undefined reason. ",
             critter->GetGUIDLow(), critter->GetEntry());
-        delete critter;
+        sWorld.AddObjectToRemoveList((WorldObject*)critter);
         return;
     }
 
@@ -10565,7 +10582,7 @@ void Spell::EffectTransmitted(SpellEffectIndex eff_idx)
     if(!pGameObj->Create(cMap->GenerateLocalLowGuid(HIGHGUID_GAMEOBJECT), name_id, cMap,
         m_caster->GetPhaseMask(), fx, fy, fz, m_caster->GetOrientation(), 0.0f, 0.0f, 0.0f, 0.0f, GO_ANIMPROGRESS_DEFAULT, GO_STATE_READY))
     {
-        delete pGameObj;
+        sWorld.AddObjectToRemoveList((WorldObject*)pGameObj);
         return;
     }
 

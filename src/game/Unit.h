@@ -1167,7 +1167,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         virtual ~Unit ( );
 
         void AddToWorld();
-        void RemoveFromWorld();
+        void RemoveFromWorld(bool remove = true);
 
         void CleanupsBeforeDelete();                        // used in ~Creature/~Player (or before mass creature delete to remove cross-references to already deleted units)
 
@@ -1613,7 +1613,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         void RemoveSingleAuraFromSpellAuraHolder(SpellAuraHolder *holder, SpellEffectIndex index, AuraRemoveMode mode = AURA_REMOVE_BY_DEFAULT);
         void RemoveSingleAuraFromSpellAuraHolder(uint32 id, SpellEffectIndex index, ObjectGuid casterGuid, AuraRemoveMode mode = AURA_REMOVE_BY_DEFAULT);
 
-        void AddSpellAuraHolderToRemoveList(SpellAuraHolder* holder) { m_deletedHolders.push_back(holder);};
+        void AddSpellAuraHolderToRemoveList(SpellAuraHolder* holder);
 
         // removing specific aura stacks by diff reasons and selections
         void RemoveAurasDueToSpell(uint32 spellId, SpellAuraHolder* except = NULL, AuraRemoveMode mode = AURA_REMOVE_BY_DEFAULT);

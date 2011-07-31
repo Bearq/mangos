@@ -907,19 +907,6 @@ void Aura::ApplyModifier(bool apply, bool Real)
 
 bool Aura::isAffectedOnSpell(SpellEntry const *spell) const
 {
-    // hacks for bad DBC data
-    switch (GetId())
-    {
-        case 46924:
-            if (spell->Id == 1680 || spell->Id == 44949)
-                return false;
-            else if (spell->Id == 50622)
-                return true;
-            break;
-        default:
-            break;
-    }
-
     return spell->IsFitToFamily(SpellFamily(GetSpellProto()->SpellFamilyName), GetAuraSpellClassMask());
 }
 
@@ -928,26 +915,28 @@ bool Aura::CanProcFrom(SpellEntry const *spell, uint32 procFlag, uint32 EventPro
     // Check EffectClassMask
     ClassFamilyMask const& mask  = GetAuraSpellClassMask();
 
+    // allow proc for modifier auras with charges
+    if (IsCastEndProcModifierAura(GetSpellProto(), GetEffIndex(), spell))
+    {
+        if (GetHolder()->GetAuraCharges() > 0)
+        {
+            if (procEx != PROC_EX_CAST_END && EventProcEx == PROC_EX_NONE)
+                return false;
+        }
+    }
+    else if (EventProcEx == PROC_EX_NONE && procEx == PROC_EX_CAST_END)
+        return false;
+
     // if no class mask defined, or spell_proc_event has SpellFamilyName=0 - allow proc
     if (!useClassMask || !mask)
     {
         if (!(EventProcEx & PROC_EX_EX_TRIGGER_ALWAYS))
         {
-            // modifier aura procs by default are not active and only allowed with non zero charges
-            // procEx == PROC_EX_NORMAL_HIT only for real "on cast" cases
-            if (!active && procEx == PROC_EX_NORMAL_HIT && (procFlag & SPELL_CAST_TRIGGER_MASK))
-            {
-                if (GetHolder()->GetAuraCharges() > 0)
-                    return true;
-                else
-                    return false;
-            }
-
             // Check for extra req (if none) and hit/crit
             if (EventProcEx == PROC_EX_NONE)
             {
                 // No extra req, so can trigger only for active (damage/healing present) and hit/crit
-                if((procEx & (PROC_EX_NORMAL_HIT|PROC_EX_CRITICAL_HIT)) && active)
+                if(((procEx & (PROC_EX_NORMAL_HIT|PROC_EX_CRITICAL_HIT)) && active) || procEx == PROC_EX_CAST_END)
                     return true;
                 else
                     return false;
@@ -2379,6 +2368,11 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                         // See Death's Door
                         target->CastSpell(target, 48814, true, NULL, this);
                         return;
+                    case 48276:                             // Svala - Ritual Of Sword
+                        target->CastSpell(target, 54148, true);   //Cast Choose Target
+                        target->CastSpell(target, 48331, true);   //Cast Swirl Sword
+                        target->CastSpell(target, 54159, true);   //Cast Remove Equipment
+                        return;
                     case 51405:                             // Digging for Treasure
                         target->HandleEmote(EMOTE_STATE_WORK);
                         // Pet will be following owner, this makes him stop
@@ -2419,15 +2413,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                         return;
                     case 58591:                                 // Stoneclaw Totem X
                         target->CastSpell(target, 58585, true);
-                        return;
-                    case 56150:                                 // Jedoga Sacriface Beam
-                        if (Unit* caster = GetCaster())
-                        {
-                            int32 health = target->GetHealth();
-                            int32 mana = target->GetPower(POWER_MANA);
-                            int32 instakill=1;
-                            caster->CastCustomSpell(target, 58919, &health, &instakill, &mana, true);
-                        }
                         return;
                     case 61187:                                 // Twilight Shift
                         target->CastSpell(target, 61885, true);
@@ -2724,7 +2709,7 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
             case SPELLFAMILY_DEATHKNIGHT:
             {
                 // Hungering Cold - disease apply
-                if(GetId() == 51209)
+                if (GetId() == 51209)
                 {
                     Unit *caster = GetCaster();
                     if(!caster)
@@ -2770,7 +2755,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
 
             if (finalSpellId)
                 caster->CastSpell(target, finalSpellId, true, NULL, this);
-
             return;
         }
 
@@ -2826,28 +2810,24 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
             {
                 if (m_removeMode == AURA_REMOVE_BY_EXPIRE)
                     target->CastSpell(target, 32054, true, NULL, this);
-
                 return;
             }
             case 32051:                                     // Soul Charge
             {
                 if (m_removeMode == AURA_REMOVE_BY_EXPIRE)
                     target->CastSpell(target, 32057, true, NULL, this);
-
                 return;
             }
             case 32052:                                     // Soul Charge
             {
                 if (m_removeMode == AURA_REMOVE_BY_EXPIRE)
                     target->CastSpell(target, 32053, true, NULL, this);
-
                 return;
             }
             case 32286:                                     // Focus Target Visual
             {
                 if (m_removeMode == AURA_REMOVE_BY_EXPIRE)
                     target->CastSpell(target, 32301, true, NULL, this);
-
                 return;
             }
             case 35079:                                     // Misdirection, triggered buff
@@ -2897,7 +2877,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                     if (Player* pPlayer = pCaster->GetCharmerOrOwnerPlayerOrPlayerItself())
                         pPlayer->CastSpell(pPlayer, 42455, true);
                 }
-
                 return;
             }
             case 42517:                                     // Beam to Zelfrax
@@ -2909,7 +2888,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
 
                 if (pSummon && pCaster)
                     pSummon->GetMotionMaster()->MovePoint(0, pCaster->GetPositionX(), pCaster->GetPositionY(), pCaster->GetPositionZ());
-
                 return;
             }
             case 43681:                                     // Inactive
@@ -2919,7 +2897,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
 
                 if (target->GetMap()->IsBattleGround())
                     ((Player*)target)->LeaveBattleground();
-
                 return;
             }
             case 43969:                                     // Feathered Charm
@@ -2927,7 +2904,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 // Steelfeather Quest Credit, Are there any requirements for this, like area?
                 if (m_removeMode == AURA_REMOVE_BY_EXPIRE)
                     target->CastSpell(target, 43984, true);
-
                 return;
             }
             case 44191:                                     // Flame Strike
@@ -3015,12 +2991,26 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                     }
                 }
             }
+            case 49356:                                     // Flesh Decay - Tharonja
+            {
+                Unit* caster = GetCaster();
+                caster->SetDisplayId(27073);            // Set Skeleton Model
+                caster->CastSpell(caster, 52509, true); // Cast Gift Of Tharonja
+                caster->CastSpell(caster, 52582, true); // Cast Transform Visual
+                return;
+            }
+            case 53463:                                     // Flesh Return - Tharonja
+            {
+                Unit* caster = GetCaster();
+                caster->SetDisplayId(27072);            // Set Basic Model
+                caster->CastSpell(caster, 52582, true); // Cast Transform Visual
+                return;
+            }
             case 50141:                                     // Blood Oath
             {
                 // Blood Oath
                 if (m_removeMode == AURA_REMOVE_BY_EXPIRE)
                     target->CastSpell(target, 50001, true, NULL, this);
-
                 return;
             }
             case 51405:                                     // Digging for Treasure
@@ -3049,7 +3039,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                     if (m_removeMode == AURA_REMOVE_BY_EXPIRE)
                         pCaster->CastSpell(target, 51872, true, NULL, this);
                 }
-
                 return;
             }
             case 34477: //Misdirection
@@ -3091,14 +3080,26 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 return;
             }
             case 54852:                                     // Cosmetic - Stun (Permanent)
+            {
                 target->clearUnitState(UNIT_STAT_STUNNED);
                 return;
+            }
+            case 56150:                                     // Jedoga Sacriface Beam
+            {
+                if (Unit* caster = GetCaster())
+                {
+                    int32 health = target->GetHealthPercent();
+                    int32 mana = target->GetPower(POWER_MANA)*100/target->GetMaxPower(POWER_MANA);
+                    int32 instantkill = 1;
+                    caster->CastCustomSpell(target, 58919, &health, &instantkill, &mana, true);
+                }
+                return;
+            }
             case 56511:                                     // Towers of Certain Doom: Tower Bunny Smoke Flare Effect
             {
                 // Towers of Certain Doom: Skorn Cannonfire
                 if (m_removeMode == AURA_REMOVE_BY_DEFAULT)
                     target->CastSpell(target, 43069, true);
-
                 return;
             }
             case 58600:                                     // Restricted Flight Area
@@ -4770,7 +4771,6 @@ void Aura::HandleAuraModDisarm(bool apply, bool Real)
 
     if (apply)
     {
-        target->RemoveAurasDueToSpell(46924); // Disarm should stop bladestorm
         target->SetAttackTime(BASE_ATTACK,BASE_ATTACK_TIME);
     }
     else
@@ -9292,7 +9292,6 @@ void Aura::PeriodicDummyTick()
 
                 return;
             }
-            break;
 //            if (spell->SpellIconID == 30412)
 //                return;
             // Hysteria

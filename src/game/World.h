@@ -37,6 +37,7 @@ class Object;
 class WorldPacket;
 class WorldSession;
 class Player;
+class WorldObject;
 class Weather;
 class SqlResultQueue;
 class QueryResult;
@@ -87,7 +88,7 @@ enum WorldTimers
 enum WorldLockType
 {
     WORLD_LOCK_AURAS,
-    WORLD_LOCK_TARGETS,
+    WORLD_LOCK_OBJECTS,
     WORLD_LOCK_THREAT,
     WORLD_LOCK_MAX,
 };
@@ -634,6 +635,9 @@ class World
         typedef ACE_Write_Guard<WorldLock>        WorldWriteGuard;
         WorldLock& GetLock(WorldLockType type)    { return i_worldLock[type]; }
 
+        void AddObjectToRemoveList(WorldObject *obj);
+        void RemoveAllObjectsInRemoveList();
+
     protected:
         void _UpdateGameTime();
         // callback for UpdateRealmCharacters
@@ -733,6 +737,7 @@ class World
         std::string m_CreatureEventAIVersion;
 
         WorldLock    i_worldLock[WORLD_LOCK_MAX];
+        std::set<WorldObject*> i_objectsToRemove;
 
 };
 

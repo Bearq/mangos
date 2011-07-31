@@ -48,7 +48,14 @@ void TargetedMovementGeneratorMedium<T,D>::_setTargetLocation(T &owner)
     else if (!i_offset)
     {
         // to nearest contact position
-        i_target->GetContactPoint( &owner, x, y, z );
+        float dist = 0.0f;
+        if (owner.getVictim() && owner.getVictim()->GetObjectGuid() == i_target->GetObjectGuid())
+            dist = owner.GetFloatValue(UNIT_FIELD_COMBATREACH) + i_target->GetFloatValue(UNIT_FIELD_COMBATREACH) - i_target->GetObjectBoundingRadius() - owner.GetObjectBoundingRadius() - 1.0f;
+
+        if (dist < 0.5f)
+            dist = 0.5f;
+
+        i_target->GetContactPoint(&owner, x, y, z, dist);
     }
     else
     {
@@ -125,7 +132,7 @@ bool TargetedMovementGeneratorMedium<T,D>::Update(T &owner, const uint32 & time_
     if (!i_target.isValid() || !i_target->IsInWorld())
         return false;
 
-    if (!owner.isAlive())
+    if (!owner.isAlive() || !owner.IsInWorld())
         return true;
 
     if (owner.hasUnitState(UNIT_STAT_NOT_MOVE))
