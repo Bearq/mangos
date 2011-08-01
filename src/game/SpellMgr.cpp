@@ -142,7 +142,7 @@ uint32 GetSpellCastTimeForBonus( SpellEntry const *spellProto, DamageEffectType 
     if (CastingTime > 7000) CastingTime = 7000;
     if (CastingTime < 1500) CastingTime = 1500;
 
-    if(damagetype == DOT && !IsChanneledSpell(spellProto))
+    if (damagetype == DOT && !IsChanneledSpell(spellProto))
         CastingTime = 3500;
 
     int32 overTime    = 0;
@@ -240,11 +240,11 @@ uint32 GetSpellCastTimeForBonus( SpellEntry const *spellProto, DamageEffectType 
 uint16 GetSpellAuraMaxTicks(SpellEntry const* spellInfo)
 {
     int32 DotDuration = GetSpellDuration(spellInfo);
-    if(DotDuration == 0)
+    if (DotDuration == 0)
         return 1;
 
     // 200% limit
-    if(DotDuration > 30000)
+    if (DotDuration > 30000)
         DotDuration = 30000;
 
     for (int j = 0; j < MAX_EFFECT_INDEX; ++j)
@@ -338,7 +338,7 @@ bool IsNoStackAuraDueToAura(uint32 spellId_1, uint32 spellId_2)
     SpellEntry const *spellInfo_1 = sSpellStore.LookupEntry(spellId_1);
     SpellEntry const *spellInfo_2 = sSpellStore.LookupEntry(spellId_2);
     if(!spellInfo_1 || !spellInfo_2) return false;
-    if(spellInfo_1->Id == spellId_2) return false;
+    if (spellInfo_1->Id == spellId_2) return false;
 
     for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
     {
@@ -820,8 +820,7 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
                 case SPELL_AURA_MOD_DODGE_PERCENT:
                 case SPELL_AURA_MOD_HEALING_PCT:
                 case SPELL_AURA_MOD_HEALING_DONE:
-                case SPELL_AURA_MOD_RESISTANCE_PCT:
-                    if(spellproto->CalculateSimpleValue(effIndex) < 0)
+                    if (spellproto->CalculateSimpleValue(effIndex) < 0)
                         return false;
                     break;
                 case SPELL_AURA_MOD_DAMAGE_TAKEN:           // dependent from bas point sign (positive -> negative)
@@ -832,7 +831,7 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
                 case SPELL_AURA_MOD_SPELL_CRIT_CHANCE:
                 case SPELL_AURA_MOD_INCREASE_HEALTH_PERCENT:
                 case SPELL_AURA_MOD_DAMAGE_PERCENT_DONE:
-                    if(spellproto->CalculateSimpleValue(effIndex) > 0)
+                    if (spellproto->CalculateSimpleValue(effIndex) > 0)
                         return true;                        // some expected positive spells have SPELL_ATTR_EX_NEGATIVE or unclear target modes
                     break;
                 case SPELL_AURA_ADD_TARGET_TRIGGER:
@@ -878,7 +877,7 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
                         return false;                       // but all single stun aura spells is negative
 
                     // Petrification
-                    if(spellproto->Id == 17624)
+                    if (spellproto->Id == 17624)
                         return false;
                     break;
                 case SPELL_AURA_MOD_PACIFY_SILENCE:
@@ -956,9 +955,9 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
                     switch(spellproto->EffectMiscValue[effIndex])
                     {
                         case SPELLMOD_COST:                 // dependent from bas point sign (negative -> positive)
-                            if(spellproto->Id == 12042)     // Arcane Power workaround
+                            if (spellproto->Id == 12042)     // Arcane Power workaround
                                 break;
-                            if(spellproto->CalculateSimpleValue(effIndex) > 0)
+                            if (spellproto->CalculateSimpleValue(effIndex) > 0)
                                 return false;
                             break;
                         default:
@@ -991,7 +990,7 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
         return false;
 
     // AttributesEx check
-    if(spellproto->AttributesEx & SPELL_ATTR_EX_NEGATIVE)
+    if (spellproto->AttributesEx & SPELL_ATTR_EX_NEGATIVE)
         return false;
 
     // ok, positive
@@ -1035,7 +1034,7 @@ bool IsSingleTargetSpell(SpellEntry const *spellInfo)
     // single target triggered spell.
     // Not real client side single target spell, but it' not triggered until prev. aura expired.
     // This is allow store it in single target spells list for caster for spell proc checking
-    if(spellInfo->Id==38324)                                // Regeneration (triggered by 38299 (HoTs on Heals))
+    if (spellInfo->Id==38324)                                // Regeneration (triggered by 38299 (HoTs on Heals))
         return true;
 
     return false;
@@ -1045,7 +1044,7 @@ bool IsSingleTargetSpells(SpellEntry const *spellInfo1, SpellEntry const *spellI
 {
     // TODO - need better check
     // Equal icon and spellfamily
-    if( spellInfo1->SpellFamilyName == spellInfo2->SpellFamilyName &&
+    if ( spellInfo1->SpellFamilyName == spellInfo2->SpellFamilyName &&
         spellInfo1->SpellIconID == spellInfo2->SpellIconID )
         return true;
 
@@ -1056,7 +1055,7 @@ bool IsSingleTargetSpells(SpellEntry const *spellInfo1, SpellEntry const *spellI
     {
         case SPELL_JUDGEMENT:
         case SPELL_MAGE_POLYMORPH:
-            if(GetSpellSpecific(spellInfo2->Id) == spec1)
+            if (GetSpellSpecific(spellInfo2->Id) == spec1)
                 return true;
             break;
         default:
@@ -1070,7 +1069,7 @@ SpellCastResult GetErrorAtShapeshiftedCast (SpellEntry const *spellInfo, uint32 
 {
     // talents that learn spells can have stance requirements that need ignore
     // (this requirement only for client-side stance show in talent description)
-    if( GetTalentSpellCost(spellInfo->Id) > 0 &&
+    if ( GetTalentSpellCost(spellInfo->Id) > 0 &&
         (spellInfo->Effect[EFFECT_INDEX_0] == SPELL_EFFECT_LEARN_SPELL || spellInfo->Effect[EFFECT_INDEX_1] == SPELL_EFFECT_LEARN_SPELL || spellInfo->Effect[EFFECT_INDEX_2] == SPELL_EFFECT_LEARN_SPELL) )
         return SPELL_CAST_OK;
 
@@ -1094,7 +1093,7 @@ SpellCastResult GetErrorAtShapeshiftedCast (SpellEntry const *spellInfo, uint32 
         actAsShifted = !(shapeInfo->flags1 & 1);            // shapeshift acts as normal form for spells
     }
 
-    if(actAsShifted)
+    if (actAsShifted)
     {
         if (spellInfo->Attributes & SPELL_ATTR_NOT_SHAPESHIFT) // not while shapeshifted
         {
@@ -1226,7 +1225,7 @@ struct SpellRankHelper
         uint32 first_id = mgr.GetFirstSpellInChain(spell_id);
 
         // most spell ranks expected same data
-        if(first_id)
+        if (first_id)
         {
             firstRankSpells.insert(first_id);
 
@@ -1520,6 +1519,41 @@ void SpellMgr::LoadSpellProcItemEnchant()
     sLog.outString( ">> Loaded %u proc item enchant definitions", count );
 }
 
+bool IsCastEndProcModifierAura(SpellEntry const *spellInfo, SpellEffectIndex effecIdx, SpellEntry const *procSpell)
+{
+    // modifier auras that can proc on cast end
+    switch (AuraType(spellInfo->EffectApplyAuraName[effecIdx]))
+    {
+        case SPELL_AURA_ADD_FLAT_MODIFIER:
+        case SPELL_AURA_ADD_PCT_MODIFIER:
+        {
+            switch (spellInfo->EffectMiscValue[effecIdx])
+            {
+                case SPELLMOD_RANGE:
+                case SPELLMOD_RADIUS:
+                case SPELLMOD_NOT_LOSE_CASTING_TIME:
+                case SPELLMOD_CASTING_TIME:
+                case SPELLMOD_COOLDOWN:
+                case SPELLMOD_COST:
+                case SPELLMOD_GLOBAL_COOLDOWN:
+                    return true;
+                default:
+                    break;
+            }
+        }
+        case SPELL_AURA_MOD_DAMAGE_PERCENT_DONE:
+        {
+            for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+                if (IsEffectHandledOnDelayedSpellLaunch(procSpell, SpellEffectIndex(i)))
+                    return true;
+
+            return false;
+        }
+        default:
+            return false;
+    }
+}
+
 struct DoSpellBonuses
 {
     DoSpellBonuses(SpellBonusMap& _spellBonusMap, SpellBonusEntry const& _spellBonus) : spellBonusMap(_spellBonusMap), spellBonus(_spellBonus) {}
@@ -1708,17 +1742,17 @@ bool SpellMgr::IsSpellProcEventCanTriggeredBy(SpellProcEventEntry const * spellP
         if (procSpell == NULL)
         {
             // Check (if set) for school (melee attack have Normal school)
-            if(spellProcEvent->schoolMask && (spellProcEvent->schoolMask & SPELL_SCHOOL_MASK_NORMAL) == 0)
+            if (spellProcEvent->schoolMask && (spellProcEvent->schoolMask & SPELL_SCHOOL_MASK_NORMAL) == 0)
                 return false;
         }
         else // For spells need check school/spell family/family mask
         {
             // Check (if set) for school
-            if(spellProcEvent->schoolMask && (spellProcEvent->schoolMask & procSpell->SchoolMask) == 0)
+            if (spellProcEvent->schoolMask && (spellProcEvent->schoolMask & procSpell->SchoolMask) == 0)
                 return false;
 
             // Check (if set) for spellFamilyName
-            if(spellProcEvent->spellFamilyName && (spellProcEvent->spellFamilyName != procSpell->SpellFamilyName))
+            if (spellProcEvent->spellFamilyName && (spellProcEvent->spellFamilyName != procSpell->SpellFamilyName))
                 return false;
         }
     }
@@ -1898,7 +1932,7 @@ bool SpellMgr::IsRankSpellDueToSpell(SpellEntry const *spellInfo_1,uint32 spellI
 {
     SpellEntry const *spellInfo_2 = sSpellStore.LookupEntry(spellId_2);
     if(!spellInfo_1 || !spellInfo_2) return false;
-    if(spellInfo_1->Id == spellId_2) return false;
+    if (spellInfo_1->Id == spellId_2) return false;
 
     return GetFirstSpellInChain(spellInfo_1->Id)==GetFirstSpellInChain(spellId_2);
 }
@@ -2503,7 +2537,7 @@ void SpellMgr::LoadSpellChains()
         }
 
         // check basic spell chain data integrity (note: rank can be equal 0 or 1 for first/single spell)
-        if( (spell_id == node.first) != (node.rank <= 1) ||
+        if ( (spell_id == node.first) != (node.rank <= 1) ||
             (spell_id == node.first) != (node.prev == 0) ||
             (node.rank <= 1) != (node.prev == 0) )
         {
@@ -2512,7 +2546,7 @@ void SpellMgr::LoadSpellChains()
             continue;
         }
 
-        if(node.req!=0 && !sSpellStore.LookupEntry(node.req))
+        if (node.req!=0 && !sSpellStore.LookupEntry(node.req))
         {
             sLog.outErrorDb("Spell %u (prev: %u, first: %u, rank: %d, req: %u) listed in `spell_chain` has not existing required spell.",
                 spell_id,node.prev,node.first,node.rank,node.req);
@@ -2520,32 +2554,32 @@ void SpellMgr::LoadSpellChains()
         }
 
         // talents not required data in spell chain for work, but must be checked if present for integrity
-        if(TalentSpellPos const* pos = GetTalentSpellPos(spell_id))
+        if (TalentSpellPos const* pos = GetTalentSpellPos(spell_id))
         {
-            if(node.rank!=pos->rank+1)
+            if (node.rank!=pos->rank+1)
             {
                 sLog.outErrorDb("Talent %u (prev: %u, first: %u, rank: %d, req: %u) listed in `spell_chain` has wrong rank.",
                     spell_id,node.prev,node.first,node.rank,node.req);
                 continue;
             }
 
-            if(TalentEntry const* talentEntry = sTalentStore.LookupEntry(pos->talent_id))
+            if (TalentEntry const* talentEntry = sTalentStore.LookupEntry(pos->talent_id))
             {
-                if(node.first!=talentEntry->RankID[0])
+                if (node.first!=talentEntry->RankID[0])
                 {
                     sLog.outErrorDb("Talent %u (prev: %u, first: %u, rank: %d, req: %u) listed in `spell_chain` has wrong first rank spell.",
                         spell_id,node.prev,node.first,node.rank,node.req);
                     continue;
                 }
 
-                if(node.rank > 1 && node.prev != talentEntry->RankID[node.rank-1-1])
+                if (node.rank > 1 && node.prev != talentEntry->RankID[node.rank-1-1])
                 {
                     sLog.outErrorDb("Talent %u (prev: %u, first: %u, rank: %d, req: %u) listed in `spell_chain` has wrong prev rank spell.",
                         spell_id,node.prev,node.first,node.rank,node.req);
                     continue;
                 }
 
-                /*if(node.req!=talentEntry->DependsOnSpell)
+                /*if (node.req!=talentEntry->DependsOnSpell)
                 {
                     sLog.outErrorDb("Talent %u (prev: %u, first: %u, rank: %d, req: %u) listed in `spell_chain` has wrong required spell.",
                         spell_id,node.prev,node.first,node.rank,node.req);
@@ -2592,21 +2626,21 @@ void SpellMgr::LoadSpellChains()
     // additional integrity checks
     for(SpellChainMap::const_iterator i = mSpellChains.begin(); i != mSpellChains.end(); ++i)
     {
-        if(i->second.prev)
+        if (i->second.prev)
         {
             SpellChainMap::const_iterator i_prev = mSpellChains.find(i->second.prev);
-            if(i_prev == mSpellChains.end())
+            if (i_prev == mSpellChains.end())
             {
                 sLog.outErrorDb("Spell %u (prev: %u, first: %u, rank: %d, req: %u) listed in `spell_chain` has not found previous rank spell in table.",
                     i->first,i->second.prev,i->second.first,i->second.rank,i->second.req);
             }
-            else if( i_prev->second.first != i->second.first )
+            else if ( i_prev->second.first != i->second.first )
             {
                 sLog.outErrorDb("Spell %u (prev: %u, first: %u, rank: %d, req: %u) listed in `spell_chain` has different first spell in chain compared to previous rank spell (prev: %u, first: %u, rank: %d, req: %u).",
                     i->first,i->second.prev,i->second.first,i->second.rank,i->second.req,
                     i_prev->second.prev,i_prev->second.first,i_prev->second.rank,i_prev->second.req);
             }
-            else if( i_prev->second.rank+1 != i->second.rank )
+            else if ( i_prev->second.rank+1 != i->second.rank )
             {
                 sLog.outErrorDb("Spell %u (prev: %u, first: %u, rank: %d, req: %u) listed in `spell_chain` has different rank compared to previous rank spell (prev: %u, first: %u, rank: %d, req: %u).",
                     i->first,i->second.prev,i->second.first,i->second.rank,i->second.req,
@@ -2614,21 +2648,21 @@ void SpellMgr::LoadSpellChains()
             }
         }
 
-        if(i->second.req)
+        if (i->second.req)
         {
             SpellChainMap::const_iterator i_req = mSpellChains.find(i->second.req);
-            if(i_req == mSpellChains.end())
+            if (i_req == mSpellChains.end())
             {
                 sLog.outErrorDb("Spell %u (prev: %u, first: %u, rank: %d, req: %u) listed in `spell_chain` has not found required rank spell in table.",
                     i->first,i->second.prev,i->second.first,i->second.rank,i->second.req);
             }
-            else if( i_req->second.first == i->second.first )
+            else if ( i_req->second.first == i->second.first )
             {
                 sLog.outErrorDb("Spell %u (prev: %u, first: %u, rank: %d, req: %u) listed in `spell_chain` has required rank spell from same spell chain (prev: %u, first: %u, rank: %d, req: %u).",
                     i->first,i->second.prev,i->second.first,i->second.rank,i->second.req,
                     i_req->second.prev,i_req->second.first,i_req->second.rank,i_req->second.req);
             }
-            else if( i_req->second.req )
+            else if ( i_req->second.req )
             {
                 sLog.outErrorDb("Spell %u (prev: %u, first: %u, rank: %d, req: %u) listed in `spell_chain` has required rank spell with required spell (prev: %u, first: %u, rank: %d, req: %u).",
                     i->first,i->second.prev,i->second.first,i->second.rank,i->second.req,
@@ -2643,10 +2677,10 @@ void SpellMgr::LoadSpellChains()
         uint32 spell_id = i->first;
         SpellChainNode const& node = i->second;
 
-        if(node.prev)
+        if (node.prev)
             mSpellChainsNext.insert(SpellChainMapNext::value_type(node.prev,spell_id));
 
-        if(node.req)
+        if (node.req)
             mSpellChainsNext.insert(SpellChainMapNext::value_type(node.req,spell_id));
     }
 
@@ -2775,7 +2809,7 @@ void SpellMgr::LoadSpellLearnSpells()
 
         for(int i = 0; i < MAX_EFFECT_INDEX; ++i)
         {
-            if(entry->Effect[i]==SPELL_EFFECT_LEARN_SPELL)
+            if (entry->Effect[i]==SPELL_EFFECT_LEARN_SPELL)
             {
                 SpellLearnSpellNode dbc_node;
                 dbc_node.spell       = entry->EffectTriggerSpell[i];
@@ -2858,7 +2892,7 @@ void SpellMgr::LoadSpellScriptTarget()
         bool targetfound = false;
         for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
         {
-            if( spellProto->EffectImplicitTargetA[i] == TARGET_SCRIPT ||
+            if ( spellProto->EffectImplicitTargetA[i] == TARGET_SCRIPT ||
                 spellProto->EffectImplicitTargetB[i] == TARGET_SCRIPT ||
                 spellProto->EffectImplicitTargetA[i] == TARGET_SCRIPT_COORDINATES ||
                 spellProto->EffectImplicitTargetB[i] == TARGET_SCRIPT_COORDINATES ||
@@ -2944,11 +2978,11 @@ void SpellMgr::LoadSpellScriptTarget()
         bool found = false;
         for(int j = 0; j < MAX_EFFECT_INDEX; ++j)
         {
-            if( spellInfo->EffectImplicitTargetA[j] == TARGET_SCRIPT || spellInfo->EffectImplicitTargetA[j] != TARGET_SELF && spellInfo->EffectImplicitTargetB[j] == TARGET_SCRIPT )
+            if ( spellInfo->EffectImplicitTargetA[j] == TARGET_SCRIPT || spellInfo->EffectImplicitTargetA[j] != TARGET_SELF && spellInfo->EffectImplicitTargetB[j] == TARGET_SCRIPT )
             {
                 SpellScriptTarget::const_iterator lower = GetBeginSpellScriptTarget(spellInfo->Id);
                 SpellScriptTarget::const_iterator upper = GetEndSpellScriptTarget(spellInfo->Id);
-                if(lower==upper)
+                if (lower==upper)
                 {
                     sLog.outErrorDb("Spell (ID: %u) has effect EffectImplicitTargetA/EffectImplicitTargetB = %u (TARGET_SCRIPT), but does not have record in `spell_script_target`",spellInfo->Id,TARGET_SCRIPT);
                     break;                                  // effects of spell
@@ -3010,7 +3044,7 @@ void SpellMgr::LoadSpellPetAuras()
         }
 
         SpellPetAuraMap::iterator itr = mSpellPetAuraMap.find((spell<<8) + eff);
-        if(itr != mSpellPetAuraMap.end())
+        if (itr != mSpellPetAuraMap.end())
         {
             itr->second.AddAura(pet, aura);
         }
@@ -3064,14 +3098,14 @@ void SpellMgr::LoadPetLevelupSpellMap()
         for (uint32 j = 0; j < sSkillLineAbilityStore.GetNumRows(); ++j)
         {
             SkillLineAbilityEntry const *skillLine = sSkillLineAbilityStore.LookupEntry(j);
-            if( !skillLine )
+            if ( !skillLine )
                 continue;
 
             if (skillLine->skillId!=creatureFamily->skillLine[0] &&
                 (!creatureFamily->skillLine[1] || skillLine->skillId!=creatureFamily->skillLine[1]))
                 continue;
 
-            if(skillLine->learnOnGetSkill != ABILITY_LEARNED_ON_GET_RACE_OR_CLASS_SKILL)
+            if (skillLine->learnOnGetSkill != ABILITY_LEARNED_ON_GET_RACE_OR_CLASS_SKILL)
                 continue;
 
             SpellEntry const *spell = sSpellStore.LookupEntry(skillLine->spellId);
@@ -3079,7 +3113,7 @@ void SpellMgr::LoadPetLevelupSpellMap()
                 continue;
 
             PetLevelupSpellSet& spellSet = mPetLevelupSpellMap[creatureFamily->ID];
-            if(spellSet.empty())
+            if (spellSet.empty())
                 ++family_count;
 
             spellSet.insert(PetLevelupSpellSet::value_type(spell->spellLevel,spell->Id));
@@ -3097,7 +3131,7 @@ bool SpellMgr::LoadPetDefaultSpells_helper(CreatureInfo const* cInfo, PetDefault
     bool have_spell = false;
     for(int j = 0; j < MAX_CREATURE_SPELL_DATA_SLOT; ++j)
     {
-        if(petDefSpells.spellid[j])
+        if (petDefSpells.spellid[j])
         {
             have_spell = true;
             break;
@@ -3107,7 +3141,7 @@ bool SpellMgr::LoadPetDefaultSpells_helper(CreatureInfo const* cInfo, PetDefault
         return false;
 
     // remove duplicates with levelupSpells if any
-    if(PetLevelupSpellSet const *levelupSpells = cInfo->family ? GetPetLevelupSpellList(cInfo->family) : NULL)
+    if (PetLevelupSpellSet const *levelupSpells = cInfo->family ? GetPetLevelupSpellList(cInfo->family) : NULL)
     {
         for(int j = 0; j < MAX_CREATURE_SPELL_DATA_SLOT; ++j)
         {
@@ -3129,7 +3163,7 @@ bool SpellMgr::LoadPetDefaultSpells_helper(CreatureInfo const* cInfo, PetDefault
     have_spell = false;
     for(int j = 0; j < MAX_CREATURE_SPELL_DATA_SLOT; ++j)
     {
-        if(petDefSpells.spellid[j])
+        if (petDefSpells.spellid[j])
         {
             have_spell = true;
             break;
@@ -3167,7 +3201,7 @@ void SpellMgr::LoadPetDefaultSpells()
         for(int j = 0; j < MAX_CREATURE_SPELL_DATA_SLOT; ++j)
             petDefSpells.spellid[j] = spellDataEntry->spellId[j];
 
-        if(LoadPetDefaultSpells_helper(cInfo, petDefSpells))
+        if (LoadPetDefaultSpells_helper(cInfo, petDefSpells))
         {
             mPetDefaultSpellsMap[petSpellsId] = petDefSpells;
             ++countData;
@@ -3183,7 +3217,7 @@ void SpellMgr::LoadPetDefaultSpells()
 
         for(int k = 0; k < MAX_EFFECT_INDEX; ++k)
         {
-            if(spellEntry->Effect[k]==SPELL_EFFECT_SUMMON || spellEntry->Effect[k]==SPELL_EFFECT_SUMMON_PET)
+            if (spellEntry->Effect[k]==SPELL_EFFECT_SUMMON || spellEntry->Effect[k]==SPELL_EFFECT_SUMMON_PET)
             {
                 uint32 creature_id = spellEntry->EffectMiscValue[k];
                 CreatureInfo const* cInfo = sCreatureStorage.LookupEntry<CreatureInfo>(creature_id);
@@ -3191,19 +3225,19 @@ void SpellMgr::LoadPetDefaultSpells()
                     continue;
 
                 // already loaded
-                if(cInfo->PetSpellDataId)
+                if (cInfo->PetSpellDataId)
                     continue;
 
                 // for creature without PetSpellDataId get default pet spells from creature_template
                 int32 petSpellsId = cInfo->Entry;
-                if(mPetDefaultSpellsMap.find(cInfo->Entry) != mPetDefaultSpellsMap.end())
+                if (mPetDefaultSpellsMap.find(cInfo->Entry) != mPetDefaultSpellsMap.end())
                     continue;
 
                 PetDefaultSpellsEntry petDefSpells;
                 for(int j = 0; j < MAX_CREATURE_SPELL_DATA_SLOT; ++j)
                     petDefSpells.spellid[j] = cInfo->spells[j];
 
-                if(LoadPetDefaultSpells_helper(cInfo, petDefSpells))
+                if (LoadPetDefaultSpells_helper(cInfo, petDefSpells))
                 {
                     mPetDefaultSpellsMap[petSpellsId] = petDefSpells;
                     ++countCreature;
@@ -3242,9 +3276,9 @@ bool SpellMgr::IsSpellValid(SpellEntry const* spellInfo, Player* pl, bool msg)
                     // skip auto-loot crafting spells, its not need explicit item info (but have special fake items sometime)
                     if (!IsLootCraftingSpell(spellInfo))
                     {
-                        if(msg)
+                        if (msg)
                         {
-                            if(pl)
+                            if (pl)
                                 ChatHandler(pl).PSendSysMessage("Craft spell %u not have create item entry.",spellInfo->Id);
                             else
                                 sLog.outErrorDb("Craft spell %u not have create item entry.",spellInfo->Id);
@@ -3256,9 +3290,9 @@ bool SpellMgr::IsSpellValid(SpellEntry const* spellInfo, Player* pl, bool msg)
                 // also possible IsLootCraftingSpell case but fake item must exist anyway
                 else if (!ObjectMgr::GetItemPrototype( spellInfo->EffectItemType[i] ))
                 {
-                    if(msg)
+                    if (msg)
                     {
-                        if(pl)
+                        if (pl)
                             ChatHandler(pl).PSendSysMessage("Craft spell %u create item (Entry: %u) but item does not exist in item_template.",spellInfo->Id,spellInfo->EffectItemType[i]);
                         else
                             sLog.outErrorDb("Craft spell %u create item (Entry: %u) but item does not exist in item_template.",spellInfo->Id,spellInfo->EffectItemType[i]);
@@ -3272,11 +3306,11 @@ bool SpellMgr::IsSpellValid(SpellEntry const* spellInfo, Player* pl, bool msg)
             case SPELL_EFFECT_LEARN_SPELL:
             {
                 SpellEntry const* spellInfo2 = sSpellStore.LookupEntry(spellInfo->EffectTriggerSpell[i]);
-                if( !IsSpellValid(spellInfo2,pl,msg) )
+                if ( !IsSpellValid(spellInfo2,pl,msg) )
                 {
-                    if(msg)
+                    if (msg)
                     {
-                        if(pl)
+                        if (pl)
                             ChatHandler(pl).PSendSysMessage("Spell %u learn to broken spell %u, and then...",spellInfo->Id,spellInfo->EffectTriggerSpell[i]);
                         else
                             sLog.outErrorDb("Spell %u learn to invalid spell %u, and then...",spellInfo->Id,spellInfo->EffectTriggerSpell[i]);
@@ -3288,15 +3322,15 @@ bool SpellMgr::IsSpellValid(SpellEntry const* spellInfo, Player* pl, bool msg)
         }
     }
 
-    if(need_check_reagents)
+    if (need_check_reagents)
     {
         for(int j = 0; j < MAX_SPELL_REAGENTS; ++j)
         {
-            if(spellInfo->Reagent[j] > 0 && !ObjectMgr::GetItemPrototype( spellInfo->Reagent[j] ))
+            if (spellInfo->Reagent[j] > 0 && !ObjectMgr::GetItemPrototype( spellInfo->Reagent[j] ))
             {
-                if(msg)
+                if (msg)
                 {
-                    if(pl)
+                    if (pl)
                         ChatHandler(pl).PSendSysMessage("Craft spell %u requires reagent item (Entry: %u) but item does not exist in item_template.",spellInfo->Id,spellInfo->Reagent[j]);
                     else
                         sLog.outErrorDb("Craft spell %u requires reagent item (Entry: %u) but item does not exist in item_template.",spellInfo->Id,spellInfo->Reagent[j]);
@@ -3571,7 +3605,7 @@ SpellCastResult SpellMgr::GetSpellAllowedInLocationError(SpellEntry const *spell
     {
         for(SpellAreaMap::const_iterator itr = saBounds.first; itr != saBounds.second; ++itr)
         {
-            if(itr->second.IsFitToRequirements(player,zone_id,area_id))
+            if (itr->second.IsFitToRequirements(player,zone_id,area_id))
                 return SPELL_CAST_OK;
         }
         return SPELL_FAILED_INCORRECT_AREA;
@@ -3807,7 +3841,7 @@ void SpellMgr::CheckUsedSpells(char const* table)
 
         // now checks of requirements
 
-        if(spell)
+        if (spell)
         {
             ++countSpells;
 
@@ -4204,47 +4238,47 @@ DiminishingReturnsType GetDiminishingReturnsGroupType(DiminishingGroup group)
 
 bool SpellArea::IsFitToRequirements(Player const* player, uint32 newZone, uint32 newArea) const
 {
-    if(gender!=GENDER_NONE)
+    if (gender!=GENDER_NONE)
     {
         // not in expected gender
         if(!player || gender != player->getGender())
             return false;
     }
 
-    if(raceMask)
+    if (raceMask)
     {
         // not in expected race
         if(!player || !(raceMask & player->getRaceMask()))
             return false;
     }
 
-    if(areaId)
+    if (areaId)
     {
         // not in expected zone
-        if(newZone!=areaId && newArea!=areaId)
+        if (newZone!=areaId && newArea!=areaId)
             return false;
     }
 
-    if(questStart)
+    if (questStart)
     {
         // not in expected required quest state
         if(!player || (!questStartCanActive || !player->IsActiveQuest(questStart)) && !player->GetQuestRewardStatus(questStart))
             return false;
     }
 
-    if(questEnd)
+    if (questEnd)
     {
         // not in expected forbidden quest state
         if(!player || player->GetQuestRewardStatus(questEnd))
             return false;
     }
 
-    if(auraSpell)
+    if (auraSpell)
     {
         // not have expected aura
         if(!player)
             return false;
-        if(auraSpell > 0)
+        if (auraSpell > 0)
             // have expected aura
             return player->HasAura(auraSpell, EFFECT_INDEX_0);
         else

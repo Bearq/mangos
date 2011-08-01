@@ -159,6 +159,7 @@ class MANGOS_DLL_SPEC Object
 
         bool IsDeleted() const { return m_deleted;}
         void SetDeleted() { m_deleted = true; }
+        bool IsInitialized() const { return (m_uint32Values ? true : false);}
 
         virtual void BuildCreateUpdateBlockForPlayer( UpdateData *data, Player *target ) const;
         void SendCreateUpdateToPlayer(Player* player);
@@ -611,12 +612,14 @@ class MANGOS_DLL_SPEC WorldObject : public Object
         Player* GetOriginalLootRecipient() const;           // ignore group changes/etc, not for looting
 
         // helper functions to select units
+        Creature* GetClosestCreatureWithEntry(WorldObject* pSource, uint32 uiEntry, float fMaxSearchRange);
         GameObject* GetClosestGameObjectWithEntry(const WorldObject* pSource, uint32 uiEntry, float fMaxSearchRange);
         void GetGameObjectListWithEntryInGrid(std::list<GameObject*>& lList, uint32 uiEntry, float fMaxSearchRange);
 
         bool isActiveObject() const { return m_isActiveObject || m_viewPoint.hasViewers(); }
 
         ViewPoint& GetViewPoint() { return m_viewPoint; }
+ 
 
         // ASSERT print helper
         bool PrintCoordinatesError(float x, float y, float z, char const* descr) const;
