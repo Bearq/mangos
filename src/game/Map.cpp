@@ -195,7 +195,8 @@ void Map::RemoveFromGrid(Creature* obj, NGridType *grid, Cell const& cell)
 void Map::DeleteFromWorld(Player* pl)
 {
     sObjectAccessor.RemoveObject(pl);
-    sWorld.AddObjectToRemoveList((WorldObject*)pl);
+    pl->SetDeleted();
+    delete pl;
 }
 
 void
@@ -434,7 +435,6 @@ bool Map::loaded(const GridPair &p) const
 
 void Map::Update(const uint32 &t_diff)
 {
-    World::WorldReadGuard Lock(sWorld.GetLock(WORLD_LOCK_OBJECTS));
     /// update worldsessions for existing players
     for(m_mapRefIter = m_mapRefManager.begin(); m_mapRefIter != m_mapRefManager.end(); ++m_mapRefIter)
     {
@@ -512,7 +512,7 @@ void Map::Update(const uint32 &t_diff)
             // step to next-next, and if we step to end() then newly added objects can wait next update.
             ++m_activeNonPlayersIter;
 
-            if (!obj->IsInWorld() || !obj->IsPositionValid() || obj->IsDeleted())
+            if (!obj->IsInWorld() || !obj->IsPositionValid())
                 continue;
 
             //lets update mobs/objects in ALL visible cells around player!
@@ -656,11 +656,7 @@ Map::Remove(T *obj, bool remove)
             obj->SaveRespawnTime();
 
         // Note: In case resurrectable corpse and pet its removed from global lists in own destructor
-        WorldObject* wObj = (WorldObject*)obj;
-        if (wObj)
-            sWorld.AddObjectToRemoveList(wObj);
-        else
-            delete obj;
+        delete obj;
     }
 }
 
@@ -984,9 +980,10 @@ void Map::AddObjectToRemoveList(WorldObject *obj)
 {
     MANGOS_ASSERT(obj->GetMapId()==GetId() && obj->GetInstanceId()==GetInstanceId());
 
-    obj->SetDeleted();
+    obj->CleanupsBeforeDelete();                            // remove or simplify at least cross referenced links
 
     i_objectsToRemove.insert(obj);
+    obj->SetDeleted();
     //DEBUG_LOG("Object (GUID: %u TypeId: %u ) added to removing list.",obj->GetGUIDLow(),obj->GetTypeId());
 }
 
@@ -995,18 +992,11 @@ void Map::RemoveAllObjectsInRemoveList()
     if(i_objectsToRemove.empty())
         return;
 
-    World::WorldWriteGuard Lock(sWorld.GetLock(WORLD_LOCK_OBJECTS));
     //DEBUG_LOG("Object remover 1 check.");
     while(!i_objectsToRemove.empty())
     {
-
         WorldObject* obj = *i_objectsToRemove.begin();
         i_objectsToRemove.erase(i_objectsToRemove.begin());
-
-        if (!obj || !obj->IsDeleted())
-            continue;
-
-        obj->CleanupsBeforeDelete();                            // remove or simplify at least cross referenced links
 
         switch(obj->GetTypeId())
         {
@@ -1027,7 +1017,10 @@ void Map::RemoveAllObjectsInRemoveList()
                 Remove((GameObject*)obj,true);
                 break;
             case TYPEID_UNIT:
-                Remove((Creature*)obj,true);
+                if (obj->GetObjectGuid().IsPet())
+                    Remove((Pet*)obj,true);
+                else
+                    Remove((Creature*)obj,true);
                 break;
             default:
                 sLog.outError("Non-grid object (TypeId: %u) in grid object removing list, ignored.",obj->GetTypeId());
@@ -1213,11 +1206,13 @@ void Map::CreateInstanceData(bool load)
 
 template void Map::Add(Corpse *);
 template void Map::Add(Creature *);
+template void Map::Add(Pet*);
 template void Map::Add(GameObject *);
 template void Map::Add(DynamicObject *);
 
 template void Map::Remove(Corpse *,bool);
 template void Map::Remove(Creature *,bool);
+template void Map::Remove(Pet*,bool);
 template void Map::Remove(GameObject *, bool);
 template void Map::Remove(DynamicObject *, bool);
 
