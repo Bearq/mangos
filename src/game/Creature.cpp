@@ -186,22 +186,32 @@ Creature::~Creature()
 void Creature::AddToWorld()
 {
     ///- Register the creature for guid lookup
-    if (!IsInWorld() && GetObjectGuid().IsCreatureOrVehicle())
+    if (IsInWorld() && GetObjectGuid().IsPet())
+        ((Pet*)this)->AddToWorld();
+    else if (!IsInWorld() && GetObjectGuid().IsCreatureOrVehicle())
+    {
         GetMap()->GetObjectsStore().insert<Creature>(GetObjectGuid(), (Creature*)this);
-
-    Unit::AddToWorld();
+        Unit::AddToWorld();
+    }
+    else
+        Unit::AddToWorld();
 
     if (GetVehicleKit())
         GetVehicleKit()->Reset();
 }
 
-void Creature::RemoveFromWorld(bool remove)
+void Creature::RemoveFromWorld()
 {
     ///- Remove the creature from the accessor
-    if (IsInWorld() && GetObjectGuid().IsCreatureOrVehicle())
+    if (IsInWorld() && GetObjectGuid().IsPet())
+        ((Pet*)this)->RemoveFromWorld();
+    else if (IsInWorld() && GetObjectGuid().IsCreatureOrVehicle())
+    {
         GetMap()->GetObjectsStore().erase<Creature>(GetObjectGuid(), (Creature*)NULL);
-
-    Unit::RemoveFromWorld(remove);
+        Unit::RemoveFromWorld();
+    }
+    else
+        Unit::RemoveFromWorld();
 }
 
 void Creature::RemoveCorpse()
@@ -244,12 +254,6 @@ bool Creature::InitEntry(uint32 Entry, CreatureData const* data /*=NULL*/, GameE
     if(!normalInfo)
     {
         sLog.outErrorDb("Creature::UpdateEntry creature entry %u does not exist.", Entry);
-        return false;
-    }
-
-    if(!GetMap())
-    {
-        sLog.outError("Creature::UpdateEntry creature entry %u not has any map for init!", Entry);
         return false;
     }
 

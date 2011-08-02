@@ -973,7 +973,7 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
 {
     if (target->processed)                                  // Check target
         return;
-//?    target->processed = true;                               // Target checked in apply effects procedure
+    target->processed = true;                               // Target checked in apply effects procedure
 
     // Get mask of effects for target
     uint32 mask = target->effectMask;
@@ -1379,7 +1379,7 @@ void Spell::DoSpellHitOnUnit(Unit *unit, uint32 effectMask, bool isReflected)
                 // Fully diminished
                 if (duration == 0)
                 {
-                    unit->AddSpellAuraHolderToRemoveList(m_spellAuraHolder);
+                    delete m_spellAuraHolder;
                     return;
                 }
             }
@@ -1397,7 +1397,18 @@ void Spell::DoSpellHitOnUnit(Unit *unit, uint32 effectMask, bool isReflected)
         }
         else
         {
-            unit->AddSpellAuraHolderToRemoveList(m_spellAuraHolder);
+            if (!m_spellAuraHolder || m_spellAuraHolder->IsDeleted())
+                return;
+
+            m_spellAuraHolder->SetInUse(false);
+
+            if (m_spellAuraHolder->IsInUse())
+            {
+                m_spellAuraHolder->SetDeleted();
+                unit->AddSpellAuraHolderToRemoveList(m_spellAuraHolder);
+            }
+            else
+                delete m_spellAuraHolder;
         }
     }
 }
@@ -1694,6 +1705,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 73058:                                 // Blood Nova
                 case 73142:                                 // Bone Spike Graveyard (during Bone Storm) (Icecrown Citadel, Lord Marrowgar encounter, 10N)
                 case 73144:                                 // Bone Spike Graveyard (during Bone Storm) (Icecrown Citadel, Lord Marrowgar encounter, 10H)
+                case 51146:                                 // Searching Gaze (Halls Of Stone)
                     unMaxTargets = 1;
                     break;
                 case 28542:                                 // Life Drain
@@ -3804,8 +3816,8 @@ void Spell::cast(bool skipCheck)
         m_spellState = SPELL_STATE_DELAYED;
         SetDelayStart(0);
 
-        // on spell cast end proc, 
-        // critical hit related part is currently done on hit so proc there, 
+        // on spell cast end proc,
+        // critical hit related part is currently done on hit so proc there,
         // 0 damage since any damage based procs should be on hit
         // 0 victim proc since there is no victim proc dependent on successfull cast for caster
         m_caster->ProcDamageAndSpell(procTarget, m_procAttacker, 0, PROC_EX_CAST_END, 0, m_attackType, m_spellInfo);
@@ -5285,7 +5297,7 @@ SpellCastResult Spell::CheckCast(bool strict)
         // (from rsa - very strange attributes set...)
         if ((m_spellInfo->AttributesEx & SPELL_ATTR_EX_CHANNEL_TRACKING_TARGET)
             && (m_spellInfo->AttributesEx5 & SPELL_ATTR_EX5_AFFECTED_BY_HASTE)
-            && target->GetTypeId() == TYPEID_UNIT 
+            && target->GetTypeId() == TYPEID_UNIT
             && ((Creature*)target)->IsTotem())
             return SPELL_FAILED_IMMUNE;
 
@@ -5459,7 +5471,7 @@ SpellCastResult Spell::CheckCast(bool strict)
             if (target->IsImmuneToSpell(m_spellInfo))
                 return SPELL_FAILED_TARGET_AURASTATE;
 
-            if (target->HasMorePoweredBuff(m_spellInfo->Id))
+            if (!m_IsTriggeredSpell && target->HasMorePoweredBuff(m_spellInfo->Id))
                 return SPELL_FAILED_AURA_BOUNCED;
         }
 
@@ -5496,7 +5508,12 @@ SpellCastResult Spell::CheckCast(bool strict)
     SpellCastResult locRes= sSpellMgr.GetSpellAllowedInLocationError(m_spellInfo, m_caster->GetMapId(), zone, area,
         m_caster->GetCharmerOrOwnerPlayerOrPlayerItself());
     if (locRes != SPELL_CAST_OK)
-        return locRes;
+    {
+        if (!m_IsTriggeredSpell)
+            return locRes;
+        else
+            return SPELL_FAILED_DONT_REPORT;
+    }
 
     bool castOnVehicleAllowed = false;
 
@@ -6704,9 +6721,9 @@ SpellCastResult Spell::CheckRange(bool strict)
         // distance from target in checks
         float dist = m_caster->GetCombatDistance(target);
 
-        if (max_range && dist > max_range)
+        if(dist > max_range)
             return SPELL_FAILED_OUT_OF_RANGE;
-        if (min_range && dist < min_range)
+        if(min_range && dist < min_range)
             return SPELL_FAILED_TOO_CLOSE;
         if ( m_caster->GetTypeId() == TYPEID_PLAYER &&
             (m_spellInfo->FacingCasterFlags & SPELL_FACING_FLAG_INFRONT) && !m_caster->HasInArc( M_PI_F, target ) )
