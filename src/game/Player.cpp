@@ -19199,6 +19199,8 @@ void Player::PetSpellInitialize()
     DEBUG_LOG("Pet Spells Groups");
 
     CharmInfo *charmInfo = pet->GetCharmInfo();
+    if (!charmInfo)
+        return;
 
     WorldPacket data(SMSG_PET_SPELLS, 8+2+4+4+4*MAX_UNIT_ACTION_BAR_INDEX+1+1);
     data << pet->GetObjectGuid();
@@ -23084,6 +23086,8 @@ void Player::UpdateFallInformationIfNeed( MovementInfo const& minfo,uint16 opcod
 
 void Player::UnsummonPetTemporaryIfAny()
 {
+    if (!GetMap())
+        return;
 
     Pet* minipet = GetMiniPet();
 
@@ -23098,7 +23102,7 @@ void Player::UnsummonPetTemporaryIfAny()
     GroupPetList m_groupPetsTmp = GetPets();  // Original list may be modified in this function
     for (GroupPetList::const_iterator itr = m_groupPetsTmp.begin(); itr != m_groupPetsTmp.end(); ++itr)
     {
-        if (Pet* _pet = ObjectAccessor::FindPet(*itr))
+        if (Pet* _pet = GetMap()->GetPet(*itr))
         {
             if (!_pet->isTemporarySummoned())
                 _pet->Unsummon(PET_SAVE_AS_CURRENT, this);
