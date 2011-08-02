@@ -138,6 +138,7 @@ class MANGOS_DLL_SPEC Object
             ClearUpdateMask(true);
             m_inWorld = false;
         }
+        bool IsInitialized() const { return (m_uint32Values ? true : false);}
 
         ObjectGuid const& GetObjectGuid() const { return GetGuidValue(OBJECT_FIELD_GUID); }
         uint32 GetGUIDLow() const { return GetObjectGuid().GetCounter(); }
@@ -156,10 +157,6 @@ class MANGOS_DLL_SPEC Object
 
         uint8 GetTypeId() const { return m_objectTypeId; }
         bool isType(TypeMask mask) const { return (mask & m_objectType); }
-
-        bool IsDeleted() const { return m_deleted;}
-        void SetDeleted() { m_deleted = true; }
-        bool IsInitialized() const { return (m_uint32Values ? true : false);}
 
         virtual void BuildCreateUpdateBlockForPlayer( UpdateData *data, Player *target ) const;
         void SendCreateUpdateToPlayer(Player* player);
@@ -400,8 +397,6 @@ class MANGOS_DLL_SPEC Object
 
         bool m_objectUpdated;
 
-        bool m_deleted;
-
     private:
         bool m_inWorld;
 
@@ -619,7 +614,7 @@ class MANGOS_DLL_SPEC WorldObject : public Object
         bool isActiveObject() const { return m_isActiveObject || m_viewPoint.hasViewers(); }
 
         ViewPoint& GetViewPoint() { return m_viewPoint; }
- 
+
 
         // ASSERT print helper
         bool PrintCoordinatesError(float x, float y, float z, char const* descr) const;

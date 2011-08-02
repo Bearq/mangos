@@ -71,13 +71,14 @@ void Pet::AddToWorld()
     if (!((Creature*)this)->IsInWorld())
     {
         GetMap()->GetObjectsStore().insert<Pet>(GetObjectGuid(), (Pet*)this);
-        sObjectAccessor.AddObject(this);
+        if (!sObjectAccessor.FindPet(GetObjectGuid()))
+            sObjectAccessor.AddObject(this);
     }
 
     Unit::AddToWorld();
 }
 
-void Pet::RemoveFromWorld(bool remove)
+void Pet::RemoveFromWorld()
 {
     ///- Remove the pet from the accessor
     if (((Creature*)this)->IsInWorld())
@@ -87,12 +88,7 @@ void Pet::RemoveFromWorld(bool remove)
             sObjectAccessor.RemoveObject(this);
     }
     ///- Don't call the function for Creature, normal mobs + totems go in a different storage
-    Unit::RemoveFromWorld(remove);
-}
-
-void Pet::CleanupsBeforeDelete()
-{
-    Unit::CleanupsBeforeDelete();
+    Unit::RemoveFromWorld();
 }
 
 bool Pet::LoadPetFromDB( Player* owner, uint32 petentry, uint32 petnumber, bool current)
@@ -775,9 +771,11 @@ void Pet::Unsummon(PetSaveMode mode, Unit* owner /*= NULL*/)
             SavePetToDB(mode);
     }
 
-    sObjectAccessor.RemoveObject(this);
-    AddObjectToRemoveList();
+    // Removing pet from ObjectAccessor immediately (his also binded to map)
+    if (sObjectAccessor.FindPet(GetObjectGuid()))
+        sObjectAccessor.RemoveObject(this);
 
+    AddObjectToRemoveList();
 }
 
 void Pet::GivePetXP(uint32 xp)
@@ -1358,7 +1356,7 @@ void Pet::_LoadAuras(uint32 timediff)
             if (!holder->IsEmptyHolder())
                 AddSpellAuraHolder(holder);
             else
-                AddSpellAuraHolderToRemoveList(holder);
+                delete holder;
         }
         while( result->NextRow() );
 
