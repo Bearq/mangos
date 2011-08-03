@@ -6484,7 +6484,7 @@ void Unit::SetPet(Pet* pet)
 
         AddPetToList(pet);
 
-        if (GetTypeId() == TYPEID_PLAYER)
+        if (!pet->GetPetCounter() && GetTypeId() == TYPEID_PLAYER)
             ((Player*)this)->SendPetGUIDs();
     }
     else
@@ -12456,7 +12456,7 @@ bool Unit::IsCombatStationary()
 
 bool Unit::HasMorePoweredBuff(uint32 spellId)
 {
-    SpellEntry const* spellInfo = sSpellStore.LookupEntry( spellId );
+    SpellEntry const* spellInfo = sSpellStore.LookupEntry(spellId);
 
     if (!spellInfo || !(spellInfo->AttributesEx7 & SPELL_ATTR_EX7_REPLACEABLE_AURA))
         return false;
@@ -12472,7 +12472,7 @@ bool Unit::HasMorePoweredBuff(uint32 spellId)
             continue;
 
         for (Unit::AuraList::const_iterator itr = auras.begin(); itr != auras.end(); ++itr)
-            if ((*itr)->GetSpellProto()->AttributesEx7 & SPELL_ATTR_EX7_REPLACEABLE_AURA)
+            if ((*itr) && (*itr)->GetHolder() && !(*itr)->GetHolder()->IsDeleted() && (*itr)->GetSpellProto()->AttributesEx7 & SPELL_ATTR_EX7_REPLACEABLE_AURA)
                 if (spellInfo->CalculateSimpleValue(SpellEffectIndex(i)) < (*itr)->GetModifier()->m_amount)
                     return true;
     }
