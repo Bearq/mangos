@@ -4348,6 +4348,7 @@ bool Unit::AddSpellAuraHolder(SpellAuraHolder *holder)
     // ghost spell check, allow apply any auras at player loading in ghost mode (will be cleanup after load)
     if ( !isAlive() && !IsDeathPersistentSpell(aurSpellInfo) &&
         !IsDeathOnlySpell(aurSpellInfo) &&
+        !IsSpellAllowDeadTarget(aurSpellInfo) &&
         (GetTypeId()!=TYPEID_PLAYER || !((Player*)this)->GetSession()->PlayerLoading()) )
     {
         delete holder;
@@ -4917,12 +4918,26 @@ void Unit::RemoveAurasDueToSpellBySteal(uint32 spellId, ObjectGuid casterGuid, U
         new_holder->AddAura(new_aur, new_aur->GetEffIndex());
     }
 
-    bool needSetCharge = false;
     if (holder->GetSpellProto()->AttributesEx7 & SPELL_ATTR_EX7_DISPEL_CHARGES)
     {
         if (holder->DropAuraCharge())
             RemoveSpellAuraHolder(holder, AURA_REMOVE_BY_DISPEL);
-        needSetCharge = true;
+
+        if (SpellAuraHolder* foundHolder = stealer->GetSpellAuraHolder(holder->GetSpellProto()->Id, GetObjectGuid()))
+        {
+            foundHolder->SetAuraDuration(new_max_dur);
+            foundHolder->SetAuraCharges(foundHolder->GetAuraCharges()+1, true);
+            if (new_holder->IsInUse())
+            {
+                new_holder->SetDeleted();
+                m_deletedHolders.push_back(new_holder);
+            }
+            else
+                delete new_holder;
+            return;
+        }
+        else
+            new_holder->SetAuraCharges(1,false);
     }
     else if (holder->ModStackAmount(-1))
         // Remove aura as dispel
@@ -4933,8 +4948,6 @@ void Unit::RemoveAurasDueToSpellBySteal(uint32 spellId, ObjectGuid casterGuid, U
 
     stealer->AddSpellAuraHolder(new_holder);
 
-    if (needSetCharge)
-        new_holder->SetAuraCharges(1);
 }
 
 void Unit::RemoveAurasDueToSpellByCancel(uint32 spellId)
@@ -7211,18 +7224,6 @@ uint32 Unit::SpellDamageBonusTaken(Unit *pCaster, SpellEntry const *spellProto, 
                 if (mod < float((*itr)->GetModifier()->m_amount))
                     mod = float((*itr)->GetModifier()->m_amount);
                 TakenTotalMod *= (mod+100.0f)/100.0f;
-                break;
-            }
-            // Ebon Plague
-            case 1933:
-            {
-                if ((*itr)->GetMiscValue() & (spellProto ? GetSpellSchoolMask(spellProto) : 0))
-                {
-                    if (spellProto && spellProto->Dispel == DISPEL_DISEASE)
-                        TakenTotalMod *= ((*itr)->GetSpellProto()->CalculateSimpleValue(EFFECT_INDEX_0) + 100.0f) / 100.0f;
-                    else
-                        TakenTotalMod *= ((*itr)->GetModifier()->m_amount + 100.0f) / 100.0f;
-                }
                 break;
             }
             default:

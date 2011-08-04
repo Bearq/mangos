@@ -6482,7 +6482,7 @@ void Spell::EffectSummonPet(SpellEffectIndex eff_idx)
 {
     uint32 petentry = m_spellInfo->EffectMiscValue[eff_idx];
 
-    Pet *OldSummon = m_caster->GetPet();
+    Pet* OldSummon = m_caster->GetPet();
 
     // if pet requested type already exist
     if (OldSummon)
@@ -6491,22 +6491,16 @@ void Spell::EffectSummonPet(SpellEffectIndex eff_idx)
         if (!OldSummon->IsInWorld())
             return;
 
-        if (petentry == 0 || OldSummon->GetEntry() == petentry)
+        if (m_caster->GetTypeId() == TYPEID_PLAYER && petentry == 0 || OldSummon->GetEntry() == petentry)
         {
             // pet in corpse state can't be summoned
-            if( OldSummon->isDead() )
+            if (OldSummon->isDead())
                 return;
 
-            OldSummon->GetMap()->Remove((Creature*)OldSummon,false);
+            ((Player*)m_caster)->UnsummonPetTemporaryIfAny(false);
 
-            OldSummon->SetMap(m_caster->GetMap());
+            ((Player*)m_caster)->ResummonPetTemporaryUnSummonedIfAny();
 
-            m_caster->GetMap()->Add((Creature*)OldSummon);
-
-            if (m_caster->GetTypeId() == TYPEID_PLAYER && OldSummon->isControlled() )
-            {
-                ((Player*)m_caster)->PetSpellInitialize();
-            }
             return;
         }
 
@@ -6537,7 +6531,7 @@ void Spell::EffectSummonPet(SpellEffectIndex eff_idx)
         pos = CreatureCreatePos(m_caster->GetMap(), m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ, -m_caster->GetOrientation(), m_caster->GetPhaseMask());
 
     // petentry==0 for hunter "call pet" (current pet summoned if any)
-    if (m_caster->GetTypeId() == TYPEID_PLAYER && NewSummon->LoadPetFromDB((Player*)m_caster, petentry, petentry == 0 ? true : false, &pos))
+    if (m_caster->GetTypeId() == TYPEID_PLAYER && NewSummon->LoadPetFromDB((Player*)m_caster, petentry, 0, false, &pos))
         return;
 
     // not error in case fail hunter call pet
