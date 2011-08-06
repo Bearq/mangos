@@ -19199,6 +19199,8 @@ void Player::PetSpellInitialize()
     DEBUG_LOG("Pet Spells Groups");
 
     CharmInfo *charmInfo = pet->GetCharmInfo();
+    if (!charmInfo)
+        return;
 
     WorldPacket data(SMSG_PET_SPELLS, 8+2+4+4+4*MAX_UNIT_ACTION_BAR_INDEX+1+1);
     data << pet->GetObjectGuid();
@@ -19260,13 +19262,14 @@ void Player::PetSpellInitialize()
 
 void Player::SendPetGUIDs()
 {
-    if (!GetPetGuid())
+    GroupPetList m_groupPets = GetPets();
+    if (m_groupPets.empty())
         return;
 
-    // Later this function might get modified for multiple guids
-    WorldPacket data(SMSG_PET_GUIDS, 12);
-    data << uint32(1);                      // count
-    data << ObjectGuid(GetPetGuid());
+    WorldPacket data(SMSG_PET_GUIDS, 4+8*m_groupPets.size());
+    data << uint32(m_groupPets.size());                      // count
+    for (GroupPetList::const_iterator itr = m_groupPets.begin(); itr != m_groupPets.end(); ++itr)
+        data << (*itr);
     GetSession()->SendPacket(&data);
 }
 
@@ -19430,7 +19433,7 @@ void Player::AddSpellMod(Aura* aura, bool apply)
             int32 val = 0;
             for (AuraList::const_iterator itr = m_spellMods[mod->m_miscvalue].begin(); itr != m_spellMods[mod->m_miscvalue].end(); ++itr)
             {
-                if ((*itr)->GetModifier()->m_auraname == mod->m_auraname && (*itr)->GetSpellProto()->SpellFamilyFlags.test(eff))
+                if ((*itr)->GetModifier()->m_auraname == mod->m_auraname && ((*itr)->GetAuraSpellClassMask().test(eff)))
                     val += (*itr)->GetModifier()->m_amount;
             }
             val += apply ? mod->m_amount : -(mod->m_amount);
@@ -23082,12 +23085,14 @@ void Player::UpdateFallInformationIfNeed( MovementInfo const& minfo,uint16 opcod
         SetFallInformation(minfo.GetFallTime(), minfo.GetPos()->z);
 }
 
-void Player::UnsummonPetTemporaryIfAny()
+void Player::UnsummonPetTemporaryIfAny(bool full)
 {
+    if (!GetMap())
+        return;
 
     Pet* minipet = GetMiniPet();
 
-    if (minipet)
+    if (full && minipet)
         minipet->Unsummon(PET_SAVE_AS_DELETED, this);
 
     Pet* pet = GetPet();
@@ -23098,12 +23103,13 @@ void Player::UnsummonPetTemporaryIfAny()
     GroupPetList m_groupPetsTmp = GetPets();  // Original list may be modified in this function
     for (GroupPetList::const_iterator itr = m_groupPetsTmp.begin(); itr != m_groupPetsTmp.end(); ++itr)
     {
-        if (Pet* _pet = ObjectAccessor::FindPet(*itr))
+        if (Pet* _pet = GetMap()->GetPet(*itr))
         {
             if (!_pet->isTemporarySummoned())
                 _pet->Unsummon(PET_SAVE_AS_CURRENT, this);
             else
-                _pet->Unsummon(PET_SAVE_NOT_IN_SLOT, this);
+                if (full)
+                    _pet->Unsummon(PET_SAVE_NOT_IN_SLOT, this);
         }
     }
 

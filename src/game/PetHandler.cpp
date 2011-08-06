@@ -275,7 +275,7 @@ void WorldSession::HandlePetSetAction(WorldPacket& recv_data)
                 else if (!m_groupPets->empty())
                 {
                     for (GroupPetList::const_iterator itr = m_groupPets->begin(); itr != m_groupPets->end(); ++itr)
-                        if (Pet* _pet = ObjectAccessor::FindPet(*itr))
+                        if (Pet* _pet = GetPlayer()->GetMap()->GetPet(*itr))
                             if ( _pet->IsInWorld())
                             {
                                 _pet->ToggleAutocast(spell_id, true);
@@ -290,7 +290,7 @@ void WorldSession::HandlePetSetAction(WorldPacket& recv_data)
                 else if (!m_groupPets->empty())
                 {
                     for (GroupPetList::const_iterator itr = m_groupPets->begin(); itr != m_groupPets->end(); ++itr)
-                        if (Pet* _pet = ObjectAccessor::FindPet(*itr))
+                        if (Pet* _pet = GetPlayer()->GetMap()->GetPet(*itr))
                             if ( _pet->IsInWorld())
                             {
                                 _pet->ToggleAutocast(spell_id, false);
@@ -391,11 +391,8 @@ void WorldSession::HandlePetAbandon(WorldPacket& recv_data)
     {
         if (pet->IsPet())
         {
-            if (pet->GetObjectGuid() == GetPlayer()->GetPetGuid())
-            {
-                uint32 feelty = pet->GetPower(POWER_HAPPINESS);
-                pet->SetPower(POWER_HAPPINESS, (feelty - 50000) > 0 ? (feelty - 50000) : 0);
-            }
+            if (pet->GetObjectGuid() == _player->GetPetGuid())
+                pet->ModifyPower(POWER_HAPPINESS, -50000);
 
             ((Pet*)pet)->Unsummon(PET_SAVE_AS_DELETED, GetPlayer());
 

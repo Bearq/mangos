@@ -9488,6 +9488,9 @@ void Aura::HandleAuraLinked(bool apply, bool Real)
 
     uint32 linkedSpell = GetSpellProto()->EffectTriggerSpell[m_effIndex];
     SpellEntry const *spellInfo = sSpellStore.LookupEntry(linkedSpell);
+    Unit *pTarget = GetTarget();
+    Unit *pCaster = GetCaster();
+
     if (!spellInfo)
     {
         sLog.outError("HandleAuraLinked for spell %u effect %u: triggering unknown spell %u", GetSpellProto()->Id, m_effIndex, linkedSpell);
@@ -9496,20 +9499,18 @@ void Aura::HandleAuraLinked(bool apply, bool Real)
 
     if (apply)
     {
-        if (GetCaster() &&
-            GetCaster()->GetTypeId() == TYPEID_PLAYER &&
-            GetTarget() &&
-            GetTarget()->GetTypeId() != TYPEID_PLAYER &&
+        if (pCaster && pCaster->GetTypeId() == TYPEID_PLAYER &&
+            pTarget->GetTypeId() != TYPEID_PLAYER &&
             spellInfo->AttributesEx  &  SPELL_ATTR_EX_HIDDEN_AURA &&
             spellInfo->Attributes &  SPELL_ATTR_UNK8)
         {
-            float healBonus   = float(GetCaster()->GetTotalAuraModifier(SPELL_AURA_MOD_HEALING_PCT))/100.0;
+            float healBonus   = float(pCaster->GetTotalAuraModifier(SPELL_AURA_MOD_HEALING_PCT))/100.0;
             if (healBonus < 0.0)
                 healBonus = 0.0;
-            float damageBonus = float(GetCaster()->CalculateDamage(BASE_ATTACK, false)/GetCaster()->GetWeaponDamageRange(BASE_ATTACK, MAXDAMAGE)) - 1.0;
+            float damageBonus = float(pCaster->CalculateDamage(BASE_ATTACK, false)/pCaster->GetWeaponDamageRange(BASE_ATTACK, MAXDAMAGE)) - 1.0;
             if (damageBonus < 0.0)
                 damageBonus = 0.0;
-            float healthBonus = float(GetCaster()->GetMaxHealth()/(GetCaster()->GetModifierValue(UNIT_MOD_HEALTH, BASE_VALUE) + GetCaster()->GetCreateHealth())) - 1.0;
+            float healthBonus = float(pCaster->GetMaxHealth()/(pCaster->GetModifierValue(UNIT_MOD_HEALTH, BASE_VALUE) + pCaster->GetCreateHealth())) - 1.0;
             if (healthBonus < 0)
                 healthBonus = 0.0;
 
@@ -9517,14 +9518,22 @@ void Aura::HandleAuraLinked(bool apply, bool Real)
             int32 bp1 = int32((spellInfo->EffectBasePoints[EFFECT_INDEX_1] + damageBonus) * 100);
             int32 bp2 = int32((spellInfo->EffectBasePoints[EFFECT_INDEX_2] + healthBonus) * 100);
 
-            GetTarget()->CastCustomSpell(GetTarget(), spellInfo, &bp0, &bp1, &bp2, true, NULL, this, GetCasterGuid(), GetSpellProto());
-            GetTarget()->SetHealth(GetTarget()->GetMaxHealth());
+            pTarget->CastCustomSpell(pTarget, spellInfo, &bp0, &bp1, &bp2, true, NULL, this, GetCasterGuid(), GetSpellProto());
+            pTarget->SetHealth(pTarget->GetMaxHealth());
+        }
+        // Ebon Plague and Crypt Fever - set basepoints for linked aura increasing disease damage taken
+        else if (GetSpellProto()->SpellFamilyName == SPELLFAMILY_DEATHKNIGHT &&
+            (GetSpellProto()->SpellIconID == 264 || GetSpellProto()->SpellIconID == 1933))
+        {
+            int32 bp0 = GetModifier()->m_amount;
+            if (pCaster)
+                pCaster->CastCustomSpell(pTarget, spellInfo, &bp0, NULL, NULL, true, NULL, this, GetCasterGuid(), GetSpellProto());
         }
         else
-            GetTarget()->CastSpell(GetTarget(), spellInfo, true, NULL, this);
+            pTarget->CastSpell(pTarget, spellInfo, true, NULL, this);
     }
     else
-        GetTarget()->RemoveAurasByCasterSpell(linkedSpell, GetCasterGuid());
+        pTarget->RemoveAurasByCasterSpell(linkedSpell, GetCasterGuid());
 }
 
 void Aura::HandleAuraAddMechanicAbilities(bool apply, bool Real)
@@ -9754,9 +9763,9 @@ void Aura::HandleAuraModAllCritChance(bool apply, bool Real)
     ((Player*)target)->UpdateAllSpellCritChances();
 }
 
-void Aura::HandleAuraStopNaturalManaRegen(bool apply, bool real)
+void Aura::HandleAuraStopNaturalManaRegen(bool apply, bool Real)
 {
-    if (!real)
+    if (!Real)
         return;
 
     GetTarget()->ApplyModFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_REGENERATE_POWER, !apply && !GetTarget()->IsUnderLastManaUseEffect());

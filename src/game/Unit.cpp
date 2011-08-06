@@ -4348,6 +4348,7 @@ bool Unit::AddSpellAuraHolder(SpellAuraHolder *holder)
     // ghost spell check, allow apply any auras at player loading in ghost mode (will be cleanup after load)
     if ( !isAlive() && !IsDeathPersistentSpell(aurSpellInfo) &&
         !IsDeathOnlySpell(aurSpellInfo) &&
+        !IsSpellAllowDeadTarget(aurSpellInfo) &&
         (GetTypeId()!=TYPEID_PLAYER || !((Player*)this)->GetSession()->PlayerLoading()) )
     {
         delete holder;
@@ -4917,12 +4918,26 @@ void Unit::RemoveAurasDueToSpellBySteal(uint32 spellId, ObjectGuid casterGuid, U
         new_holder->AddAura(new_aur, new_aur->GetEffIndex());
     }
 
-    bool needSetCharge = false;
     if (holder->GetSpellProto()->AttributesEx7 & SPELL_ATTR_EX7_DISPEL_CHARGES)
     {
         if (holder->DropAuraCharge())
             RemoveSpellAuraHolder(holder, AURA_REMOVE_BY_DISPEL);
-        needSetCharge = true;
+
+        if (SpellAuraHolder* foundHolder = stealer->GetSpellAuraHolder(holder->GetSpellProto()->Id, GetObjectGuid()))
+        {
+            foundHolder->SetAuraDuration(new_max_dur);
+            foundHolder->SetAuraCharges(foundHolder->GetAuraCharges()+1, true);
+            if (new_holder->IsInUse())
+            {
+                new_holder->SetDeleted();
+                m_deletedHolders.push_back(new_holder);
+            }
+            else
+                delete new_holder;
+            return;
+        }
+        else
+            new_holder->SetAuraCharges(1,false);
     }
     else if (holder->ModStackAmount(-1))
         // Remove aura as dispel
@@ -4933,8 +4948,6 @@ void Unit::RemoveAurasDueToSpellBySteal(uint32 spellId, ObjectGuid casterGuid, U
 
     stealer->AddSpellAuraHolder(new_holder);
 
-    if (needSetCharge)
-        new_holder->SetAuraCharges(1);
 }
 
 void Unit::RemoveAurasDueToSpellByCancel(uint32 spellId)
@@ -6266,9 +6279,6 @@ bool Unit::isAttackingPlayer() const
 
 void Unit::RemoveAllAttackers()
 {
-    if (!GetMap())
-        return;
-
     while (!m_attackers.empty())
     {
         AttackerSet::iterator iter = m_attackers.begin();
@@ -6419,7 +6429,7 @@ Pet* Unit::GetPet() const
 
 Pet* Unit::_GetPet(ObjectGuid guid) const
 {
-    return ObjectAccessor::FindPet(guid);
+    return GetMap() ? GetMap()->GetPet(guid) : NULL;
 }
 
 void Unit::RemoveMiniPet()
@@ -6484,7 +6494,7 @@ void Unit::SetPet(Pet* pet)
 
         AddPetToList(pet);
 
-        if (GetTypeId() == TYPEID_PLAYER)
+        if (!pet->GetPetCounter() && GetTypeId() == TYPEID_PLAYER)
             ((Player*)this)->SendPetGUIDs();
     }
     else
@@ -6543,12 +6553,12 @@ void Unit::RemoveGuardians()
     {
         ObjectGuid guid = *m_guardianPets.begin();
 
-        if (Pet* pet = _GetPet(guid))
-            pet->Unsummon(PET_SAVE_AS_DELETED, this);
-        else
-            m_guardianPets.erase(guid);
+        if (Pet* pet = GetMap()->GetPet(guid))
+            pet->Unsummon(PET_SAVE_AS_DELETED, this); // can remove pet guid from m_guardianPets
+
+        m_guardianPets.erase(guid);
     }
-    m_guardianPets.clear();
+
 }
 
 Pet* Unit::FindGuardianWithEntry(uint32 entry)
@@ -7213,18 +7223,6 @@ uint32 Unit::SpellDamageBonusTaken(Unit *pCaster, SpellEntry const *spellProto, 
                 TakenTotalMod *= (mod+100.0f)/100.0f;
                 break;
             }
-            // Ebon Plague
-            case 1933:
-            {
-                if ((*itr)->GetMiscValue() & (spellProto ? GetSpellSchoolMask(spellProto) : 0))
-                {
-                    if (spellProto && spellProto->Dispel == DISPEL_DISEASE)
-                        TakenTotalMod *= ((*itr)->GetSpellProto()->CalculateSimpleValue(EFFECT_INDEX_0) + 100.0f) / 100.0f;
-                    else
-                        TakenTotalMod *= ((*itr)->GetModifier()->m_amount + 100.0f) / 100.0f;
-                }
-                break;
-            }
             default:
                 break;
         }
@@ -7257,27 +7255,6 @@ uint32 Unit::SpellDamageBonusTaken(Unit *pCaster, SpellEntry const *spellProto, 
 
     // Mod damage from spell mechanic
     TakenTotalMod *= GetTotalAuraMultiplierByMiscValueForMask(SPELL_AURA_MOD_MECHANIC_DAMAGE_TAKEN_PERCENT,GetAllSpellMechanicMask(spellProto));
-
-    // Hack probably: these modifiers should be applied in a way that above functions would include their effects.
-    // Crypt Fever / Ebon Plaguebringer - increased diseases dmg
-    if (spellProto->Dispel == DISPEL_DISEASE)
-    {
-        Unit::AuraList const& scriptAuras = GetAurasByType(SPELL_AURA_LINKED);
-        for(Unit::AuraList::const_iterator i = scriptAuras.begin(); i != scriptAuras.end(); ++i)
-        {
-            if ((*i)->GetSpellProto()->SpellIconID == 264 || // Crypt Fever
-                (*i)->GetSpellProto()->SpellIconID == 1933) // Ebon Plaguebringer
-                TakenTotalMod *= ((*i)->GetModifier()->m_amount + 100.0f) / 100.0f;
-        }
-    }
-    // Ebon Plaguebringer - increased spell damage taken
-    if (schoolMask & SPELL_SCHOOL_MASK_MAGIC)
-    {
-        Unit::AuraList const& dummyAuras = GetAurasByType(SPELL_AURA_DUMMY);
-        for(Unit::AuraList::const_iterator i = dummyAuras.begin(); i != dummyAuras.end(); ++i)
-            if ((*i)->GetSpellProto()->SpellIconID == 1933)
-                TakenTotalMod *= ((*i)->GetModifier()->m_amount + 100.0f) / 100.0f;
-    }
 
     // Mod damage taken from AoE spells
     if (IsAreaOfEffectSpell(spellProto))
@@ -10961,8 +10938,6 @@ void Unit::ProcDamageAndSpellFor( bool isVictim, Unit * pTarget, uint32 procFlag
             if (!triggeredByAura)
                 continue;
 
-            Modifier *auraModifier = triggeredByAura->GetModifier();
-
             if (procSpell)
             {
                 if (spellProcEvent)
@@ -10991,10 +10966,7 @@ void Unit::ProcDamageAndSpellFor( bool isVictim, Unit * pTarget, uint32 procFlag
                     continue;
             }
 
-            triggeredByAura->SetInUse(true);
-            SpellAuraProcResult procResult = (*this.*AuraProcHandler[auraModifier->m_auraname])(pTarget, damage, triggeredByAura, procSpell, procFlag, procExtra, cooldown);
-            triggeredByAura->SetInUse(false);
-
+            SpellAuraProcResult procResult = (*this.*AuraProcHandler[triggeredByHolder->GetSpellProto()->EffectApplyAuraName[i]])(pTarget, damage, triggeredByAura, procSpell, procFlag, procExtra, cooldown);
             switch (procResult)
             {
                 case SPELL_AURA_PROC_CANT_TRIGGER:
@@ -12482,7 +12454,7 @@ bool Unit::IsCombatStationary()
 
 bool Unit::HasMorePoweredBuff(uint32 spellId)
 {
-    SpellEntry const* spellInfo = sSpellStore.LookupEntry( spellId );
+    SpellEntry const* spellInfo = sSpellStore.LookupEntry(spellId);
 
     if (!spellInfo || !(spellInfo->AttributesEx7 & SPELL_ATTR_EX7_REPLACEABLE_AURA))
         return false;
@@ -12498,7 +12470,7 @@ bool Unit::HasMorePoweredBuff(uint32 spellId)
             continue;
 
         for (Unit::AuraList::const_iterator itr = auras.begin(); itr != auras.end(); ++itr)
-            if ((*itr)->GetSpellProto()->AttributesEx7 & SPELL_ATTR_EX7_REPLACEABLE_AURA)
+            if ((*itr) && (*itr)->GetHolder() && !(*itr)->GetHolder()->IsDeleted() && (*itr)->GetSpellProto()->AttributesEx7 & SPELL_ATTR_EX7_REPLACEABLE_AURA)
                 if (spellInfo->CalculateSimpleValue(SpellEffectIndex(i)) < (*itr)->GetModifier()->m_amount)
                     return true;
     }

@@ -1637,7 +1637,7 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                         case 3: spell_id = 40960; break;    // Blade's Edge Terrace Demon Boss Summon 3
                         case 4: spell_id = 40961; break;    // Blade's Edge Terrace Demon Boss Summon 4
                     }
-                    unitTarget->CastSpell(unitTarget, spell_id, true, NULL, NULL, unitTarget->GetObjectGuid(), m_spellInfo);
+                    unitTarget->CastSpell(unitTarget, spell_id, true);
                     return;
                 }
                 case 42287:                                 // Salvage Wreckage
@@ -5494,6 +5494,11 @@ void Spell::DoSummonGroupPets(SpellEffectIndex eff_idx)
     if (amount > 5)
         amount = 1;  // Don't find any cast, summons over 3 pet.
 
+    CreatureCreatePos pos (m_caster->GetMap(), m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ, -m_caster->GetOrientation(), m_caster->GetPhaseMask());
+
+    if (!(m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION))
+        pos = CreatureCreatePos(m_caster, -m_caster->GetOrientation());
+
     if (m_caster->GetTypeId()==TYPEID_PLAYER)
     {
         QueryResult* result = CharacterDatabase.PQuery("SELECT id FROM character_pet WHERE owner = '%u' AND entry = '%u'",
@@ -5527,7 +5532,7 @@ void Spell::DoSummonGroupPets(SpellEffectIndex eff_idx)
                     pet->SetPetCounter(amount-1);
                     bool _summoned = false;
 
-                    if (pet->LoadPetFromDB((Player*)m_caster,pet_entry, petnumber[i]))
+                    if (pet->LoadPetFromDB((Player*)m_caster,pet_entry, petnumber[i], false, &pos))
                     {
                          --amount;
                         DEBUG_LOG("Pet (guidlow %d, entry %d) summoned (from database). Counter is %d ",
@@ -5552,17 +5557,14 @@ void Spell::DoSummonGroupPets(SpellEffectIndex eff_idx)
         pet->SetCreateSpellID(originalSpellID);
         pet->SetDuration(m_duration);
 
-        CreatureCreatePos pos (m_caster->GetMap(), m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ, -m_caster->GetOrientation(), m_caster->GetPhaseMask());
-
-        if (!(m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION))
-            pos = CreatureCreatePos(m_caster, -m_caster->GetOrientation());
-
         if (!pet->Create(0, pos, cInfo, 0, m_caster))
         {
             sLog.outErrorDb("Spell::EffectSummonGroupPets: not possible create creature entry %u",m_spellInfo->EffectMiscValue[eff_idx]);
             delete pet;
             return;
         }
+
+        pet->SetSummonPoint(pos);
 
         if (!pet->Summon())
         {
@@ -6480,7 +6482,7 @@ void Spell::EffectSummonPet(SpellEffectIndex eff_idx)
 {
     uint32 petentry = m_spellInfo->EffectMiscValue[eff_idx];
 
-    Pet *OldSummon = m_caster->GetPet();
+    Pet* OldSummon = m_caster->GetPet();
 
     // if pet requested type already exist
     if (OldSummon)
@@ -6489,22 +6491,16 @@ void Spell::EffectSummonPet(SpellEffectIndex eff_idx)
         if (!OldSummon->IsInWorld())
             return;
 
-        if (petentry == 0 || OldSummon->GetEntry() == petentry)
+        if (m_caster->GetTypeId() == TYPEID_PLAYER && petentry == 0 || OldSummon->GetEntry() == petentry)
         {
             // pet in corpse state can't be summoned
-            if( OldSummon->isDead() )
+            if (OldSummon->isDead())
                 return;
 
-            OldSummon->GetMap()->Remove((Creature*)OldSummon,false);
+            ((Player*)m_caster)->UnsummonPetTemporaryIfAny(false);
 
-            OldSummon->SetMap(m_caster->GetMap());
+            ((Player*)m_caster)->ResummonPetTemporaryUnSummonedIfAny();
 
-            m_caster->GetMap()->Add((Creature*)OldSummon);
-
-            if (m_caster->GetTypeId() == TYPEID_PLAYER && OldSummon->isControlled() )
-            {
-                ((Player*)m_caster)->PetSpellInitialize();
-            }
             return;
         }
 
@@ -6527,9 +6523,15 @@ void Spell::EffectSummonPet(SpellEffectIndex eff_idx)
 
     uint32 originalSpellID = (m_IsTriggeredSpell && m_triggeredBySpellInfo) ? m_triggeredBySpellInfo->Id : m_spellInfo->Id;
     NewSummon->SetCreateSpellID(originalSpellID);
+    NewSummon->SetPetCounter(0);
+
+    CreatureCreatePos pos(m_caster, m_caster->GetOrientation());
+
+    if (m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION)
+        pos = CreatureCreatePos(m_caster->GetMap(), m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ, -m_caster->GetOrientation(), m_caster->GetPhaseMask());
 
     // petentry==0 for hunter "call pet" (current pet summoned if any)
-    if (m_caster->GetTypeId() == TYPEID_PLAYER && NewSummon->LoadPetFromDB((Player*)m_caster, petentry))
+    if (m_caster->GetTypeId() == TYPEID_PLAYER && NewSummon->LoadPetFromDB((Player*)m_caster, petentry, 0, false, &pos))
         return;
 
     // not error in case fail hunter call pet
@@ -6540,9 +6542,6 @@ void Spell::EffectSummonPet(SpellEffectIndex eff_idx)
     }
 
     NewSummon->setPetType(SUMMON_PET);
-    NewSummon->SetPetCounter(0);
-    CreatureCreatePos pos(m_caster, m_caster->GetOrientation());
-    NewSummon->SetSummonPoint(pos);
 
     if (!NewSummon->Create(0, pos, cInfo, 0, m_caster))
     {
@@ -9378,6 +9377,20 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     unitTarget->CastSpell(unitTarget, 62305, true);
                     return;
                 }
+                case 55709:                                 // Heart of the phoenix
+                {
+                    if (!unitTarget || !unitTarget->GetObjectGuid().IsPet())
+                        return;
+
+                    if (!unitTarget->HasAura(55711))
+                    {
+                        ((Pet*)unitTarget)->GetOwner()->CastSpell(unitTarget, 54114, true);
+                        unitTarget->CastSpell(unitTarget, 55711, true);
+                    }
+                    else
+                        SendCastResult(SPELL_FAILED_CASTER_AURASTATE);
+                    return;
+                }
                 default:
                     break;
             }
@@ -9543,7 +9556,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     }
                     else  if (((Player*)m_caster)->HasItemCount(37201,1))
                     {
-                        ((Player*)m_caster)->DestroyItemCount(37201,1,true);
+                        m_caster->CastSpell(m_caster,48289,true);
                         m_caster->CastSpell(x,y,z,triggered_spell_id, true, NULL, NULL, m_caster->GetObjectGuid(), m_spellInfo);
                     }
                     else
