@@ -1995,28 +1995,31 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
     switch(spellInfo_1->SpellFamilyName)
     {
         case SPELLFAMILY_GENERIC:
+        {
+            // BG_WS_SPELL_FOCUSED_ASSAULT & BG_WS_SPELL_BRUTAL_ASSAULT
+            if ((spellInfo_1->Id == 46392 && spellInfo_2->Id == 46393) ||
+                (spellInfo_1->Id == 46393 && spellInfo_2->Id == 46392))
+                return true;
+
+            // Dark Essence & Light Essence
+            if ((spellInfo_1->Id == 65684 && spellInfo_2->Id == 65686) ||
+                (spellInfo_2->Id == 65684 && spellInfo_1->Id == 65686))
+                return true;
+
+            //Potent Fungus and Mini must remove each other (Amanitar encounter, Ahn'kahet)
+            if ((spellInfo_1->Id == 57055 && spellInfo_2->Id == 56648) ||
+                (spellInfo_2->Id == 57055 && spellInfo_1->Id == 56648))
+                return true;
+
+            // Blessing of Forgotten Kings and (Greater) Blessing of Kings
+            if (spellInfo_1->Id == 72586)
             {
-                // BG_WS_SPELL_FOCUSED_ASSAULT & BG_WS_SPELL_BRUTAL_ASSAULT
-                if ((spellInfo_1->Id == 46392 && spellInfo_2->Id == 46393) ||
-                    (spellInfo_1->Id == 46393 && spellInfo_2->Id == 46392))
-                    return true;
-
-                // Dark Essence & Light Essence
-                if ((spellInfo_1->Id == 65684 && spellInfo_2->Id == 65686) ||
-                    (spellInfo_2->Id == 65684 && spellInfo_1->Id == 65686))
-                    return true;
-
-                //Potent Fungus and Mini must remove each other (Amanitar encounter, Ahn'kahet)
-                if ((spellInfo_1->Id == 57055 && spellInfo_2->Id == 56648) ||
-                    (spellInfo_2->Id == 57055 && spellInfo_1->Id == 56648))
-                    return true;
-
-                // Cologne Immune and Perfume Immune
-                if ((spellInfo_1->Id == 68529 && spellInfo_2->Id == 68530) ||
-                    (spellInfo_2->Id == 68529 && spellInfo_1->Id == 68530))
+                if (spellInfo_2->SpellFamilyFlags.test<CF_PALADIN_BLESSING_OF_KINGS>())
                     return true;
             }
+
             break;
+        }
         case SPELLFAMILY_WARLOCK:
             if (spellInfo_2->SpellFamilyName == SPELLFAMILY_WARLOCK)
             {
@@ -2056,12 +2059,16 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
                 // Repentance removes Righteous Vengeance
                 if (spellInfo_1->Id == 20066 && spellInfo_2->Id == 61840)
                     return true;
-
-                // Swift Retribution / Improved Devotion Aura (talents) and Paladin Auras
-                if ((spellInfo_1->SpellFamilyFlags.test<CF_PALADIN_AURAS>() && (spellInfo_2->SpellIconID == 291 || spellInfo_2->SpellIconID == 3028)) ||
-                    (spellInfo_2->SpellFamilyFlags.test<CF_PALADIN_AURAS>() && (spellInfo_1->SpellIconID == 291 || spellInfo_1->SpellIconID == 3028)))
-                    return false;
             }
+
+            // Blessing of Forgotten Kings and (Greater) Blessing of Kings
+            if (spellInfo_1->SpellFamilyFlags.test<CF_PALADIN_BLESSING_OF_KINGS>())
+            {
+                if (spellInfo_2->Id == 72586)
+                    return true;
+            }
+
+            break;
         case SPELLFAMILY_DEATHKNIGHT:
             if (spellInfo_2->SpellFamilyName == SPELLFAMILY_DEATHKNIGHT)
             {
@@ -2214,6 +2221,38 @@ bool SpellMgr::IsGroupBuff(SpellEntry const *spellInfo)
             return true;
         default:
             break;
+    }
+
+    return false;
+}
+
+// is holder stackable from different casters
+bool SpellMgr::IsStackableSpellAuraHolder(SpellEntry const* spellInfo)
+{
+    if (spellInfo->AttributesEx3 & SPELL_ATTR_EX3_STACK_FOR_DIFF_CASTERS)
+        return true;
+
+    if (GetSpellSpecific(spellInfo->Id) == SPELL_JUDGEMENT)
+        return false;
+
+    // some more (custom) checks. e.g. Insect Swarm doesn't have the attribute, we depend on aura types in holder
+    for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
+    {
+        switch(spellInfo->EffectApplyAuraName[i])
+        {
+            // DoT/HoT and some more
+            case SPELL_AURA_PERIODIC_DAMAGE:
+            case SPELL_AURA_DUMMY:
+            case SPELL_AURA_PERIODIC_HEAL:
+            case SPELL_AURA_OBS_MOD_HEALTH:
+            case SPELL_AURA_OBS_MOD_MANA:
+            case SPELL_AURA_PERIODIC_TRIGGER_SPELL:
+            case SPELL_AURA_PERIODIC_LEECH:
+            case SPELL_AURA_PERIODIC_MANA_LEECH:
+            case SPELL_AURA_PERIODIC_DAMAGE_PERCENT:
+            case SPELL_AURA_POWER_BURN_MANA:
+                return true;
+        }
     }
 
     return false;
