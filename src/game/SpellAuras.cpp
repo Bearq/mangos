@@ -4279,6 +4279,23 @@ void Aura::HandleForceReaction(bool apply, bool Real)
     // stop fighting if at apply forced rank friendly or at remove real rank friendly
     if ((apply && faction_rank >= REP_FRIENDLY) || (!apply && player->GetReputationRank(faction_id) >= REP_FRIENDLY))
         player->StopAttackFaction(faction_id);
+
+    // drop BG flag if player is carrying
+    if (SpellEntry const *spellInfo = GetSpellProto())
+    {
+        switch(spellInfo->Id)
+        {
+            case 1953:                          // Blink
+            case 48020:                         // Demonic Circle
+            case 54861:                         // Nitro Boosts
+                if (player->InBattleGround() && (player->HasAura(23335) || player->HasAura(23333) || player->HasAura(34976)))
+                    if (BattleGround *bg = player->GetBattleGround())
+                        bg->EventPlayerDroppedFlag(player);
+                break;
+            default:
+                break; 
+        }
+    }
 }
 
 void Aura::HandleAuraModSkill(bool apply, bool /*Real*/)
@@ -6739,14 +6756,20 @@ void Aura::HandleAuraModIncreaseEnergyPercent(bool apply, bool /*Real*/)
 
 void Aura::HandleAuraModIncreaseHealthPercent(bool apply, bool /*Real*/)
 {
-    Unit *unitTarget = GetTarget();
+    Unit *target = GetTarget();
 
-    unitTarget->HandleStatModifier(UNIT_MOD_HEALTH, TOTAL_PCT, float(m_modifier.m_amount), apply);
+    target->HandleStatModifier(UNIT_MOD_HEALTH, TOTAL_PCT, float(m_modifier.m_amount), apply);
 
-    // Molten Fury (Sartharion encounter)
-    if (GetId() == 60430)
+    // spell special cases when current health set to max value at apply
+    switch (GetId())
     {
-        unitTarget->SetHealthPercent(unitTarget->GetHealth() * 100.0f / (unitTarget->GetMaxHealth() / (1.0f + float(m_modifier.m_amount) / 100.0f)));
+        case 60430:                                         // Molten Fury
+        case 64193:                                         // Heartbreak
+        case 65737:                                         // Heartbreak
+            target->SetHealth(target->GetMaxHealth());
+            break;
+        default:
+            break;
     }
 }
 

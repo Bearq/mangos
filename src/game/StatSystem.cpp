@@ -1068,7 +1068,6 @@ void Pet::UpdateAttackPowerAndDamage(bool ranged)
         baseAP = (CalculateScalingData()->APBaseScale / 100.0f) * (GetStat(STAT_AGILITY) - CalculateScalingData()->APBasepoint);
     }
 
-
     if ((baseAP) < 0.0f)
         baseAP = 0.0f;
 
