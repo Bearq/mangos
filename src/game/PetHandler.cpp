@@ -471,6 +471,8 @@ void WorldSession::HandlePetCastSpellOpcode(WorldPacket& recvPacket)
         sLog.outError("HandlePetCastSpellOpcode: %s isn't pet of %s .", guid.GetString().c_str(), GetPlayer()->GetGuidStr().c_str());
         return;
     }
+    SpellCastTargets targets;
+    recvPacket >> targets.ReadForCaster(pet);
 
     SpellEntry const* spellInfo = sSpellStore.LookupEntry(spellid);
     if (!spellInfo)
@@ -482,20 +484,17 @@ void WorldSession::HandlePetCastSpellOpcode(WorldPacket& recvPacket)
     if (pet->GetCharmInfo() && pet->GetCharmInfo()->GetGlobalCooldownMgr().HasGlobalCooldown(spellInfo))
         return;
 
-
     // do not cast not learned spells
     if (!pet->HasSpell(spellid) || IsPassiveSpell(spellInfo))
         return;
 
-    SpellCastTargets* targets = new SpellCastTargets;
+    if (pet->IsNonMeleeSpellCasted(false))
+        pet->InterruptNonMeleeSpells(false);
 
-    recvPacket >> targets->ReadForCaster(pet);
 
     if (pet->IsPet() || pet->isCharmed())
-        GetPlayer()->CallForAllControlledUnits(DoPetCastWithHelper(GetPlayer(), cast_count, targets, spellInfo ),CONTROLLED_PET|CONTROLLED_GUARDIANS|CONTROLLED_CHARM);
+        GetPlayer()->CallForAllControlledUnits(DoPetCastWithHelper(GetPlayer(), cast_count, &targets, spellInfo ),CONTROLLED_PET|CONTROLLED_GUARDIANS|CONTROLLED_CHARM);
 
-    if (targets)
-       delete targets;
 }
 
 void WorldSession::SendPetNameInvalid(uint32 error, const std::string& name, DeclinedName* declinedName)

@@ -4197,7 +4197,17 @@ void Spell::EffectTriggerMissileSpell(SpellEffectIndex effect_idx)
     if (m_caster->GetTypeId() == TYPEID_PLAYER)
         ((Player*)m_caster)->RemoveSpellCooldown(triggered_spell_id);
 
-    m_caster->CastSpell(m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ, spellInfo, true, m_CastItem, 0, m_originalCasterGUID);
+    // Init dest coordinates
+    float x,y,z;
+    x = m_targets.m_destX;
+    y = m_targets.m_destY;
+    z = m_targets.m_destZ;
+
+    MaNGOS::NormalizeMapCoord(x);
+    MaNGOS::NormalizeMapCoord(y);
+    m_caster->UpdateGroundPositionZ(x,y,z);
+
+    m_caster->CastSpell(x, y, z, spellInfo, true, m_CastItem, 0, m_originalCasterGUID);
 }
 
 void Spell::EffectJump(SpellEffectIndex eff_idx)
@@ -7028,7 +7038,7 @@ void Spell::EffectInterruptCast(SpellEffectIndex eff_idx)
             // check if we can interrupt spell
             if ((curSpellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_INTERRUPT) && curSpellInfo->PreventionType == SPELL_PREVENTION_TYPE_SILENCE )
             {
-                unitTarget->ProhibitSpellSchool(GetSpellSchoolMask(curSpellInfo), CalculateSpellDuration(m_spellInfo, m_caster));
+                unitTarget->ProhibitSpellSchool(GetSpellSchoolMask(curSpellInfo), unitTarget->CalculateAuraDuration(m_spellInfo, (1 << eff_idx), GetSpellDuration(m_spellInfo), m_caster));
                 unitTarget->InterruptSpell(CurrentSpellTypes(i),false);
             }
         }

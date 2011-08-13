@@ -31,6 +31,7 @@
 #include "revision.h"
 #include "revision_nr.h"
 #include "revision_andeeria_nr.h"
+#include "revision_R2.h"
 #include <openssl/opensslv.h>
 #include <openssl/crypto.h>
 #include <ace/Version.h>
@@ -106,6 +107,7 @@ extern int main(int argc, char **argv)
                 break;
             case 'v':
                 printf("%s\n", _FULLVERSION(REVISION_ANDEERIA_NR, REVISION_NR));
+                printf("%s\n", _R2FULLVERSION(REVISION_DATE,REVISION_TIME,REVISION_R2,REVISION_ID));
                 return 0;
             case 's':
             {
@@ -181,6 +183,7 @@ extern int main(int argc, char **argv)
 #endif
 
         sLog.outString( "%s [world-daemon]", _FULLVERSION(REVISION_ANDEERIA_NR, REVISION_NR) );
+    sLog.outString( "%s [world-daemon]", _R2FULLVERSION(REVISION_DATE,REVISION_TIME,REVISION_R2,REVISION_ID) );
     sLog.outString( "<Ctrl-C> to stop." );
     sLog.outString("\n\n"
         "MM   MM         MM   MM  MMMMM   MMMM   MMMMM\n"
@@ -193,7 +196,7 @@ extern int main(int argc, char **argv)
         "MM   MM MMMMMMM MM   MM MMM MMM MM  MM MMM MMM\n"
         "MM   MM MM  MMM MM   MM  MMMMMM  MMMM   MMMMM\n"
         "        MM  MMM http://getmangos.com\n"
-        "        MMMMMM\n\n");
+        "        MMMMMM  R2 modifications included (https://github.com/mangosR2/mangos)\n\n");
     sLog.outString("Using configuration file %s.", cfg_file);
 
     DETAIL_LOG("%s (Library: %s)", OPENSSL_VERSION_TEXT, SSLeay_version(SSLEAY_VERSION));

@@ -970,8 +970,19 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                         owner->RemoveAuraHolderFromStack(34027);
 
                     // Remove only single aura from stack
-                    if (triggeredByAura->GetStackAmount() > 1 && !triggeredByAura->GetHolder()->ModStackAmount(-1))
-                        return SPELL_AURA_PROC_CANT_TRIGGER;
+                    SpellAuraHolder* holder = triggeredByAura->GetHolder();
+                    if (holder && !holder->IsDeleted())
+                    {
+                        if (holder->GetStackAmount() > 1)
+                        {
+                            holder->ModStackAmount(-1);
+                            return SPELL_AURA_PROC_CANT_TRIGGER;
+                        }
+                        else
+                            return SPELL_AURA_PROC_OK;
+                    }
+                    else
+                        return SPELL_AURA_PROC_FAILED;
                     break;
                 }
                 // Swift Hand of Justice
@@ -4681,23 +4692,20 @@ SpellAuraProcResult Unit::HandleAddFlatModifierAuraProc(Unit* pVictim, uint32 /*
 
     switch (spellInfo->Id)
     {
+                                                // Remove only single aura from stack
         case 53257:                             // Cobra strike
-            // Remove only single aura from stack
-            if (triggeredByAura->GetStackAmount() < 1)
-                return SPELL_AURA_PROC_CANT_TRIGGER;
-
-            if (triggeredByAura->GetHolder()->ModStackAmount(-1))
-            {
-                triggeredByAura->SetInUse(true);
-                RemoveAurasByCasterSpell(triggeredByAura->GetSpellProto()->Id, triggeredByAura->GetCasterGuid());
-                triggeredByAura->SetInUse(false);
-            }
-            break;
         case 55166:                             // Tidal Force
-            // Remove only single aura from stack
-            if (triggeredByAura->GetStackAmount() > 1 && !triggeredByAura->GetHolder()->ModStackAmount(-1))
-                return SPELL_AURA_PROC_CANT_TRIGGER;
-            break;
+        {
+                SpellAuraHolder* holder = triggeredByAura->GetHolder();
+                if (!holder || holder->IsDeleted() || holder->GetStackAmount() < 1)
+                    return SPELL_AURA_PROC_FAILED;
+
+                if (holder->ModStackAmount(-1))
+                    return SPELL_AURA_PROC_OK;
+                else
+                    return SPELL_AURA_PROC_CANT_TRIGGER;
+                break;
+        }
         case 53695:
         case 53696:                             // Judgements of the Just
         {
@@ -4913,22 +4921,6 @@ SpellAuraProcResult Unit::HandleRemoveByDamageProc(Unit* pVictim, uint32 damage,
     return SPELL_AURA_PROC_OK;
 }
 
-SpellAuraProcResult Unit::HandleRemoveByDamageChanceProc(Unit* pVictim, uint32 damage, Aura* triggeredByAura, SpellEntry const *procSpell, uint32 procFlag, uint32 procEx, uint32 cooldown)
-{
-    SpellEntry const* spellInfo = triggeredByAura->GetSpellProto();
-
-    if (!spellInfo || spellInfo == procSpell)
-        return SPELL_AURA_PROC_FAILED;
-
-    // The chance to dispel an aura depends on the damage taken with respect to the casters level.
-    uint32 max_dmg = getLevel() > 8 ? 25 * getLevel() - 150 : 50;
-    float chance = float(damage) / max_dmg * 100.0f;
-    if (roll_chance_f(chance))
-        return HandleRemoveByDamageProc(pVictim, damage, triggeredByAura, procSpell, procFlag, procEx, cooldown);
-
-    return SPELL_AURA_PROC_FAILED;
-}
-
 SpellAuraProcResult Unit::HandleSpellMagnetAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAura, SpellEntry const *procSpell, uint32 procFlag, uint32 procEx, uint32 cooldown)
 {
     if (triggeredByAura->GetId() == 8178)                   // Grounding Totem Effect
@@ -5128,4 +5120,20 @@ SpellAuraProcResult Unit::HandleDropChargeByDamageProc(Unit* pVictim, uint32 dam
         return SPELL_AURA_PROC_FAILED;
 
     return SPELL_AURA_PROC_OK;
+}
+
+SpellAuraProcResult Unit::HandleRemoveByDamageChanceProc(Unit* pVictim, uint32 damage, Aura* triggeredByAura, SpellEntry const *procSpell, uint32 procFlag, uint32 procEx, uint32 cooldown)
+{
+    // The chance to dispel an aura depends on the damage taken with respect to the casters level.
+    uint32 max_dmg = getLevel() > 8 ? 25 * getLevel() - 150 : 50;
+    float chance = float(damage) / max_dmg * 100.0f;
+    if (roll_chance_f(chance))
+    {
+        triggeredByAura->SetInUse(true);
+        RemoveAurasByCasterSpell(triggeredByAura->GetId(), triggeredByAura->GetCasterGuid());
+        triggeredByAura->SetInUse(false);
+        return SPELL_AURA_PROC_OK;
+    }
+
+    return SPELL_AURA_PROC_FAILED;
 }

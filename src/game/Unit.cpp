@@ -1044,7 +1044,7 @@ uint32 Unit::DealDamage(Unit *pVictim, uint32 damage, CleanDamage const* cleanDa
             pVictim->AttackedBy(this);
         }
 
-        if (damagetype == DIRECT_DAMAGE || damagetype == SPELL_DIRECT_DAMAGE)
+        if(damagetype == DIRECT_DAMAGE || damagetype == SPELL_DIRECT_DAMAGE)
         {
             if (!spellProto || !(spellProto->AuraInterruptFlags&AURA_INTERRUPT_FLAG_DIRECT_DAMAGE))
                 pVictim->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_DIRECT_DAMAGE);
@@ -1089,19 +1089,11 @@ uint32 Unit::DealDamage(Unit *pVictim, uint32 damage, CleanDamage const* cleanDa
             next = i; ++next;
             if (spellProto && spellProto->Id == se->Id) // Not drop auras added by self
                 continue;
-            if ( se->AuraInterruptFlags & AURA_INTERRUPT_FLAG_DAMAGE )
+
+            if (!se->procFlags && (se->AuraInterruptFlags & AURA_INTERRUPT_FLAG_DAMAGE))
             {
-                bool remove = true;
-                if (se->procFlags & (1<<3))
-                {
-                    if (!roll_chance_i(se->procChance))
-                        remove = false;
-                }
-                if (remove)
-                {
-                    pVictim->RemoveAurasDueToSpell(i->second->GetId());
-                    next = vAuras.begin();
-                }
+                pVictim->RemoveAurasDueToSpell(i->second->GetId());
+                next = vAuras.begin();
             }
         }
 
@@ -6808,9 +6800,16 @@ uint32 Unit::SpellDamageBonusDone(Unit *pVictim, SpellEntry const *spellProto, u
     float nonStackingPos = 0.0f;
     float nonStackingNeg = 0.0f;
 
-    AuraList const& mModDamagePercentDone = GetAurasByType(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE);
+    AuraList const mModDamagePercentDone = GetAurasByType(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE);
     for(AuraList::const_iterator i = mModDamagePercentDone.begin(); i != mModDamagePercentDone.end(); ++i)
     {
+        if (!*i)
+            continue;
+
+        SpellAuraHolder* holder = (*i)->GetHolder();
+        if (!holder || holder->IsDeleted())
+            continue;
+
         if ( ((*i)->GetModifier()->m_miscvalue & GetSpellSchoolMask(spellProto)) &&
             (*i)->GetSpellProto()->EquippedItemClass == -1 &&
                                                             // -1 == any item class (not wand then)
@@ -9227,8 +9226,10 @@ void Unit::SetDeathState(DeathState s)
         RemoveMiniPet();
         UnsummonAllTotems();
 
+        i_motionMaster.Clear(false,true);
+        i_motionMaster.MoveIdle();
+
         StopMoving();
-        DisableSpline();
 
         ModifyAuraState(AURA_STATE_HEALTHLESS_20_PERCENT, false);
         ModifyAuraState(AURA_STATE_HEALTHLESS_35_PERCENT, false);
@@ -10221,7 +10222,6 @@ void Unit::CleanupsBeforeDelete()
         else
             getHostileRefManager().deleteReferences();
         RemoveAllAuras(AURA_REMOVE_BY_DELETE);
-        GetMotionMaster()->Clear(false,true);         // remove all movement generators.
     }
     WorldObject::CleanupsBeforeDelete();
 }
@@ -10567,6 +10567,9 @@ void Unit::DoPetAction( Player* owner, uint8 flag, uint32 spellid, ObjectGuid pe
             if (!targetGuid.IsEmpty())
                 unit_target = owner->GetMap()->GetUnit(targetGuid);
 
+            if (IsNonMeleeSpellCasted(false))
+                InterruptNonMeleeSpells(false);
+
             DoPetCastSpell(unit_target, spellid);
 
         }
@@ -10652,7 +10655,7 @@ void Unit::DoPetCastSpell(Player *owner, uint8 cast_count, SpellCastTargets* tar
         result = SPELL_CAST_OK;
     }
 
-    if (unit_target && targets)
+    if (targets)
         spell->m_targets = *targets;
 
     clearUnitState(UNIT_STAT_MOVING);
@@ -12178,7 +12181,7 @@ public:
             MaNGOS::PlayerRelocationNotifier notify((Player&)m_owner);
             Cell::VisitAllObjects(&m_owner,notify,radius);
         }
-        else //if (m_owner.GetTypeId() == TYPEID_UNIT)
+        else //if(m_owner.GetTypeId() == TYPEID_UNIT)
         {
             MaNGOS::CreatureRelocationNotifier notify((Creature&)m_owner);
             Cell::VisitAllObjects(&m_owner,notify,radius);
