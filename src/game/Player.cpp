@@ -23086,9 +23086,6 @@ void Player::UpdateFallInformationIfNeed( MovementInfo const& minfo,uint16 opcod
 
 void Player::UnsummonPetTemporaryIfAny(bool full)
 {
-    if (!GetMap())
-        return;
-
     Pet* minipet = GetMiniPet();
 
     if (full && minipet)
@@ -23096,13 +23093,18 @@ void Player::UnsummonPetTemporaryIfAny(bool full)
 
     Pet* pet = GetPet();
 
+    if (!pet)
+        return;
+
+    Map *map = pet->GetMap();
+
     if (pet && !m_temporaryUnsummonedPetNumber && pet->isControlled() && !pet->isTemporarySummoned())
         m_temporaryUnsummonedPetNumber = pet->GetCharmInfo()->GetPetNumber();
 
     GroupPetList m_groupPetsTmp = GetPets();  // Original list may be modified in this function
     for (GroupPetList::const_iterator itr = m_groupPetsTmp.begin(); itr != m_groupPetsTmp.end(); ++itr)
     {
-        if (Pet* _pet = GetMap()->GetPet(*itr))
+        if (Pet* _pet = map->GetPet(*itr))
         {
             if (!_pet->isTemporarySummoned())
                 _pet->Unsummon(PET_SAVE_AS_CURRENT, this);
