@@ -981,8 +981,9 @@ void Spell::AddItemTarget(Item* pitem, SpellEffectIndex effIndex)
 
 void Spell::DoAllEffectOnTarget(TargetInfo *target)
 {
-    if (target->processed)                                  // Check target
+    if (!target || target->processed)                       // Check target
         return;
+
     target->processed = true;                               // Target checked in apply effects procedure
 
     // Get mask of effects for target
@@ -1425,8 +1426,10 @@ void Spell::DoSpellHitOnUnit(Unit *unit, uint32 effectMask)
 
 void Spell::DoAllEffectOnTarget(GOTargetInfo *target)
 {
-    if (target->processed)                                  // Check target
+
+    if (!target || target->processed)                       // Check target
         return;
+
     target->processed = true;                               // Target checked in apply effects procedure
 
     uint32 effectMask = target->effectMask;
@@ -1709,7 +1712,11 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 67298:
                 case 68950:                                 // Fear (ICC: Forge of Souls)
                 case 69057:                                 // Bone Spike Graveyard (Icecrown Citadel, Lord Marrowgar encounter, 10N)
+                case 69674:                                 // Mutated Infection
+                case 71224:
                 case 72378:                                 // Blood Nova
+                case 73022:                                 // Mutated Infection (heroic)
+                case 73023:                                 // Mutated Infection (heroic)
                 case 72088:                                 // Bone Spike Graveyard (Icecrown Citadel, Lord Marrowgar encounter, 10H)
                 case 73058:                                 // Blood Nova
                 case 73142:                                 // Bone Spike Graveyard (during Bone Storm) (Icecrown Citadel, Lord Marrowgar encounter, 10N)
@@ -3863,15 +3870,15 @@ void Spell::handle_immediate()
         SendChannelStart(m_duration);
     }
 
-    for(TargetList::iterator ihit = m_UniqueTargetInfo.begin(); ihit != m_UniqueTargetInfo.end(); ++ihit)
+    for(TargetList::iterator ihit = m_UniqueTargetInfo.begin(); ihit != m_UniqueTargetInfo.end();)
     {
-        TargetInfo buffer = *ihit;
+        TargetInfo buffer = *ihit++;
         DoAllEffectOnTarget(&buffer);
     }
 
-    for(GOTargetList::iterator ihit = m_UniqueGOTargetInfo.begin(); ihit != m_UniqueGOTargetInfo.end(); ++ihit)
+    for(GOTargetList::iterator ihit = m_UniqueGOTargetInfo.begin(); ihit != m_UniqueGOTargetInfo.end();)
     {
-        GOTargetInfo buffer = *ihit;
+        GOTargetInfo buffer = *ihit++;
         DoAllEffectOnTarget(&buffer);
     }
 
@@ -4385,6 +4392,9 @@ void Spell::SendSpellGo()
     }
 
     Unit *caster = m_triggeredByAuraSpell && IsChanneledSpell(m_triggeredByAuraSpell) ? GetAffectiveCaster() : m_caster;
+
+    if (!caster)
+        caster = m_caster;                                  // temporary. TODO - need find source of problem.
 
     WorldPacket data(SMSG_SPELL_GO, 50);                    // guess size
 

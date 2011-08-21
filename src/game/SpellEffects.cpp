@@ -3602,11 +3602,12 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     Unit::AttackerSet attackers = friendTarget->getAttackers();
 
                     // selected from list 3
-                    for(uint32 i = 0; i < std::min(size_t(3),attackers.size()); ++i)
+                    for(uint32 i = 0; i < std::min(size_t(3), attackers.size()); ++i)
                     {
                         Unit::AttackerSet::iterator aItr = attackers.begin();
                         std::advance(aItr, rand() % attackers.size());
-                        AddUnitTarget((*aItr), EFFECT_INDEX_1);
+                        if (Unit* nTarget = friendTarget->GetMap()->GetUnit(*aItr))
+                            AddUnitTarget(nTarget, EFFECT_INDEX_1);
                         attackers.erase(aItr);
                     }
 
@@ -3804,8 +3805,7 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                 }
                 else
                 {
-                    int32 bp = m_caster->SpellDamageBonusDone(unitTarget, m_spellInfo, uint32(damage), SPELL_DIRECT_DAMAGE);
-                          bp = unitTarget->SpellDamageBonusTaken(m_caster, m_spellInfo, uint32(bp), SPELL_DIRECT_DAMAGE);
+                    int32 bp = damage;
                     m_caster->CastCustomSpell(unitTarget, 47632, &bp, NULL, NULL, true);
                 }
                 return;
