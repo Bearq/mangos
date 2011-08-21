@@ -8895,6 +8895,29 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     }
                     return;
                 }
+                case 69057:                                 // Bone Spike Graveyard (Lord Marrowgar)
+                case 70826:                                 // Bone Spike Graveyard (Lord Marrowgar)
+                case 72088:                                 // Bone Spike Graveyard (Lord Marrowgar)
+                case 72089:                                 // Bone Spike Graveyard (Lord Marrowgar)
+                case 73142:                                 // Bone Spike Graveyard (Lord Marrowgar)
+                case 73143:                                 // Bone Spike Graveyard (Lord Marrowgar)
+                case 73144:                                 // Bone Spike Graveyard (Lord Marrowgar)
+                case 73145:                                 // Bone Spike Graveyard (Lord Marrowgar)
+                {
+                    if (unitTarget)
+                    {
+                        float x, y, z;
+                        unitTarget->GetPosition(x, y, z);
+
+                        if (Creature *pSpike = unitTarget->SummonCreature(38711, x, y, z, 0.0f, TEMPSUMMON_DEAD_DESPAWN, 2000))
+                        {
+                            unitTarget->CastSpell(pSpike, 46598, true); // enter vehicle
+                            pSpike->CastSpell(unitTarget, m_spellInfo->CalculateSimpleValue(EFFECT_INDEX_1), true, 0, 0, m_caster->GetObjectGuid(), m_spellInfo);
+                        }
+                    }
+
+                    return;
+                }
                 case 68861:                                 // Consume Soul (ICC FoS: Bronjahm)
                 {
                     if (unitTarget)
@@ -8958,12 +8981,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                 {
                     if (unitTarget)
                         unitTarget->CastSpell(unitTarget, 66334, true);
-                    return;
-                }
-                case 69140:                                 // Coldflame (Lord Marrowgar - Icecrown Citadel)
-                {
-                    if (unitTarget)
-                        unitTarget->CastSpell(m_caster, m_spellInfo->CalculateSimpleValue(eff_idx), true);
                     return;
                 }
                 case 69147:                                 // Coldflame (circle, Lord Marrowgar - Icecrown Citadel)
