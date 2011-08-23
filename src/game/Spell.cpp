@@ -1804,6 +1804,13 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                     EffectChainTarget = 2;
             break;
         }
+        case SPELLFAMILY_DRUID:
+        {
+            // Starfall
+            if (m_spellInfo->SpellFamilyFlags.test<CF_DRUID_STARFALL2>())
+                unMaxTargets = 2;
+            break;
+        }
         case SPELLFAMILY_DEATHKNIGHT:
         {
             if (m_spellInfo->SpellIconID == 1737)           // Corpse Explosion
@@ -2505,8 +2512,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                     FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
 
                     // Custom cases
-                    if (m_spellInfo->IsFitToFamily<SPELLFAMILY_PRIEST, CF_PRIEST_MIND_SEAR1>() || // Mind Sear, triggered
-                        m_spellInfo->IsFitToFamily<SPELLFAMILY_DRUID, CF_DRUID_STARFALL1>())    // Starfall, triggered
+                    if (m_spellInfo->IsFitToFamily<SPELLFAMILY_PRIEST, CF_PRIEST_MIND_SEAR1>()) // Mind Sear, triggered
                         if (Unit* unitTarget = m_targets.getUnitTarget())
                             targetUnitMap.remove(unitTarget);
 
