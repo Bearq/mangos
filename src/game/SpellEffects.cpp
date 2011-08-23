@@ -3321,15 +3321,32 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                 if (m_caster->hasUnitState(UNIT_STAT_NO_FREE_MOVE))
                     return;
 
+                uint32 triggeredSpell = 0;
+
                 switch(m_spellInfo->Id)
                 {
-                    case 50286: m_caster->CastSpell(unitTarget, 50288, true); return;
-                    case 53196: m_caster->CastSpell(unitTarget, 53191, true); return;
-                    case 53197: m_caster->CastSpell(unitTarget, 53194, true); return;
-                    case 53198: m_caster->CastSpell(unitTarget, 53195, true); return;
+                    case 50286: triggeredSpell = 50288; break;
+                    case 53196: triggeredSpell = 53191; break;
+                    case 53197: triggeredSpell = 53194; break;
+                    case 53198: triggeredSpell = 53195; break;
                     default:
                         sLog.outError("Spell::EffectDummy: Unhandeled Starfall spell rank %u",m_spellInfo->Id);
                         return;
+                }
+
+                if (triggeredSpell)
+                    m_caster->CastSpell(unitTarget, triggeredSpell , true);
+
+                // max 20 stars
+                if (Aura *aura = m_caster->GetAura(m_triggeredByAuraSpell->Id, EFFECT_INDEX_0))
+                {
+                    aura->GetModifier()->m_amount += 1;
+
+                    if (aura->GetModifier()->m_amount >= 20)
+                    {
+                        m_caster->RemoveSpellAuraHolder(aura->GetHolder());
+                        return;
+                    }
                 }
             }
             break;
@@ -3586,7 +3603,7 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     }
 
                     // non-standard cast requirement check
-                    if (!friendTarget || friendTarget->getAttackers().empty())
+                    if (!friendTarget || !friendTarget->IsInCombat())
                     {
                         ((Player*)m_caster)->RemoveSpellCooldown(m_spellInfo->Id,true);
                         SendCastResult(SPELL_FAILED_TARGET_AFFECTING_COMBAT);
@@ -3599,16 +3616,18 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                         ihit->effectMask &= ~(1<<1);
 
                     // not empty (checked), copy
-                    Unit::AttackerSet attackers = friendTarget->getAttackers();
-
-                    // selected from list 3
-                    for(uint32 i = 0; i < std::min(size_t(3), attackers.size()); ++i)
+                    ObjectGuidSet attackers = friendTarget->GetMap()->GetAttackersFor(friendTarget->GetObjectGuid());
+                    if (!attackers.empty())
                     {
-                        Unit::AttackerSet::iterator aItr = attackers.begin();
-                        std::advance(aItr, rand() % attackers.size());
-                        if (Unit* nTarget = friendTarget->GetMap()->GetUnit(*aItr))
-                            AddUnitTarget(nTarget, EFFECT_INDEX_1);
-                        attackers.erase(aItr);
+                        // selected from list 3
+                        for(uint32 i = 0; i < std::min(size_t(3), attackers.size()); ++i)
+                        {
+                            ObjectGuidSet::iterator aItr = attackers.begin();
+                            std::advance(aItr, rand() % attackers.size());
+                            if (Unit* nTarget = friendTarget->GetMap()->GetUnit(*aItr))
+                                AddUnitTarget(nTarget, EFFECT_INDEX_1);
+                            attackers.erase(aItr);
+                        }
                     }
 
                     // now let next effect cast spell at each target.
@@ -3780,15 +3799,14 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     unitTarget->CastCustomSpell(unitTarget,47496,&bp,NULL,NULL,true);
                     unitTarget->CastSpell(unitTarget, 53730, true, NULL, NULL, m_caster->GetObjectGuid());
                     unitTarget->CastSpell(unitTarget,43999,true);
-                    if (unitTarget->getDeathState() == CORPSE)
-                        unitTarget->RemoveFromWorld();
+                    ((Pet*)unitTarget)->Unsummon(PET_SAVE_AS_DELETED);
                 }
                 else if (!unitTarget->isAlive())
                 {
                     m_caster->CastSpell(unitTarget, 50444, true, NULL, NULL, m_caster->GetObjectGuid());
                     m_caster->CastSpell(unitTarget, 53730, true, NULL, NULL, m_caster->GetObjectGuid());
-                    if (unitTarget->getDeathState() == CORPSE)
-                        unitTarget->RemoveFromWorld();
+                    if (unitTarget->GetTypeId() == TYPEID_UNIT && unitTarget->getDeathState() == CORPSE)
+                        ((Creature*)unitTarget)->RemoveCorpse();
                 }
                 return;
             }
@@ -8492,8 +8510,8 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                         return;
 
                     m_caster->CastSpell(unitTarget, 58915, true);
-
-                    unitTarget->RemoveFromWorld();
+                    if (unitTarget->GetTypeId() == TYPEID_UNIT)
+                        ((Creature*)unitTarget)->RemoveCorpse();
 
                     if (Unit* master = m_caster->GetCharmerOrOwner())
                         master->CastSpell(master, 58987, true);
@@ -9575,7 +9593,8 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     if (unitTarget != (Unit*)m_caster)
                     {
                         m_caster->CastSpell(unitTarget->GetPositionX(),unitTarget->GetPositionY(),unitTarget->GetPositionZ(),triggered_spell_id, true, NULL, NULL, m_caster->GetObjectGuid(), m_spellInfo);
-                        unitTarget->RemoveFromWorld();
+                        if (unitTarget->GetTypeId() == TYPEID_UNIT)
+                            ((Creature*)unitTarget)->RemoveCorpse();
                     }
                     else if (m_caster->HasAura(60200))
                     {
