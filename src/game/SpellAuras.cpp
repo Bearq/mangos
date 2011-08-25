@@ -8124,6 +8124,13 @@ void Aura::PeriodicTick()
                     case 67298:
                         pCaster->CastSpell(target, 65952, true);
                         break;
+                    // Boiling Blood (Saurfang)
+                    case 72385:
+                    case 72441:
+                    case 72442:
+                    case 72443:
+                        target->CastSpell(target, 72202, true); // Blood Link
+                        break;
                     default:
                         break;
                 }

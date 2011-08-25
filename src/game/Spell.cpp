@@ -1855,6 +1855,8 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 71518:                                 // Unholy infusion credit
                 case 72289:                                 // Frost infusion credit
                 case 72706:                                 // Valithria event credit
+                case 72769:                                 // Scent of Blood (Saurfang)
+                case 72771:
                 case 72934:                                 // Blood infusion credit
                     radius = DEFAULT_VISIBILITY_INSTANCE;
                     break;
@@ -8616,10 +8618,32 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             {
                 for (UnitList::const_iterator iter = tempTargetUnitMap.begin(); iter != tempTargetUnitMap.end(); ++iter)
                 {
-                    if (!(*iter)->GetObjectGuid().IsPlayerOrPet())
+                    if (!(*iter)->GetObjectGuid().IsPlayer())
                         continue;
 
-                    if (m_caster->GetDistance(*iter) < 8.0f)
+                    if (m_caster->GetDistance(*iter) < 10.0f) // stored in 72379 radius?
+                        continue;
+
+                    targetUnitMap.push_back((*iter));
+                }
+            }
+            break;
+        }
+        case 72385:                                     // Boiling Blood
+        case 72441:
+        case 72442:
+        case 72443:
+        {
+            UnitList tempTargetUnitMap;
+            FillAreaTargets(tempTargetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+            if (!tempTargetUnitMap.empty())
+            {
+                for (UnitList::const_iterator iter = tempTargetUnitMap.begin(); iter != tempTargetUnitMap.end(); ++iter)
+                {
+                    if (!(*iter)->GetObjectGuid().IsPlayer())
+                        continue;
+
+                    if ((*iter) == m_caster->getVictim())
                         continue;
 
                     targetUnitMap.push_back((*iter));

@@ -721,6 +721,7 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
         case 64904:                                         // Hymn of Hope
         case 67369:                                         // Grunty Focus
         case 67398:                                         // Zergling Periodic Effect
+        case 72771:                                         // Scent of Blood (Saurfang)
             return true;
         default:
             break;

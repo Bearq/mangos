@@ -537,6 +537,18 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                         damage *= exp(-distance/(27.5f));
                         break;
                     }
+                    // Mark of the Fallen Champion damage (Saurfang)
+                    case 72255:
+                    case 72444:
+                    case 72445:
+                    case 72446:
+                    {
+                        if (!unitTarget->HasAura(72293))
+                            damage = 0;
+                        else
+                            unitTarget->CastSpell(unitTarget, 72202, true); // Blood Link
+                        break;
+                    }
                     case 74607:
                     // SPELL_FIERY_COMBUSTION_EXPLODE - Ruby sanctum boss Halion,
                     // damage proportional number of mark (74567, dummy)
@@ -9121,6 +9133,32 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     unitTarget->CastSpell(unitTarget, 72231, true);
 
                     break;
+                }
+                case 72257:                                 // Remove Marks of the Fallen Champion
+                {
+                    if (unitTarget)
+                        unitTarget->RemoveAurasDueToSpell(m_spellInfo->CalculateSimpleValue(eff_idx));
+                    return;
+                }
+                case 72380:                                 // Blood Nova (Saurfang)
+                case 72438:
+                case 72439:
+                case 72440:
+                {
+                    // cast Blood Link on Saurfang (script target)
+                    if (unitTarget)
+                        unitTarget->CastSpell(unitTarget, m_spellInfo->CalculateSimpleValue(eff_idx), true, 0, 0, m_caster->GetObjectGuid(), m_spellInfo);
+                    return;
+                }
+                case 72409:                                 // Rune of Blood (Saurfang)
+                case 72447:
+                case 72448:
+                case 72449:
+                {
+                    // cast Blood Link on Saurfang (script target)
+                    if (unitTarget)
+                        unitTarget->CastSpell(unitTarget, m_spellInfo->CalculateSimpleValue(eff_idx), true, 0, 0, m_caster->GetObjectGuid(), m_spellInfo);
+                    return;
                 }
                 case 72705:                                 // Coldflame (in bone storm, Lord Marrowgar - Icecrown Citadel)
                 {
