@@ -2665,13 +2665,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 }
                 break;
             }
-            case SPELLFAMILY_MAGE:
-            {
-                // Fingers of Frost stacks set to max at apply
-                if (GetId() == 74396)
-                    GetHolder()->SetAuraCharges(GetSpellProto()->StackAmount);
-                break;
-            }
             case SPELLFAMILY_HUNTER:
             {
                 switch(GetId())
@@ -5894,30 +5887,30 @@ void Aura::HandleAuraPeriodicDummy(bool apply, bool Real)
         {
             switch(spell->Id)
             {
-                    case 49555:                             // Corpse Explode (Trollgore - Drak'Tharon Keep Normal)
-                        if (!apply)
+                case 49555:                             // Corpse Explode (Trollgore - Drak'Tharon Keep Normal)
+                    if (!apply)
+                    {
+                        if (target)
                         {
-                            if (target)
-                            {
-                                target->CastSpell(target, 49618, true);
-                                target->CastSpell(target, 51270, true);
-                                target->SetFloatValue(OBJECT_FIELD_SCALE_X, 1.0f);
-                                target->SetDeathState(JUST_DIED);
-                            }
+                            target->CastSpell(target, 49618, true);
+                            target->CastSpell(target, 51270, true);
+                            target->SetFloatValue(OBJECT_FIELD_SCALE_X, 1.0f);
+                            target->SetDeathState(JUST_DIED);
                         }
-                        break;
-                    case 59807:                             // Corpse Explode (Trollgore - Drak'Tharon Keep Hero)
-                        if (!apply)
+                    }
+                    break;
+                case 59807:                             // Corpse Explode (Trollgore - Drak'Tharon Keep Hero)
+                    if (!apply)
+                    {
+                        if (target)
                         {
-                            if (target)
-                            {
-                                target->CastSpell(target, 59809, true);
-                                target->CastSpell(target, 51270, true);
-                                target->SetFloatValue(OBJECT_FIELD_SCALE_X, 1.0f);
-                                target->SetDeathState(JUST_DIED);
-                            }
+                            target->CastSpell(target, 59809, true);
+                            target->CastSpell(target, 51270, true);
+                            target->SetFloatValue(OBJECT_FIELD_SCALE_X, 1.0f);
+                            target->SetDeathState(JUST_DIED);
                         }
-                        break;
+                    }
+                    break;
                 case 55093:                                   // Grip of Slad'ran
                 case 61474:                                   // Grip of Slad'ran (h)
                 {
@@ -8110,7 +8103,7 @@ void Aura::PeriodicTick()
                     {
                         target->CastSpell(target, 74795, true, NULL, NULL, GetCasterGuid());
                         break;
-                    };
+                    }
                     case 67297:
                     case 65950:
                         pCaster->CastSpell(target, 65951, true);
@@ -9874,6 +9867,7 @@ m_permanent(false), m_isRemovedOnShapeLost(true), m_deleted(false), m_in_use(0)
         case 62519:                                         // Attuned to Nature
         case 64455:                                         // Feral Essence
         case 71564:                                         // Deadly Precision
+        case 74396:                                         // Fingers of Frost
             m_stackAmount = m_spellProto->StackAmount;
             break;
     }
