@@ -1216,7 +1216,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         bool AttackStop(bool targetSwitch = false);
         void RemoveAllAttackers();
         bool isAttackingPlayer() const;
-        Unit* getVictim() const { return GetMap() ? GetMap()->GetUnit(m_attackingGuid) : NULL; }
+        Unit* getVictim() const { if (IsInWorld()) return GetMap()->GetUnit(m_attackingGuid); }
         void CombatStop(bool includingCast = false);
         void CombatStopWithPets(bool includingCast = false);
         void StopAttackFaction(uint32 faction_id);
