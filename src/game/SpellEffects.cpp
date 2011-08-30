@@ -510,6 +510,16 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                         damage = std::min(damage, 15000);
                         break;
                     }
+                    // Pungent Blight (Festergut)
+                    case 69195:
+                    case 71219:
+                    case 73031:
+                    case 73032:
+                    {
+                        // remove Inoculated
+                        unitTarget->RemoveAurasDueToSpell(69291);
+                        break;
+                    }
                     // Defile damage depending from scale.
                     case 72754:
                     case 73708:
@@ -8937,6 +8947,52 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                         unitTarget->CastSpell(unitTarget, m_spellInfo->CalculateSimpleValue(eff_idx), true);
                     return;
                 }
+                case 69165:                                 // Inhale Blight (Festergut)
+                {
+                    // TODO: get proper difficulty spell?
+                    SpellAuraHolder *holder = m_caster->GetSpellAuraHolder(69166);
+
+                    if (!holder)
+                        holder = m_caster->GetSpellAuraHolder(71912);
+
+                    if (!holder)
+                    {
+                        // first Inhale
+                        m_caster->RemoveAurasDueToSpell(69157);
+                        m_caster->CastSpell(m_caster, 69162, true);
+                    }
+                    else if (holder)
+                    {
+                        if (holder->GetStackAmount() == 1)
+                        {
+                            // second Inhale
+                            m_caster->RemoveAurasDueToSpell(69162);
+                            m_caster->CastSpell(m_caster, 69164, true);
+                        }
+                        else if (holder->GetStackAmount() == 2)
+                        {
+                            // third Inhale
+                            m_caster->RemoveAurasDueToSpell(69164);
+                        }
+                    }
+
+                    return;
+                }
+                case 69195:                                 // Pungent Blight (Festergut)
+                case 71219:
+                case 73031:
+                case 73032:
+                {
+                    // TODO: get proper difficulty spell?
+                    m_caster->RemoveAurasDueToSpell(m_spellInfo->CalculateSimpleValue(eff_idx));
+                    return;
+                }
+                case 69298:                                 // Cancel Resistant to Blight (Festergut)
+                {
+                    if (unitTarget)
+                        unitTarget->RemoveAurasDueToSpell(m_spellInfo->CalculateSimpleValue(eff_idx));
+                    return;
+                }
                 case 69377:                                 // Fortitude
                 {
                     if (!unitTarget)
@@ -9094,7 +9150,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     }
                     return;
                 }
-                case 72219:
+                case 72219:                                 // Gastric Bloat (Festergut)
                 case 72551:
                 case 72552:
                 case 72553:
@@ -9105,34 +9161,10 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     if (SpellAuraHolder* pHolder = unitTarget->GetSpellAuraHolder(m_spellInfo->Id))
                     {
                         if (pHolder->GetStackAmount() + 1 >= m_spellInfo->StackAmount)
-                        {
-                            switch (m_spellInfo->Id)
-                            {
-                                case 72219:
-                                    unitTarget->CastSpell(unitTarget, 72227, true);
-                                    break;
-                                case 72551:
-                                    unitTarget->CastSpell(unitTarget, 72228, true);
-                                    break;
-                                case 72552:
-                                    unitTarget->CastSpell(unitTarget, 72229, true);
-                                    break;
-                                case 72553:
-                                    unitTarget->CastSpell(unitTarget, 72230, true);
-                                    break;
-                                default:
-                                    break;
-
-                                unitTarget->RemoveAurasDueToSpell(m_spellInfo->Id);
-                                unitTarget->RemoveAurasDueToSpell(72231);
-                                return;
-                            }
-                        }
+                            unitTarget->CastSpell(unitTarget, 72227, true);
                     }
 
-                    unitTarget->CastSpell(unitTarget, 72231, true);
-
-                    break;
+                    return;
                 }
                 case 72257:                                 // Remove Marks of the Fallen Champion
                 {

@@ -985,6 +985,8 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
             }
             break;
         }
+        case SPELL_EFFECT_FORCE_CAST:   // positive in all cases?
+            return true;
         default:
             break;
     }

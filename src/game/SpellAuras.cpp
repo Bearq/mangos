@@ -664,7 +664,7 @@ void AreaAura::Update(uint32 diff)
                         for(GroupReference *itr = pGroup->GetFirstMember(); itr != NULL; itr = itr->next())
                         {
                             Player* Target = itr->getSource();
-                            if (Target && Target->isAlive() && caster->IsInWorld() && caster->IsFriendlyTo(Target))
+                            if (Target && Target->IsInWorld() && Target->isAlive() && caster->IsInWorld() && caster->IsFriendlyTo(Target))
                             {
                                 if (caster->IsWithinDistInMap(Target, m_radius))
                                     targets.push_back(Target);
@@ -2464,6 +2464,12 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                             // Rocket Pack - causing damage
                             target->CastSpell(target, 69193, true, NULL, this);
                         }
+                        return;
+                    case 69152:                             // Gaseous Blight (Festergut)
+                        target->RemoveAurasDueToSpell(69126); // previous gas state
+                        return;
+                    case 69154:                             // Gaseous Blight (Festergut)
+                        target->RemoveAurasDueToSpell(69152); // previous gas state
                         return;
                     case 71342:                             // Big Love Rocket
                         Spell::SelectMountByAreaAndSkill(target, GetSpellProto(), 71344, 71345, 71346, 71347, 0);
