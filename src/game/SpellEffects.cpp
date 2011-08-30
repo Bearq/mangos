@@ -394,6 +394,12 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                     // Positive Charge
                     case 28062:
                     {
+                        // remove pet from damage and buff list
+                        if (unitTarget->GetTypeId() != TYPEID_PLAYER)
+                        {
+                              damage = 0;
+                              break;
+                        }
                         // If target is not (+) charged, then just deal dmg
                         if (!unitTarget->HasAura(28059))
                             break;
@@ -407,6 +413,12 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                     // Negative Charge
                     case 28085:
                     {
+                        // remove pet from damage and buff list
+                        if (unitTarget->GetTypeId() != TYPEID_PLAYER)
+                        {
+                              damage = 0;
+                              break;
+                        }
                         // If target is not (-) charged, then just deal dmg
                         if (!unitTarget->HasAura(28084))
                             break;
@@ -1488,13 +1500,16 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     if (!unitTarget)
                         return;
 
+                    if (unitTarget->GetTypeId() != TYPEID_PLAYER)
+                        return;
+
                     // neutralize the target
                     if (unitTarget->HasAura(28059)) unitTarget->RemoveAurasDueToSpell(28059);
                     if (unitTarget->HasAura(29659)) unitTarget->RemoveAurasDueToSpell(29659);
                     if (unitTarget->HasAura(28084)) unitTarget->RemoveAurasDueToSpell(28084);
                     if (unitTarget->HasAura(29660)) unitTarget->RemoveAurasDueToSpell(29660);
 
-                    unitTarget->CastSpell(unitTarget, roll_chance_i(50) ? 28059 : 28084, true);
+                    unitTarget->CastSpell(unitTarget, roll_chance_i(50) ? 28059 : 28084, true, 0, 0, m_caster->GetObjectGuid());
                     break;
                 }
                 case 29200:                                 // Purify Helboar Meat
@@ -5062,10 +5077,10 @@ void Spell::EffectEnergize(SpellEffectIndex eff_idx)
             level_diff = m_caster->getLevel() - 60;
             level_multiplier = 4;
             break;
-        case 31930:                                         // Judgements of the Wise
         case 48542:                                         // Revitalize (mana restore case)
             damage = damage * unitTarget->GetMaxPower(POWER_MANA) / 100;
             break;
+        case 31930:                                         // Judgements of the Wise
         case 63375:                                         // Improved Stormstrike
         case 67545:                                         // Empowered Fire
         case 68082:                                         // Glyph of Seal of Command
@@ -8325,7 +8340,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                         m_caster->CastSpell(m_caster, spellId, true);
                     break;
                 }
-                case 53110:									// Devour Humanoid
+                case 53110:                                 // Devour Humanoid
                 {
                     unitTarget->CastSpell(m_caster, m_spellInfo->CalculateSimpleValue(eff_idx),true, NULL, NULL, m_caster->GetObjectGuid());
                     return;
@@ -8638,12 +8653,12 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
 
                     switch(entry)
                     {
-                        case 31897: spellID = 7001; break;   // Lightwell Renew	Rank 1
-                        case 31896: spellID = 27873; break;  // Lightwell Renew	Rank 2
-                        case 31895: spellID = 27874; break;  // Lightwell Renew	Rank 3
-                        case 31894: spellID = 28276; break;  // Lightwell Renew	Rank 4
-                        case 31893: spellID = 48084; break;  // Lightwell Renew	Rank 5
-                        case 31883: spellID = 48085; break;  // Lightwell Renew	Rank 6
+                        case 31897: spellID = 7001; break;   // Lightwell Renew Rank 1
+                        case 31896: spellID = 27873; break;  // Lightwell Renew Rank 2
+                        case 31895: spellID = 27874; break;  // Lightwell Renew Rank 3
+                        case 31894: spellID = 28276; break;  // Lightwell Renew Rank 4
+                        case 31893: spellID = 48084; break;  // Lightwell Renew Rank 5
+                        case 31883: spellID = 48085; break;  // Lightwell Renew Rank 6
                         default:
                             sLog.outError("Unknown Lightwell spell caster %u", m_caster->GetEntry());
                             return;
@@ -10226,6 +10241,11 @@ void Spell::EffectResurrect(SpellEffectIndex /*eff_idx*/)
                 m_caster->CastSpell(m_caster, 23055, true, m_CastItem);
                 return;
             }
+            break;
+        // Defibrillate (Gnomish Army Knife) has 67% chance of success
+        case 54732:
+            if (roll_chance_i(33))
+                return;
             break;
         default:
             break;
