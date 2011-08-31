@@ -688,6 +688,7 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
         case 63138:                                         // Sara's Fervor (Ulduar - Yogg Saron encounter)
         case 63134:                                         // Sara's Blessing (Ulduar - Yogg Saron encounter)
         case 63355:                                         // Crunch Armor
+        case 66406:                                         // Snobolled! (Trial of the Crusader, Gormok the Impaler encounter)
         case 71010:                                         // Web Wrap (Icecrown Citadel, trash mob Nerub'ar Broodkeeper)
         case 72219:                                         // Gastric Bloat 10 N
         case 72551:                                         // Gastric Bloat 10 H
@@ -985,6 +986,8 @@ bool IsPositiveEffect(SpellEntry const *spellproto, SpellEffectIndex effIndex)
             }
             break;
         }
+        case SPELL_EFFECT_FORCE_CAST:   // positive in all cases?
+            return true;
         default:
             break;
     }
