@@ -1715,7 +1715,11 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 69674:                                 // Mutated Infection
                 case 71224:
                 case 72091:                                 // Frozen Orb (Vault of Archavon, Toravon encounter, normal)
-                case 72378:                                 // Blood Nova
+                case 72385:                                 // Boiling Blood (Saurfang)
+                case 72378:                                 // Blood Nova (Saurfang)
+                case 72441:
+                case 72442:
+                case 72443:
                 case 73022:                                 // Mutated Infection (heroic)
                 case 73023:                                 // Mutated Infection (heroic)
                 case 72088:                                 // Bone Spike Graveyard (Icecrown Citadel, Lord Marrowgar encounter, 10H)
