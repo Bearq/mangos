@@ -9150,6 +9150,12 @@ void Aura::PeriodicDummyTick()
                         target->CastCustomSpell(caster, 66125, &heal, NULL, NULL, true, NULL, this);
                     return;
                 }
+                case 70069:                                   // Ooze Flood Periodic Trigger (Rotface)
+                {
+                    if (target)
+                        target->CastSpell(target, spell->CalculateSimpleValue(GetEffIndex()), true);
+                    return;
+                }
 // Exist more after, need add later
                 default:
                     break;
@@ -10516,11 +10522,8 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
                 {
                     if (!apply)
                     {
-                        if (m_removeMode == AURA_REMOVE_BY_DISPEL)
-                        {
-                            cast_at_remove = true;
-                            spellId1 = 69706;
-                        }
+                        cast_at_remove = true;
+                        spellId1 = GetSpellProto() ? GetSpellProto()->CalculateSimpleValue(EFFECT_INDEX_2) : 0;
                     }
                     break;
                 }
