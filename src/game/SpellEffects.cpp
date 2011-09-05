@@ -529,7 +529,17 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                     case 73032:
                     {
                         // remove Inoculated
-                        unitTarget->RemoveAurasDueToSpell(69291);
+                        SpellAuraHolder *holder = unitTarget->GetSpellAuraHolder(69291);
+                        if (!holder)
+                            holder = unitTarget->GetSpellAuraHolder(72101);
+                        if (!holder)
+                            holder = unitTarget->GetSpellAuraHolder(72102);
+                        if (!holder)
+                            holder = unitTarget->GetSpellAuraHolder(72103);
+
+                        if (holder)
+                            holder->SetAuraDuration(500);
+
                         break;
                     }
                     // Defile damage depending from scale.
