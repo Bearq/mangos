@@ -1077,6 +1077,13 @@ bool Aura::IsEffectStacking()
     {
         // these effects never stack
         case SPELL_AURA_MOD_MELEE_HASTE:
+            if (spellProto->SpellFamilyName == SPELLFAMILY_GENERIC)
+                return true;
+            // Icy Talons
+            if (spellProto->IsFitToFamily(SPELLFAMILY_DEATHKNIGHT, UI64LIT(0x0000000000000002)))
+                return true;
+            
+            break;
         case SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE:
         case SPELL_AURA_MOD_PARTY_MAX_HEALTH:                                                  // Commanding Shout / Blood Pact
         case SPELL_AURA_MOD_HEALING_PCT:                                                       // Mortal Strike / Wound Poison / Aimed Shot / Furious Attacks
@@ -9546,26 +9553,21 @@ void Aura::HandleAuraLinked(bool apply, bool Real)
     if (apply)
     {
         if (pCaster && pCaster->GetTypeId() == TYPEID_PLAYER &&
-            pTarget->GetTypeId() != TYPEID_PLAYER &&
+            pTarget->GetObjectGuid().IsVehicle() &&
             spellInfo->AttributesEx  &  SPELL_ATTR_EX_HIDDEN_AURA &&
             spellInfo->Attributes &  SPELL_ATTR_UNK8)
         {
-            float healBonus   = float(pCaster->GetTotalAuraModifier(SPELL_AURA_MOD_HEALING_PCT))/100.0;
-            if (healBonus < 0.0)
-                healBonus = 0.0;
-            float damageBonus = float(pCaster->CalculateDamage(BASE_ATTACK, false)/pCaster->GetWeaponDamageRange(BASE_ATTACK, MAXDAMAGE)) - 1.0;
-            if (damageBonus < 0.0)
-                damageBonus = 0.0;
-            float healthBonus = float(pCaster->GetMaxHealth()/(pCaster->GetModifierValue(UNIT_MOD_HEALTH, BASE_VALUE) + pCaster->GetCreateHealth())) - 1.0;
-            if (healthBonus < 0)
-                healthBonus = 0.0;
+            float bonus = ((float)((Player*)pCaster)->GetEquipGearScore(false, false) - (float)sWorld.getConfig(CONFIG_UINT32_GEAR_CALC_BASE))
+                                 / (float)sWorld.getConfig(CONFIG_UINT32_GEAR_CALC_BASE);
 
-            int32 bp0 = int32((spellInfo->EffectBasePoints[EFFECT_INDEX_0] + healBonus)   * 100);
-            int32 bp1 = int32((spellInfo->EffectBasePoints[EFFECT_INDEX_1] + damageBonus) * 100);
-            int32 bp2 = int32((spellInfo->EffectBasePoints[EFFECT_INDEX_2] + healthBonus) * 100);
+            float curHealthRatio = pTarget->GetHealthPercent() / 100.0f;
+
+            int32 bp0 = int32(((float)spellInfo->EffectBasePoints[EFFECT_INDEX_0] + bonus) * 100);
+            int32 bp1 = int32(((float)spellInfo->EffectBasePoints[EFFECT_INDEX_1] + bonus) * 100);
+            int32 bp2 = int32(((float)spellInfo->EffectBasePoints[EFFECT_INDEX_2] + bonus) * 100);
 
             pTarget->CastCustomSpell(pTarget, spellInfo, &bp0, &bp1, &bp2, true, NULL, this, GetCasterGuid(), GetSpellProto());
-            pTarget->SetHealth(pTarget->GetMaxHealth());
+            pTarget->SetHealth(uint32((float)pTarget->GetMaxHealth() * curHealthRatio));
         }
         // Ebon Plague and Crypt Fever - set basepoints for linked aura increasing disease damage taken
         else if (GetSpellProto()->SpellFamilyName == SPELLFAMILY_DEATHKNIGHT &&
@@ -10623,14 +10625,6 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
                         return;
                     break;
                 }
-                case 74396:                                 // Fingers of Frost (remove main aura)
-                {
-                    if (!apply)
-                        spellId1 = 44544;
-                    else
-                        return;
-                    break;
-                }
                 default:
                     return;
             }
@@ -11409,7 +11403,8 @@ void SpellAuraHolder::Update(uint32 diff)
         Unit* caster = GetCaster();
         if(!caster)
         {
-            m_target->RemoveAurasByCasterSpell(GetId(), GetCasterGuid());
+            if (m_target)
+                m_target->RemoveAurasByCasterSpell(GetId(), GetCasterGuid());
             return;
         }
 
@@ -11608,23 +11603,29 @@ void Aura::HandleAuraFactionChange(bool apply, bool real)
 
 }
 
-int32 Aura::CalculateCrowdControlAuraAmount(Unit * caster)
+uint32 Aura::CalculateCrowdControlBreakDamage()
 {
     // Damage cap for CC effects
-    if (!GetSpellProto()->procFlags || !GetTarget())
+    if (!GetTarget())
         return 0;
 
-    if (m_modifier.m_auraname !=SPELL_AURA_MOD_CONFUSE &&
-        m_modifier.m_auraname !=SPELL_AURA_MOD_FEAR &&
-        m_modifier.m_auraname !=SPELL_AURA_MOD_STUN &&
-        m_modifier.m_auraname !=SPELL_AURA_MOD_ROOT &&
-        m_modifier.m_auraname !=SPELL_AURA_TRANSFORM)
+    if (!IsCrowdControlAura(m_modifier.m_auraname))
         return 0;
 
-    int32 damageCap = (int32)(GetTarget()->GetMaxHealth()*0.10f);
+    // The chance to dispel an aura depends on the damage taken with respect to the casters level.
+    // uint32 damageCap = getLevel() > 8 ? 25 * getLevel() - 150 : 50;
+
+    uint32 damageCap = (int32)((float)GetTarget()->GetCreateHealth() * 0.20f);
+
+    if (damageCap < 50)
+        damageCap = 50;
+
+    Unit* caster = GetCaster();
 
     if (!caster)
         return damageCap;
+
+    MAPLOCK_READ(caster,MAP_LOCK_TYPE_AURAS);
 
     // Glyphs increasing damage cap
     Unit::AuraList const& overrideClassScripts = caster->GetAurasByType(SPELL_AURA_OVERRIDE_CLASS_SCRIPTS);
@@ -11635,7 +11636,7 @@ int32 Aura::CalculateCrowdControlAuraAmount(Unit * caster)
             // Glyph of Fear, Glyph of Frost nova and similar auras
             if ((*itr)->GetMiscValue() == 7801)
             {
-                damageCap += (int32)(damageCap*(*itr)->GetModifier()->m_amount/100.0f);
+                damageCap += (int32)(damageCap * (*itr)->GetModifier()->m_amount / 100.0f);
                 break;
             }
         }
