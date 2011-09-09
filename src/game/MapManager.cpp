@@ -185,6 +185,29 @@ bool MapManager::CanPlayerEnter(uint32 mapid, Player* player)
                     return false;
                 }
             }
+
+            // hacky check of Icecrown Citadel difficulty
+            // can access heroic only with raid leader having Lich King killed on given difficulty
+            if (mapid == 631)
+            {
+                if (Group *pGroup= player->GetGroup())
+                {
+                    Difficulty diff = pGroup->GetRaidDifficulty();
+
+                    if (diff == RAID_DIFFICULTY_10MAN_HEROIC || diff == RAID_DIFFICULTY_25MAN_HEROIC)
+                    {
+                        Player *pLeader = sObjectMgr.GetPlayer(pGroup->GetLeaderGuid());
+                        uint32 achievId = diff == RAID_DIFFICULTY_10MAN_HEROIC ? 4530 : 4597;
+
+                        if (!pLeader || !pLeader->GetAchievementMgr().HasAchievement(achievId))
+                        {
+                            // "You must have the Lich King defeated first..." will be shown
+                            player->SendTransferAborted(mapid, TRANSFER_ABORT_DIFFICULTY, diff);
+                            return false;
+                        }
+                    }
+                }
+            }
         }
 
         //The player has a heroic mode and tries to enter into instance which has no a heroic mode
