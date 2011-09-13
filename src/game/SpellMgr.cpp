@@ -120,7 +120,7 @@ uint32 GetSpellCastTime(SpellEntry const* spellInfo, Spell const* spell)
         if (Player* modOwner = spell->GetCaster()->GetSpellModOwner())
             modOwner->ApplySpellMod(spellInfo->Id, SPELLMOD_CASTING_TIME, castTime, spell);
 
-        if (!(spellInfo->Attributes & (SPELL_ATTR_UNK4|SPELL_ATTR_TRADESPELL)))
+        if (!(spellInfo->Attributes & (SPELL_ATTR_ABILITY|SPELL_ATTR_TRADESPELL)))
             castTime = int32(castTime * spell->GetCaster()->GetFloatValue(UNIT_MOD_CAST_SPEED));
         else
         {
@@ -359,7 +359,10 @@ bool IsNoStackAuraDueToAura(uint32 spellId_1, uint32 spellId_2)
 
 bool IsSpellAffectedBySpellMods(SpellEntry const* spellInfo)
 {
-    return !(IsPassiveSpell(spellInfo) && spellInfo->AttributesEx3 & SPELL_ATTR_EX3_CAN_PROC_WITH_TRIGGERED);
+    return !(IsPassiveSpell(spellInfo) && 
+            !(spellInfo->Attributes & SPELL_ATTR_ABILITY) &&
+            spellInfo->AttributesEx3 & SPELL_ATTR_EX3_CAN_PROC_WITH_TRIGGERED
+            );
 }
 
 
@@ -2004,7 +2007,7 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
         return false;
 
     // Specific spell family spells
-	// also some SpellIconID exceptions related to late checks (isModifier)
+    // also some SpellIconID exceptions related to late checks (isModifier)
     switch(spellInfo_1->SpellFamilyName)
     {
         case SPELLFAMILY_GENERIC:
@@ -2023,6 +2026,10 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
             if ((spellInfo_1->Id == 57055 && spellInfo_2->Id == 56648) ||
                 (spellInfo_2->Id == 57055 && spellInfo_1->Id == 56648))
                 return true;
+
+            // Mirrored Soul (FoS - Devourer) - and other Boss spells
+            if (spellInfo_1->SpellIconID == 3176 && spellInfo_2->SpellIconID == 3176)
+                return false;
 
             // Blessing of Forgotten Kings and (Greater) Blessing of Kings
             if (spellInfo_1->Id == 72586)
@@ -2057,8 +2064,8 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
             if (spellInfo_2->SpellFamilyName == SPELLFAMILY_DRUID)
             {
                 // Mark/Gift of the Wild
-                if (spellInfo_1->SpellFamilyName == SPELLFAMILY_DRUID && spellInfo_1->SpellFamilyFlags & UI64LIT(0x0000000000040000) &&
-                    spellInfo_2->SpellFamilyName == SPELLFAMILY_DRUID && spellInfo_2->SpellFamilyFlags & UI64LIT(0x0000000000040000))
+                if (spellInfo_1->IsFitToFamily<SPELLFAMILY_DRUID, CF_DRUID_MARK_OF_THE_WILD>() &&
+                    spellInfo_2->IsFitToFamily<SPELLFAMILY_DRUID, CF_DRUID_MARK_OF_THE_WILD>())
                     return true;
             }
             break;
@@ -4269,7 +4276,6 @@ DiminishingReturnsType GetDiminishingReturnsGroupType(DiminishingGroup group)
         case DIMINISHING_CYCLONE:
         case DIMINISHING_TRIGGER_STUN:
         case DIMINISHING_CONTROL_STUN:
-        case DIMINISHING_TAUNT:
             return DRTYPE_ALL;
         case DIMINISHING_CONTROL_ROOT:
         case DIMINISHING_TRIGGER_ROOT:
@@ -4282,6 +4288,8 @@ DiminishingReturnsType GetDiminishingReturnsGroupType(DiminishingGroup group)
         case DIMINISHING_BANISH:
         case DIMINISHING_CHEAPSHOT_POUNCE:
             return DRTYPE_PLAYER;
+        case DIMINISHING_TAUNT:
+            return DRTYPE_TAUNT;
         default:
             break;
     }

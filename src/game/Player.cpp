@@ -3511,7 +3511,7 @@ bool Player::IsNeedCastPassiveLikeSpellAtLearn(SpellEntry const* spellInfo) cons
 {
     ShapeshiftForm form = GetShapeshiftForm();
 
-    if (IsNeedCastSpellAtFormApply(spellInfo, form))        // SPELL_ATTR_PASSIVE | SPELL_ATTR_UNK7 spells
+    if (IsNeedCastSpellAtFormApply(spellInfo, form))        // SPELL_ATTR_PASSIVE | SPELL_ATTR_HIDDEN_CLIENTSIDE spells
         return true;                                        // all stance req. cases, not have auarastate cases
 
     if (!(spellInfo->Attributes & SPELL_ATTR_PASSIVE))
@@ -7741,6 +7741,8 @@ void Player::_ApplyItemBonuses(ItemPrototype const *proto, uint8 slot, bool appl
 
 void Player::_ApplyWeaponDependentAuraMods(Item *item,WeaponAttackType attackType,bool apply)
 {
+    MAPLOCK_READ(this,MAP_LOCK_TYPE_AURAS);
+
     AuraList const& auraCritList = GetAurasByType(SPELL_AURA_MOD_CRIT_PERCENT);
     for(AuraList::const_iterator itr = auraCritList.begin(); itr!=auraCritList.end();++itr)
         _ApplyWeaponDependentAuraCritMod(item,attackType,*itr,apply);
@@ -16796,12 +16798,12 @@ void Player::_LoadAuras(QueryResult *result, uint32 timediff)
                 if ((effIndexMask & (1 << i)) == 0)
                     continue;
 
-                Aura* aura = CreateAura(spellproto, SpellEffectIndex(i), NULL, holder, this);
+                Aura* aura = holder->CreateAura(spellproto, SpellEffectIndex(i), NULL, this, NULL, NULL);
+
                 if (!damage[i])
                     damage[i] = aura->GetModifier()->m_amount;
 
                 aura->SetLoadedState(damage[i], periodicTime[i]);
-                holder->AddAura(aura, SpellEffectIndex(i));
             }
 
             if (!holder->IsEmptyHolder())
@@ -17218,12 +17220,13 @@ void Player::LoadPet()
         else
         {
 
-            QueryResult* result = CharacterDatabase.PQuery("SELECT id, PetType, CreatedBySpell FROM character_pet WHERE owner = '%u' AND entry = (SELECT entry FROM character_pet WHERE owner = '%u' AND slot = '%u') ORDER BY slot ASC",
+            QueryResult* result = CharacterDatabase.PQuery("SELECT id, PetType, CreatedBySpell, savetime FROM character_pet WHERE owner = '%u' AND entry = (SELECT entry FROM character_pet WHERE owner = '%u' AND slot = '%u') ORDER BY slot ASC",
                 GetGUIDLow(), GetGUIDLow(),PET_SAVE_AS_CURRENT);
 
             std::vector<uint32> petnumber;
             uint32 _PetType = 0;
             uint32 _CreatedBySpell = 0;
+            uint64 _saveTime = 0;
 
             if (result)
             {
@@ -17237,6 +17240,8 @@ void Player::LoadPet()
                         _PetType = fields[1].GetUInt32();
                     if (!_CreatedBySpell)
                         _CreatedBySpell = fields[2].GetUInt32();
+                    if (!_saveTime)
+                        _saveTime = fields[3].GetUInt64();
                 }
                 while (result->NextRow());
                 delete result;
@@ -17247,9 +17252,27 @@ void Player::LoadPet()
             if (petnumber.empty())
                 return;
 
-            // temporary fix for count of pets (need correct size by spell basepoints)
-            if ((_PetType != SUMMON_PET) || (_CreatedBySpell != 51533 && _CreatedBySpell != 33831))
-                petnumber.resize(1);
+            if (_CreatedBySpell != 13481 && !HasSpell(_CreatedBySpell))
+                return;
+
+            SpellEntry const* spellInfo = sSpellStore.LookupEntry(_CreatedBySpell);
+
+            if (!spellInfo)
+                return;
+
+            uint32 count = 1;
+
+            if (_CreatedBySpell == 51533 || _CreatedBySpell == 33831)
+                count = spellInfo->CalculateSimpleValue(EFFECT_INDEX_0);
+
+            petnumber.resize(count);
+
+            if (GetSpellDuration(spellInfo) > 0)
+                if (uint64(time(NULL)) - GetSpellDuration(spellInfo)/IN_MILLISECONDS > _saveTime)
+                    return;
+
+            if (_CreatedBySpell != 13481 && !HasSpell(_CreatedBySpell))
+                return;
 
             if (!petnumber.empty())
             {
