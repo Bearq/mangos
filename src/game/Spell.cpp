@@ -3509,7 +3509,7 @@ void Spell::cancel()
                         unit->RemoveAurasByCasterSpell(m_spellInfo->Id, m_caster->GetObjectGuid());
 
                     // prevent other effects applying if spell is already interrupted
-                    // i.e. if effects have different targets and it was interrupted on one of them when 
+                    // i.e. if effects have different targets and it was interrupted on one of them when
                     // haven't yet applied to another
                     ihit->processed = true;
                 }
@@ -8572,6 +8572,7 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             targetUnitMap.remove(m_caster); // exclude caster
             break;
         }
+        case 65044: // Flames
         case 65045: // Flame of demolisher
         {
             FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);

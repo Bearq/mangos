@@ -359,7 +359,7 @@ bool IsNoStackAuraDueToAura(uint32 spellId_1, uint32 spellId_2)
 
 bool IsSpellAffectedBySpellMods(SpellEntry const* spellInfo)
 {
-    return !(IsPassiveSpell(spellInfo) && 
+    return !(IsPassiveSpell(spellInfo) &&
             !(spellInfo->Attributes & SPELL_ATTR_ABILITY) &&
             spellInfo->AttributesEx3 & SPELL_ATTR_EX3_CAN_PROC_WITH_TRIGGERED
             );
@@ -539,7 +539,7 @@ SpellSpecific GetSpellSpecific(uint32 spellId)
     if ((IsSpellHaveAura(spellInfo, SPELL_AURA_TRACK_CREATURES) ||
         IsSpellHaveAura(spellInfo, SPELL_AURA_TRACK_RESOURCES)  ||
         IsSpellHaveAura(spellInfo, SPELL_AURA_TRACK_STEALTHED)) &&
-        ((spellInfo->AttributesEx & SPELL_ATTR_EX_UNK17) || (spellInfo->AttributesEx6 & SPELL_ATTR_EX6_UNK12)))
+        ((spellInfo->AttributesEx & SPELL_ATTR_EX_UNK17) || (spellInfo->AttributesEx6 & SPELL_ATTR_EX6_CASTABLE_ON_VEHICLE)))
         return SPELL_TRACKER;
 
     // elixirs can have different families, but potion most ofc.
@@ -2095,6 +2095,29 @@ bool SpellMgr::IsNoStackSpellDueToSpell(uint32 spellId_1, uint32 spellId_2) cons
                 // Crypt Fever and Ebon Plague
                 if((spellInfo_1->SpellIconID == 264 && spellInfo_2->SpellIconID == 1933) ||
                    (spellInfo_2->SpellIconID == 264 && spellInfo_1->SpellIconID == 1933))
+                    return true;
+            }
+            break;
+        case SPELLFAMILY_MAGE:
+            if (spellInfo_2->SpellFamilyName == SPELLFAMILY_MAGE)
+            {
+                // Dampen / Amplify Magic
+                if (spellInfo_1->IsFitToFamily<SPELLFAMILY_MAGE, CF_MAGE_D_A_MAGIC>() &&
+                    spellInfo_2->IsFitToFamily<SPELLFAMILY_MAGE, CF_MAGE_D_A_MAGIC>())
+                    return true;
+            }
+            break;
+        case SPELLFAMILY_PRIEST:
+            if (spellInfo_2->SpellFamilyName == SPELLFAMILY_PRIEST)
+            {
+                // Power Word / Prayer of Fortitude
+                if (spellInfo_1->IsFitToFamily<SPELLFAMILY_PRIEST, CF_PRIEST_POWER_WORD_FORTITUDE>() &&
+                    spellInfo_2->IsFitToFamily<SPELLFAMILY_PRIEST, CF_PRIEST_POWER_WORD_FORTITUDE>())
+                    return true;
+
+                // Shadow Protection / Prayer of Shadow Protection
+                if (spellInfo_1->IsFitToFamily<SPELLFAMILY_PRIEST, CF_PRIEST_SHADOW_PROTECTION>() &&
+                    spellInfo_2->IsFitToFamily<SPELLFAMILY_PRIEST, CF_PRIEST_SHADOW_PROTECTION>())
                     return true;
             }
             break;

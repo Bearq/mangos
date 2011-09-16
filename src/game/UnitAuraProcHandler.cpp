@@ -1893,8 +1893,8 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                     {
                         uint32 countMin = aura->GetAuraMaxDuration();
                         uint32 countMax = GetSpellMaxDuration(aura->GetSpellProto());
-                        countMax += 3 * triggerAmount * 1000;       
-                        countMax += HasAura(54818) ? 4 * 1000 : 0; 
+                        countMax += 3 * triggerAmount * 1000;
+                        countMax += HasAura(54818) ? 4 * 1000 : 0;
                         countMax += HasAura(60141) ? 4 * 1000 : 0;
 
                         if (countMin < countMax)
@@ -3643,7 +3643,7 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
                     return SPELL_AURA_PROC_FAILED;
                 break;
             }
-            // Fingers of Frost 
+            // Fingers of Frost
             else if (auraSpellInfo->SpellIconID == 2947)
             {
                 // proc chance for spells in basepoints

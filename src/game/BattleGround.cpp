@@ -2087,3 +2087,10 @@ uint32 BattleGround::GetPlayerScore(Player *Source, uint32 type)
             return 0;
     }
 }
+
+void BattleGround::StartTimedAchievement(AchievementCriteriaTypes type, uint32 entry)
+{
+    for (BattleGroundPlayerMap::const_iterator itr = GetPlayers().begin(); itr != GetPlayers().end(); ++itr)
+        if (Player* pPlayer = sObjectMgr.GetPlayer(itr->first))
+            pPlayer->GetAchievementMgr().StartTimedAchievementCriteria(type, entry);
+}
