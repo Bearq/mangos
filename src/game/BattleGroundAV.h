@@ -69,6 +69,8 @@
 #define BG_AV_REP_OWNED_MINE                24
 #define BG_AV_REP_OWNED_MINE_HOLIDAY        36
 
+#define BG_AV_EVENT_START_BATTLE            9166
+
 enum BG_AV_Sounds
 {
     BG_AV_SOUND_NEAR_LOSE               = 8456,             // not confirmed yet
@@ -342,6 +344,7 @@ class BattleGroundAV : public BattleGround
         void HandleQuestComplete(uint32 questid, Player *player);
         bool IsMineOwnedBy(uint8 mine, uint32 team) { return (m_Mine_Owner[mine] == int8(team)) ? true : false; }
         bool PlayerCanDoMineQuest(int32 GOId, Team team);
+        bool IsMineOwnedBy(uint8 mine, uint32 team) { return (m_Mine_Owner[mine] == int8(team)) ? true : false; }
 
         void EndBattleGround(Team winner);
 
@@ -385,6 +388,7 @@ class BattleGroundAV : public BattleGround
         uint32 m_Mine_Reclaim_Timer[BG_AV_MAX_MINES];
 
         bool m_IsInformedNearLose[BG_TEAMS_COUNT];
+        bool m_captainAlive[BG_TEAMS_COUNT];
 
         uint32 m_HonorMapComplete;
         uint32 m_RepTowerDestruction;

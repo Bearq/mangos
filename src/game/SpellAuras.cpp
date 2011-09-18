@@ -1284,18 +1284,11 @@ void Aura::TriggerSpell()
                     {
                         trigger_spell_id = 25779;           // Mana Burn
 
-                        // expected selection current fight target
-                        triggerTarget = GetTarget()->getVictim();
-                        if (!triggerTarget || triggerTarget->GetMaxPower(POWER_MANA) <= 0)
+                        if (GetTarget()->GetTypeId() != TYPEID_UNIT)
                             return;
 
-                        triggeredSpellInfo = sSpellStore.LookupEntry(trigger_spell_id);
-                        if (!triggeredSpellInfo)
-                            return;
-
-                        SpellRangeEntry const* srange = sSpellRangeStore.LookupEntry(triggeredSpellInfo->rangeIndex);
-                        float max_range = GetSpellMaxRange(srange);
-                        if (!triggerTarget->IsWithinDist(GetTarget(),max_range))
+                        triggerTarget = ((Creature*)GetTarget())->SelectAttackingTarget(ATTACKING_TARGET_TOPAGGRO, 0, trigger_spell_id, SELECT_FLAG_POWER_MANA);
+                        if (!triggerTarget)
                             return;
 
                         break;
@@ -3029,10 +3022,11 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
             {
                 if (m_removeMode == AURA_REMOVE_BY_EXPIRE)
                 {
-                    Unit* caster = GetCaster();
-
-                    caster->CastSpell(caster, 61611, true);
-                    ((Player*)caster)->KilledMonsterCredit(26902);
+                    if (Unit* caster = GetCaster())
+                    {
+                        caster->CastSpell(caster, 61611, true);
+                        ((Player*)caster)->KilledMonsterCredit(26902);
+                    }
                     return;
                 }
             }
@@ -3083,17 +3077,21 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
             }
             case 49356:                                     // Flesh Decay - Tharonja
             {
-                Unit* caster = GetCaster();
-                caster->SetDisplayId(27073);            // Set Skeleton Model
-                caster->CastSpell(caster, 52509, true); // Cast Gift Of Tharonja
-                caster->CastSpell(caster, 52582, true); // Cast Transform Visual
+                if (Unit* caster = GetCaster())
+                {
+                    caster->SetDisplayId(27073);            // Set Skeleton Model
+                    caster->CastSpell(caster, 52509, true); // Cast Gift Of Tharonja
+                    caster->CastSpell(caster, 52582, true); // Cast Transform Visual
+                }
                 return;
             }
             case 53463:                                     // Flesh Return - Tharonja
             {
-                Unit* caster = GetCaster();
-                caster->SetDisplayId(27072);            // Set Basic Model
-                caster->CastSpell(caster, 52582, true); // Cast Transform Visual
+                if (Unit* caster = GetCaster())
+                {
+                    caster->SetDisplayId(27072);            // Set Basic Model
+                    caster->CastSpell(caster, 52582, true); // Cast Transform Visual
+                }
                 return;
             }
             case 50141:                                     // Blood Oath
@@ -9554,22 +9552,7 @@ void Aura::HandleArenaPreparation(bool apply, bool Real)
         return;
 
     Unit* target = GetTarget();
-
-    target->ApplyModFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PREPARATION, apply);
-
-    if (apply)
-    {
-        // max regen powers at start preparation
-        target->SetHealth(target->GetMaxHealth());
-        target->SetPower(POWER_MANA, target->GetMaxPower(POWER_MANA));
-        target->SetPower(POWER_ENERGY, target->GetMaxPower(POWER_ENERGY));
-    }
-    else
-    {
-        // reset originally 0 powers at start/leave
-        target->SetPower(POWER_RAGE, 0);
-        target->SetPower(POWER_RUNIC_POWER, 0);
-    }
+    target->HandleArenaPreparation(apply);
 }
 
 /**
@@ -10538,6 +10521,11 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
                     else
                         return;
                     break;
+                }
+                case 37728:                                 // Arena preparation
+                {
+                    GetTarget()->HandleArenaPreparation(apply);
+                    return;
                 }
                 case 55053:                                 // Deathbloom (25 man)
                 {
