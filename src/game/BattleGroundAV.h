@@ -342,7 +342,6 @@ class BattleGroundAV : public BattleGround
         void HandleKillPlayer(Player* player, Player *killer);
         void HandleKillUnit(Creature *creature, Player *killer);
         void HandleQuestComplete(uint32 questid, Player *player);
-        bool IsMineOwnedBy(uint8 mine, uint32 team) { return (m_Mine_Owner[mine] == int8(team)) ? true : false; }
         bool PlayerCanDoMineQuest(int32 GOId, Team team);
         bool IsMineOwnedBy(uint8 mine, uint32 team) { return (m_Mine_Owner[mine] == int8(team)) ? true : false; }
 

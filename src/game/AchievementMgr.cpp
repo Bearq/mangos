@@ -1898,95 +1898,6 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                 progressType = PROGRESS_ACCUMULATE;
                 break;
             }
-            case ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL:
-            case ACHIEVEMENT_CRITERIA_TYPE_GET_KILLING_BLOWS:
-            {
-                if (!miscvalue1)
-                    continue;
-
-                // those requirements couldn't be found in the dbc
-                AchievementCriteriaRequirementSet const* data = sAchievementMgr.GetCriteriaRequirementSet(achievementCriteria);
-
-                if(achievementCriteria->healing_done.flag != 0)
-                {
-                    if(GetPlayer()->GetMapId() != achievementCriteria->healing_done.mapid)
-                    {
-                        continue;
-                    }
-                    else
-                    {
-                        if(data && !data->Meets(GetPlayer(),unit))
-                            continue;
-                     }
-                }
-                else
-                {
-                    if(!data)
-                        continue;
-
-                    if(!data->Meets(GetPlayer(),unit))
-                        continue;
-                }
-                BattleGround* bg = GetPlayer()->GetBattleGround();
-                // some hardcoded requirements
-                switch(achievementCriteria->referredAchievement)
-               {
-                    case 231: // Wrecking Ball
-                    {
-                        if(!bg || bg->GetPlayerScore(GetPlayer(),SCORE_DEATHS) != 0)
-                            continue;
-                        break;
-                    }
-                }
-                SetCriteriaProgress(achievementCriteria, achievement, miscvalue1, PROGRESS_ACCUMULATE);
-                break;
-            }
-            case ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL_AT_AREA:
-            {
-                if(GetPlayer()->GetAreaId() != achievementCriteria->honorable_kill_at_area.areaID)
-                    continue;
-
-                SetCriteriaProgress(achievementCriteria, achievement, miscvalue1, PROGRESS_ACCUMULATE);
-                break;
-            }
-            case ACHIEVEMENT_CRITERIA_TYPE_BG_OBJECTIVE_CAPTURE:
-            {
-                BattleGround* bg = GetPlayer()->GetBattleGround();
-                if (!miscvalue1 || !miscvalue2 || !bg)
-                    continue;
-
-                if(achievementCriteria->objective_capture.captureID != miscvalue2)
-                    continue;
-
-
-                // some hardcoded requirements
-                switch(achievementCriteria->referredAchievement)
-                {
-                    if(achievementCriteria->objective_capture.additionalRequirement1_type || achievementCriteria->objective_capture.additionalRequirement2_type)
-                    {
-                        case 204: // WS, capture 3 flags without dying
-                        {
-                            if(bg->GetPlayerScore(GetPlayer(),SCORE_DEATHS) != 0)
-                                continue;
-                            break;
-                        }
-                        case 211: // EY, capture flag while controling all 4 bases
-                        {
-                            if(!bg->IsAllNodesConrolledByTeam(GetPlayer()->GetTeam()))
-                                continue;
-                            break;
-                        }
-                        case 216: // EY, capture 3 flags without dying
-                        {
-                            if(bg->GetPlayerScore(GetPlayer(),SCORE_DEATHS) != 0)
-                                continue;
-                            break;
-                        }
-                    }
-                }
-                SetCriteriaProgress(achievementCriteria, achievement, miscvalue1, PROGRESS_ACCUMULATE);
-                break;
-            }
             // std case: not exist in DBC, not triggered in code as result
             case ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_HEALTH:
             case ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_SPELLPOWER:
@@ -2111,10 +2022,6 @@ uint32 AchievementMgr::GetCriteriaProgressMaxCounter(AchievementCriteriaEntry co
             return achievementCriteria->highest_personal_rating.teamrating;
         case ACHIEVEMENT_CRITERIA_TYPE_USE_LFD_TO_GROUP_WITH_PLAYERS:
             return achievementCriteria->use_lfg.dungeonsComplete;
-        case ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL_AT_AREA:
-            return achievementCriteria->honorable_kill_at_area.killCount;
-        case ACHIEVEMENT_CRITERIA_TYPE_BG_OBJECTIVE_CAPTURE:
-            return achievementCriteria->objective_capture.captureCount;
         // handle all statistic-only criteria here
         case ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_BATTLEGROUND:
         case ACHIEVEMENT_CRITERIA_TYPE_DEATH_AT_MAP:
