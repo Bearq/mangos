@@ -302,8 +302,10 @@ Unit::Unit() :
 
 Unit::~Unit()
 {
+#ifndef WIN32
     MAPLOCK_WRITE(this, MAP_LOCK_TYPE_DEFAULT);
     MAPLOCK_WRITE1(this, MAP_LOCK_TYPE_AURAS);
+#endif
     // set current spells as deletable
     for (uint32 i = 0; i < CURRENT_MAX_SPELL; ++i)
     {
@@ -8131,7 +8133,7 @@ uint32 Unit::MeleeDamageBonusDone(Unit *pVictim, uint32 pdamage,WeaponAttackType
         for(AuraList::const_iterator i = mModDamagePercentDone.begin(); i != mModDamagePercentDone.end(); ++i)
         {
             Aura* aura = *i;
-            if (!aura || aura->GetHolder() || aura->GetHolder()->IsDeleted() || !aura->GetModifier())
+            if (!aura || !aura->GetHolder() || aura->GetHolder()->IsDeleted() || !aura->GetModifier())
                 continue;
 
             if (aura->GetModifier()->m_miscvalue & schoolMask &&                         // schoolmask has to fit with the intrinsic spell school
@@ -11603,6 +11605,7 @@ Unit* Unit::SelectRandomFriendlyTarget(Unit* except /*= NULL*/, float radius /*=
 
 bool Unit::hasNegativeAuraWithInterruptFlag(uint32 flag)
 {
+    MAPLOCK_READ(this,MAP_LOCK_TYPE_AURAS);
     for (SpellAuraHolderMap::const_iterator iter = m_spellAuraHolders.begin(); iter != m_spellAuraHolders.end(); ++iter)
     {
         if (!iter->second->IsPositive() && iter->second->GetSpellProto()->AuraInterruptFlags & flag)
