@@ -136,17 +136,13 @@ bool GameObject::Create(uint32 guidlow, uint32 name_id, Map *map, uint32 phaseMa
 
     SetObjectScale(goinfo->size);
 
-    /* restored old GO rotation code*/
-    SetFloatValue(GAMEOBJECT_PARENTROTATION+0, rotation.x);
-    SetFloatValue(GAMEOBJECT_PARENTROTATION+1, rotation.y);
-    UpdateRotationFields(rotation.z,rotation.w);              // GAMEOBJECT_FACING, GAMEOBJECT_ROTATION, GAMEOBJECT_PARENTROTATION+2/3
-    /*SetWorldRotation(rotation.x,rotation.y,rotation.z,rotation.w);
+    SetWorldRotation(rotation.x,rotation.y,rotation.z,rotation.w);
     // For most of gameobjects is (0, 0, 0, 1) quaternion, only some transports has not standart rotation
     // TODO: store these values in DB
     if (const GameObjectDataAddon * addon = sGameObjectDataAddonStorage.LookupEntry<GameObjectDataAddon>(guidlow))
         SetTransportPathRotation(addon->path_rotation);
     else
-        SetTransportPathRotation(QuaternionData(0,0,0,1));*/
+        SetTransportPathRotation(QuaternionData(0,0,0,1));
 
     SetUInt32Value(GAMEOBJECT_FACTION, goinfo->faction);
     SetUInt32Value(GAMEOBJECT_FLAGS, goinfo->flags);
