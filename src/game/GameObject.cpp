@@ -136,15 +136,6 @@ bool GameObject::Create(uint32 guidlow, uint32 name_id, Map *map, uint32 phaseMa
 
     SetObjectScale(goinfo->size);
 
-<<<<<<< HEAD
-    SetWorldRotation(rotation.x,rotation.y,rotation.z,rotation.w);
-    // For most of gameobjects is (0, 0, 0, 1) quaternion, only some transports has not standart rotation
-    // TODO: store these values in DB
-    if (const GameObjectDataAddon * addon = sGameObjectDataAddonStorage.LookupEntry<GameObjectDataAddon>(guidlow))
-        SetTransportPathRotation(addon->path_rotation);
-    else
-        SetTransportPathRotation(QuaternionData(0,0,0,1));
-=======
     /* restored old GO rotation code*/
     SetFloatValue(GAMEOBJECT_PARENTROTATION+0, rotation0);
     SetFloatValue(GAMEOBJECT_PARENTROTATION+1, rotation1);
@@ -153,7 +144,6 @@ bool GameObject::Create(uint32 guidlow, uint32 name_id, Map *map, uint32 phaseMa
     // For most of gameobjects is (0, 0, 0, 1) quaternion, only transports has not standart rotation
     // TODO: store these values in DB
     SetTransportPathRotation(0, 0, 0, 1.f);*/
->>>>>>> parent of a4f5938... Merge branch 'master' of git://github.com/mangosR2/mangos into rsa
 
     SetUInt32Value(GAMEOBJECT_FACTION, goinfo->faction);
     SetUInt32Value(GAMEOBJECT_FLAGS, goinfo->flags);
