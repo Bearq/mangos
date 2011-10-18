@@ -5119,11 +5119,13 @@ void Unit::RemoveAurasWithInterruptFlags(uint32 flags)
 {
     std::set<uint32> spellsToRemove;
     {
-        SpellAuraHolderPtr holder = iter->second;
-        if (holder && holder->GetSpellProto()->AuraInterruptFlags & flags)
+        MAPLOCK_READ(this,MAP_LOCK_TYPE_AURAS);
+        SpellAuraHolderMap const& holdersMap = GetSpellAuraHolderMap();
+        for (SpellAuraHolderMap::const_iterator iter = holdersMap.begin(); iter != holdersMap.end(); ++iter)
         {
-            RemoveSpellAuraHolder(holder);
-            iter = m_spellAuraHolders.begin();
+            SpellAuraHolderPtr holder = iter->second;
+            if (holder && !holder->IsDeleted() && (holder->GetSpellProto()->AuraInterruptFlags & flags))
+                spellsToRemove.insert(iter->first);
         }
     }
 
