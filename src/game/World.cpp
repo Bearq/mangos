@@ -1195,10 +1195,7 @@ void World::SetInitialWorldSettings()
     sMapPersistentStateMgr.LoadCreatureRespawnTimes();
 
     sLog.outString( "Loading Gameobject Data..." );
-    sObjectMgr.LoadGameObjects();
-
-    sLog.outString( "Loading Gameobject Addon Data..." );
-    sObjectMgr.LoadGameObjectAddon();
+    sObjectMgr.LoadGameobjects();
 
     sLog.outString( "Loading CreatureLinking Data..." );    // must be after Creatures
     sCreatureLinkingMgr.LoadFromDB();
@@ -1233,7 +1230,7 @@ void World::SetInitialWorldSettings()
     sLog.outString( "Loading Creature Respawn Data..." );   // must be after LoadCreatures(), and sMapPersistentStateMgr.InitWorldMaps()
     sMapPersistentStateMgr.LoadCreatureRespawnTimes();
 
-    sLog.outString( "Loading Gameobject Respawn Data..." ); // must be after LoadGameObjects(), and sMapPersistentStateMgr.InitWorldMaps()
+    sLog.outString( "Loading Gameobject Respawn Data..." ); // must be after LoadGameobjects(), and sMapPersistentStateMgr.InitWorldMaps()
     sMapPersistentStateMgr.LoadGameobjectRespawnTimes();
 
     sLog.outString( "Loading UNIT_NPC_FLAG_SPELLCLICK Data..." );

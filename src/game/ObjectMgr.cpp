@@ -1458,7 +1458,7 @@ void ObjectMgr::LoadVehicleAccessories()
     sLog.outString(">> Loaded %u Vehicle Accessories", count);
 }
 
-void ObjectMgr::LoadGameObjects()
+void ObjectMgr::LoadGameobjects()
 {
     uint32 count = 0;
 
@@ -1509,7 +1509,7 @@ void ObjectMgr::LoadGameObjects()
             continue;
         }
 
-        if (!gInfo->displayId)
+        if(!gInfo->displayId)
         {
             switch(gInfo->type)
             {
@@ -1536,21 +1536,14 @@ void ObjectMgr::LoadGameObjects()
         data.posY           = fields[ 4].GetFloat();
         data.posZ           = fields[ 5].GetFloat();
         data.orientation    = fields[ 6].GetFloat();
-        data.rotation.x     = fields[ 7].GetFloat();
-        data.rotation.y     = fields[ 8].GetFloat();
-        data.rotation.z     = fields[ 9].GetFloat();
-        data.rotation.w     = fields[10].GetFloat();
+        data.rotation0      = fields[ 7].GetFloat();
+        data.rotation1      = fields[ 8].GetFloat();
+        data.rotation2      = fields[ 9].GetFloat();
+        data.rotation3      = fields[10].GetFloat();
         data.spawntimesecs  = fields[11].GetInt32();
-        data.animprogress   = fields[12].GetUInt32();
-        uint32 go_state     = fields[13].GetUInt32();
-        data.spawnMask      = fields[14].GetUInt8();
-        data.phaseMask      = fields[15].GetUInt16();
-        int16 gameEvent     = fields[16].GetInt16();
-        int16 GuidPoolId    = fields[17].GetInt16();
-        int16 EntryPoolId   = fields[18].GetInt16();
 
         MapEntry const* mapEntry = sMapStore.LookupEntry(data.mapid);
-        if (!mapEntry)
+        if(!mapEntry)
         {
             sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) that spawned at nonexistent map (Id: %u), skip", guid, data.id, data.mapid);
             continue;
@@ -1564,6 +1557,9 @@ void ObjectMgr::LoadGameObjects()
             sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with `spawntimesecs` (0) value, but gameobejct marked as despawnable at action.", guid, data.id);
         }
 
+        data.animprogress   = fields[12].GetUInt32();
+
+        uint32 go_state     = fields[13].GetUInt32();
         if (go_state >= MAX_GO_STATE)
         {
             sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid `state` (%u) value, skip", guid, data.id, go_state);
@@ -1573,39 +1569,42 @@ void ObjectMgr::LoadGameObjects()
 
         data.spawnMask      = fields[14].GetUInt8();
         data.phaseMask      = fields[15].GetUInt16();
+        int16 gameEvent     = fields[16].GetInt16();
+        int16 GuidPoolId    = fields[17].GetInt16();
+        int16 EntryPoolId   = fields[18].GetInt16();
 
         /* GO quateration temp commented out
-        if (data.rotation.x < -1.0f || data.rotation.x > 1.0f)
+        if (data.rotation0 < -1.0f || data.rotation0 > 1.0f)
         {
-            sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid rotation.x (%f) value, skip", guid, data.id, data.rotation.x);
+            sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid rotation0 (%f) value, skip", guid, data.id, data.rotation0);
             continue;
         }
 
-        if (data.rotation.y < -1.0f || data.rotation.y > 1.0f)
+        if (data.rotation1 < -1.0f || data.rotation1 > 1.0f)
         {
-            sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid rotation.y (%f) value, skip", guid, data.id, data.rotation.y);
+            sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid rotation1 (%f) value, skip", guid, data.id, data.rotation1);
             continue;
         }*/
 
-        if (data.rotation.z < -1.0f || data.rotation.z > 1.0f)
+        if (data.rotation2 < -1.0f || data.rotation2 > 1.0f)
         {
-            sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid rotation.z (%f) value, skip", guid, data.id, data.rotation.z);
+            sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid rotation2 (%f) value, skip", guid, data.id, data.rotation2);
             continue;
         }
 
-        if (data.rotation.w < -1.0f || data.rotation.w > 1.0f)
+        if (data.rotation3 < -1.0f || data.rotation3 > 1.0f)
         {
-            sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid rotation.w (%f) value, skip", guid, data.id, data.rotation.w);
+            sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid rotation3 (%f) value, skip", guid, data.id, data.rotation3);
             continue;
         }
 
-        if (!MapManager::IsValidMapCoord(data.mapid, data.posX, data.posY, data.posZ, data.orientation))
+        if(!MapManager::IsValidMapCoord(data.mapid, data.posX, data.posY, data.posZ, data.orientation))
         {
             sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid coordinates, skip", guid, data.id);
             continue;
         }
 
-        if (data.phaseMask == 0)
+        if(data.phaseMask == 0)
         {
             sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with `phaseMask`=0 (not visible for anyone), set to 1.", guid, data.id);
             data.phaseMask = 1;
@@ -1613,7 +1612,6 @@ void ObjectMgr::LoadGameObjects()
 
         if (gameEvent==0 && GuidPoolId==0 && EntryPoolId==0)// if not this is to be managed by GameEvent System or Pool system
             AddGameobjectToGrid(guid, &data);
-
         ++count;
 
     } while (result->NextRow());
@@ -1622,33 +1620,6 @@ void ObjectMgr::LoadGameObjects()
 
     sLog.outString();
     sLog.outString( ">> Loaded %lu gameobjects", (unsigned long)mGameObjectDataMap.size());
-}
-
-void ObjectMgr::LoadGameObjectAddon()
-{
-    sGameObjectDataAddonStorage.Load();
-
-    sLog.outString(">> Loaded %u gameobject addons", sGameObjectDataAddonStorage.RecordCount);
-    sLog.outString();
-
-    for(uint32 i = 1; i < sGameObjectDataAddonStorage.MaxEntry; ++i)
-    {
-        GameObjectDataAddon const* addon = sGameObjectDataAddonStorage.LookupEntry<GameObjectDataAddon>(i);
-        if (!addon)
-            continue;
-
-        if (!GetGODataPair(addon->guid))
-        {
-            sLog.outErrorDb("Gameobject (GUID: %u) does not exist but has a record in `gameobject_addon`",addon->guid);
-            continue;
-        }
-
-        if (!addon->path_rotation.isUnit())
-        {
-            sLog.outErrorDb("Gameobject (GUID: %u) has invalid path rotation", addon->guid);
-            const_cast<GameObjectDataAddon*>(addon)->path_rotation = QuaternionData(0.f, 0.f, 0.f, 1.f);
-        }
-    }
 }
 
 void ObjectMgr::AddGameobjectToGrid(uint32 guid, GameObjectData const* data)
@@ -9186,9 +9157,9 @@ void ObjectMgr::LoadGossipMenuItems()
 
         if (gMenuItem.action_script_id)
         {
-            if (gMenuItem.option_id != GOSSIP_OPTION_GOSSIP && gMenuItem.option_id != GOSSIP_OPTION_AUTOSCRIPT)
+            if (gMenuItem.option_id != GOSSIP_OPTION_GOSSIP)
             {
-                sLog.outErrorDb("Table gossip_menu_option for menu %u, id %u have action_script_id %u but option_id is not GOSSIP_OPTION_GOSSIP and is not GOSSIP_OPTION_AUTOSCRIPT, ignoring", gMenuItem.menu_id, gMenuItem.id, gMenuItem.action_script_id);
+                sLog.outErrorDb("Table gossip_menu_option for menu %u, id %u have action_script_id %u but option_id is not GOSSIP_OPTION_GOSSIP, ignoring", gMenuItem.menu_id, gMenuItem.id, gMenuItem.action_script_id);
                 continue;
             }
 
