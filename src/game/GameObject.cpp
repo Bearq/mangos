@@ -63,9 +63,9 @@ GameObject::GameObject() : WorldObject(),
     m_progressFaction = TEAM_NONE;
     m_cooldownTime = 0;
 
-    m_rotation = 0;
-
     m_health = 0;
+
+    m_packedRotation = 0;
 }
 
 GameObject::~GameObject()
@@ -104,7 +104,7 @@ void GameObject::RemoveFromWorld()
     Object::RemoveFromWorld();
 }
 
-bool GameObject::Create(uint32 guidlow, uint32 name_id, Map *map, uint32 phaseMask, float x, float y, float z, float ang, float rotation0, float rotation1, float rotation2, float rotation3, uint8 animprogress, GOState go_state)
+bool GameObject::Create(uint32 guidlow, uint32 name_id, Map *map, uint32 phaseMask, float x, float y, float z, float ang, QuaternionData rotation, uint8 animprogress, GOState go_state)
 {
     MANGOS_ASSERT(map);
     Relocate(x,y,z,ang);
@@ -120,7 +120,7 @@ bool GameObject::Create(uint32 guidlow, uint32 name_id, Map *map, uint32 phaseMa
     GameObjectInfo const* goinfo = ObjectMgr::GetGameObjectInfo(name_id);
     if (!goinfo)
     {
-        sLog.outErrorDb("Gameobject (GUID: %u) not created: Entry %u does not exist in `gameobject_template`. Map: %u  (X: %f Y: %f Z: %f) ang: %f rotation0: %f rotation1: %f rotation2: %f rotation3: %f",guidlow, name_id, map->GetId(), x, y, z, ang, rotation0, rotation1, rotation2, rotation3);
+        sLog.outErrorDb("Gameobject (GUID: %u) not created: Entry %u does not exist in `gameobject_template`. Map: %u  (X: %f Y: %f Z: %f) ang: %f",guidlow, name_id, map->GetId(), x, y, z, ang);
         return false;
     }
 
@@ -136,7 +136,6 @@ bool GameObject::Create(uint32 guidlow, uint32 name_id, Map *map, uint32 phaseMa
 
     SetObjectScale(goinfo->size);
 
-<<<<<<< HEAD
     SetWorldRotation(rotation.x,rotation.y,rotation.z,rotation.w);
     // For most of gameobjects is (0, 0, 0, 1) quaternion, only some transports has not standart rotation
     // TODO: store these values in DB
@@ -144,16 +143,6 @@ bool GameObject::Create(uint32 guidlow, uint32 name_id, Map *map, uint32 phaseMa
         SetTransportPathRotation(addon->path_rotation);
     else
         SetTransportPathRotation(QuaternionData(0,0,0,1));
-=======
-    /* restored old GO rotation code*/
-    SetFloatValue(GAMEOBJECT_PARENTROTATION+0, rotation0);
-    SetFloatValue(GAMEOBJECT_PARENTROTATION+1, rotation1);
-    UpdateRotationFields(rotation2,rotation3);              // GAMEOBJECT_FACING, GAMEOBJECT_ROTATION, GAMEOBJECT_PARENTROTATION+2/3
-    /*SetWorldRotation(rotation0,rotation1,rotation2,rotation3);
-    // For most of gameobjects is (0, 0, 0, 1) quaternion, only transports has not standart rotation
-    // TODO: store these values in DB
-    SetTransportPathRotation(0, 0, 0, 1.f);*/
->>>>>>> parent of a4f5938... Merge branch 'master' of git://github.com/mangosR2/mangos into rsa
 
     SetUInt32Value(GAMEOBJECT_FACTION, goinfo->faction);
     SetUInt32Value(GAMEOBJECT_FLAGS, goinfo->flags);
@@ -667,10 +656,10 @@ void GameObject::SaveToDB(uint32 mapid, uint8 spawnMask, uint32 phaseMask)
     data.posY = GetPositionY();
     data.posZ = GetPositionZ();
     data.orientation = GetOrientation();
-    data.rotation0 = m_quatX;
-    data.rotation1 = m_quatY;
-    data.rotation2 = m_quatZ;
-    data.rotation3 = m_quatW;
+    data.rotation.x = m_worldRotation.x;
+    data.rotation.y = m_worldRotation.y;
+    data.rotation.z = m_worldRotation.z;
+    data.rotation.w = m_worldRotation.w;
     data.spawntimesecs = m_spawnedByDefault ? (int32)m_respawnDelayTime : -(int32)m_respawnDelayTime;
     data.animprogress = GetGoAnimProgress();
     data.go_state = GetGoState();
@@ -688,10 +677,10 @@ void GameObject::SaveToDB(uint32 mapid, uint8 spawnMask, uint32 phaseMask)
         << GetPositionY() << ", "
         << GetPositionZ() << ", "
         << GetOrientation() << ", "
-        << m_quatX << ", "
-        << m_quatY << ", "
-        << m_quatZ << ", "
-        << m_quatW << ", "
+        << m_worldRotation.x << ", "
+        << m_worldRotation.y << ", "
+        << m_worldRotation.z << ", "
+        << m_worldRotation.w << ", "
         << m_respawnDelayTime << ", "
         << uint32(GetGoAnimProgress()) << ", "
         << uint32(GetGoState()) << ")";
@@ -720,15 +709,10 @@ bool GameObject::LoadFromDB(uint32 guid, Map *map)
     float z = data->posZ;
     float ang = data->orientation;
 
-    float rotation0 = data->rotation0;
-    float rotation1 = data->rotation1;
-    float rotation2 = data->rotation2;
-    float rotation3 = data->rotation3;
-
     uint8 animprogress = data->animprogress;
     GOState go_state = data->go_state;
 
-    if (!Create(guid,entry, map, phaseMask, x, y, z, ang, rotation0, rotation1, rotation2, rotation3, animprogress, go_state) )
+    if (!Create(guid,entry, map, phaseMask, x, y, z, ang, data->rotation, animprogress, go_state))
         return false;
 
     if (!GetGOInfo()->GetDespawnPossibility() && !GetGOInfo()->IsDespawnAtAction() && data->spawntimesecs >= 0)
@@ -993,7 +977,7 @@ void GameObject::SummonLinkedTrapIfAny()
 
     GameObject* linkedGO = new GameObject;
     if (!linkedGO->Create(GetMap()->GenerateLocalLowGuid(HIGHGUID_GAMEOBJECT), linkedEntry, GetMap(),
-         GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation(), 0.0f, 0.0f, 0.0f, 0.0f, GO_ANIMPROGRESS_DEFAULT, GO_STATE_READY))
+         GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation()))
     {
         delete linkedGO;
         return;
@@ -2090,25 +2074,25 @@ struct QuaternionCompressed
 
 void GameObject::SetWorldRotation(float qx, float qy, float qz, float qw)
 {
-    Quat quat(qx, qy, qz, qw);
+    Quat rotation(qx, qy, qz, qw);
     // Temporary solution for gameobjects that has no rotation data in DB:
-    if (qz == 0 && qw == 0)
-        quat = Quat::fromAxisAngleRotation(G3D::Vector3::unitZ(), GetOrientation());
+    if (qz == 0.f && qw == 0.f)
+        rotation = Quat::fromAxisAngleRotation(G3D::Vector3::unitZ(), GetOrientation());
 
-    quat.unitize();
-    m_rotation = QuaternionCompressed(quat).m_raw;
-    m_quatX = quat.x;
-    m_quatY = quat.y;
-    m_quatZ = quat.z;
-    m_quatW = quat.w;
+    rotation.unitize();
+    m_packedRotation = QuaternionCompressed(rotation).m_raw;
+    m_worldRotation.x = rotation.x;
+    m_worldRotation.y = rotation.y;
+    m_worldRotation.z = rotation.z;
+    m_worldRotation.w = rotation.w;
 }
 
-void GameObject::SetTransportPathRotation(float qx, float qy, float qz, float qw)
+void GameObject::SetTransportPathRotation(QuaternionData rotation)
 {
-    SetFloatValue(GAMEOBJECT_PARENTROTATION+0, qx);
-    SetFloatValue(GAMEOBJECT_PARENTROTATION+1, qy);
-    SetFloatValue(GAMEOBJECT_PARENTROTATION+2, qz);
-    SetFloatValue(GAMEOBJECT_PARENTROTATION+3, qw);
+    SetFloatValue(GAMEOBJECT_PARENTROTATION+0, rotation.x);
+    SetFloatValue(GAMEOBJECT_PARENTROTATION+1, rotation.y);
+    SetFloatValue(GAMEOBJECT_PARENTROTATION+2, rotation.z);
+    SetFloatValue(GAMEOBJECT_PARENTROTATION+3, rotation.w);
 }
 
 void GameObject::SetWorldRotationAngles(float z_rot, float y_rot, float x_rot)
@@ -2133,8 +2117,6 @@ void GameObject::UpdateRotationFields(float rotation2 /*=0.0f*/, float rotation3
     //float f_rot3 = sin(0.0f / 2.0f);
     //int64 i_rot3 = f_rot3 / atan(pow(2.0f, -21.0f));
     //rotation |= (i_rot3 >> 42) & 0x7FFFFC0000000000;
-
-    m_rotation = rotation;
 
     if(rotation2==0.0f && rotation3==0.0f)
     {
