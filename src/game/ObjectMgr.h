@@ -751,8 +751,7 @@ class ObjectMgr
         void LoadCreatureSpells();
         void LoadEquipmentTemplates();
         void LoadGameObjectLocales();
-        void LoadGameObjects();
-        void LoadGameObjectAddon();
+        void LoadGameobjects();
         void LoadItemPrototypes();
         void LoadItemConverts();
         void LoadItemExpireConverts();
