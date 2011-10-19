@@ -10613,7 +10613,8 @@ void Spell::EffectLeapForward(SpellEffectIndex eff_idx)
         //Prevent Falling during swap building/outerspace
         unitTarget->UpdateAllowedPositionZ(fx, fy, fz);
 
-        unitTarget->NearTeleportTo(fx, fy, fz, unitTarget->GetOrientation(), unitTarget == m_caster);
+        if (fz > VMAP_INVALID_HEIGHT_VALUE + 1.0f)
+            unitTarget->NearTeleportTo(fx, fy, fz, unitTarget->GetOrientation(), unitTarget == m_caster);
     }
 }
 

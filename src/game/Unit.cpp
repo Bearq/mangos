@@ -2501,15 +2501,30 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
     // Remove all expired absorb auras
     if (existExpired)
     {
-        std::set<Aura*> toRemoveSpellList;
+        std::set<SpellAuraHolderPtr> toRemoveSpellList;
         for(AuraList::const_iterator i = vSchoolAbsorb.begin(); i != vSchoolAbsorb.end(); ++i)
         {
-            SpellAuraHolderPtr _holder = (*i)->GetHolder();
-            if (_holder && !_holder->IsDeleted() && (*i)->GetModifier()->m_amount <= 0)
-                toRemoveSpellList.insert(*i);
+            if ((*i)->GetModifier()->m_amount<=0)
+            {
+                // Resistant Skin (Blood Beasts in ICC)
+                // it has effect absorbing 100 dmg, maybe wrong data in dbc? ;/
+                // anyway, this hack prevents expiring of the buff after breaking shield
+                if ((*i)->GetId() == 72723)
+                    RemoveAura(*i, AURA_REMOVE_BY_SHIELD_BREAK);
+                else
+                {
+                    SpellAuraHolderPtr _holder = (*i)->GetHolder();
+                    if (_holder && !_holder->IsDeleted() && (*i)->GetModifier()->m_amount <= 0)
+                        toRemoveSpellList.insert(_holder);
+                }
+
+                i = vSchoolAbsorb.begin();
+            }
+            else
+                ++i;
         }
-        for (std::set<Aura*>::iterator _i = toRemoveSpellList.begin(); _i != toRemoveSpellList.end(); ++_i)
-            RemoveAura(*_i, AURA_REMOVE_BY_SHIELD_BREAK);
+        for (std::set<SpellAuraHolderPtr>::iterator _i = toRemoveSpellList.begin(); _i != toRemoveSpellList.end(); ++_i)
+            RemoveSpellAuraHolder(*_i, AURA_REMOVE_BY_SHIELD_BREAK);
     }
 
     // Cast back reflect damage spell
