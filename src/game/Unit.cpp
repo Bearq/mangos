@@ -2425,7 +2425,14 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
         {
             if ((*i)->GetModifier()->m_amount<=0)
             {
-                RemoveAura((*i), AURA_REMOVE_BY_SHIELD_BREAK);
+                // Resistant Skin (Blood Beasts in ICC)
+                // it has effect absorbing 100 dmg, maybe wrong data in dbc? ;/
+                // anyway, this hack prevents expiring of the buff after breaking shield
+                if ((*i)->GetId() == 72723)
+                    RemoveAura(*i, AURA_REMOVE_BY_SHIELD_BREAK);
+                else
+                    RemoveSpellAuraHolder((*i)->GetHolder(), AURA_REMOVE_BY_SHIELD_BREAK);
+
                 i = vSchoolAbsorb.begin();
             }
             else
