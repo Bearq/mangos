@@ -10547,22 +10547,32 @@ void Spell::EffectLeapForward(SpellEffectIndex eff_idx)
         unitTarget->GetPosition(ox, oy, oz);
         float fx, fy, fz;
         fz = oz+2.0;
-        fx = unitTarget->GetPositionX() + distance * cos(unitTarget->GetOrientation());
-        fy = unitTarget->GetPositionY() + distance * sin(unitTarget->GetOrientation());
 
-        MaNGOS::NormalizeMapCoord(fx);
-        MaNGOS::NormalizeMapCoord(fy);
+        while (distance > 0.0f)
+        {
+            fx = unitTarget->GetPositionX() + distance * cos(unitTarget->GetOrientation());
+            fy = unitTarget->GetPositionY() + distance * sin(unitTarget->GetOrientation());
 
-        if (terrain->CheckPathAccurate(ox,oy,oz,fx,fy,fz, sWorld.getConfig(CONFIG_BOOL_CHECK_GO_IN_PATH) ? unitTarget : NULL ))
-            DEBUG_LOG("Spell::EffectLeapForward unit %u forwarded on %f",unitTarget->GetObjectGuid().GetCounter(), unitTarget->GetDistance(fx,fy,fz));
-        else
-            DEBUG_LOG("Spell::EffectLeapForward unit %u NOT forwarded on %f, real distance is %f",unitTarget->GetObjectGuid().GetCounter(), distance, unitTarget->GetDistance(fx,fy,fz));
+            MaNGOS::NormalizeMapCoord(fx);
+            MaNGOS::NormalizeMapCoord(fy);
 
-        //Prevent Falling during swap building/outerspace
-        unitTarget->UpdateAllowedPositionZ(fx, fy, fz);
+            if (terrain->CheckPathAccurate(ox,oy,oz,fx,fy,fz, sWorld.getConfig(CONFIG_BOOL_CHECK_GO_IN_PATH) ? unitTarget : NULL ))
+                DEBUG_LOG("Spell::EffectLeapForward unit %u forwarded on %f",unitTarget->GetObjectGuid().GetCounter(), unitTarget->GetDistance(fx,fy,fz));
+            else
+                DEBUG_LOG("Spell::EffectLeapForward unit %u NOT forwarded on %f, real distance is %f",unitTarget->GetObjectGuid().GetCounter(), distance, unitTarget->GetDistance(fx,fy,fz));
 
-        if (fz > VMAP_INVALID_HEIGHT_VALUE + 1.0f)
-            unitTarget->NearTeleportTo(fx, fy, fz, unitTarget->GetOrientation(), unitTarget == m_caster);
+            //Prevent Falling during swap building/outerspace
+            unitTarget->UpdateAllowedPositionZ(fx, fy, fz);
+
+            if (fz > VMAP_INVALID_HEIGHT_VALUE + 10.0f)
+            {
+                unitTarget->NearTeleportTo(fx, fy, fz, unitTarget->GetOrientation(), unitTarget == m_caster);
+                break;
+            }
+
+            distance -= 3.0f;
+            fz += 1.0f;
+        }
     }
 }
 
