@@ -757,6 +757,10 @@ void Spell::prepareDataForTriggerSystem()
                 break;
             case SPELLFAMILY_WARRIOR:
                 break;
+            case SPELLFAMILY_GENERIC:
+                // Bladestorm triggered
+                if (m_spellInfo->Id == 65946)
+                    m_canTrigger = true;
             default:
                 break;
         }
