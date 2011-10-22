@@ -6109,6 +6109,11 @@ void Aura::HandleAuraPeriodicDummy(bool apply, bool Real)
                         caster->CastCustomSpell(target, 63278, 0, &(spell->EffectBasePoints[0]), 0, false, 0, 0, caster->GetObjectGuid() , spell);
                     return;
                 }
+                case 73001:                                   // Shadow Prison
+                {
+                    if (target)
+                        target->CastSpell(target, 72998, true);
+                }
             }
         }
         case SPELLFAMILY_ROGUE:
@@ -9303,6 +9308,14 @@ void Aura::PeriodicDummyTick()
                 {
                     if (target)
                         target->CastSpell(target, spell->CalculateSimpleValue(GetEffIndex()), true);
+                    return;
+                }
+                case 73001:                                   // Shadow Prison (Blood Council)
+                {
+                    // cast dmg spell when moving
+                    if (target->GetTypeId() == TYPEID_PLAYER && ((Player*)target)->isMoving())
+                        target->CastSpell(target, 72999, true);
+
                     return;
                 }
 // Exist more after, need add later
