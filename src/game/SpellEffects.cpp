@@ -542,6 +542,20 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
 
                         break;
                     }
+                    // Empowered Flare (Blood Council encounter)
+                    case 71708:
+                    {
+                        // aura doesn't want to proc, so hacked...
+                        if (SpellAuraHolderPtr holder = m_caster->GetSpellAuraHolder(71756))
+                        {
+                            if (holder->GetStackAmount() <= 1)
+                                m_caster->RemoveSpellAuraHolder(holder);
+                            else
+                                holder->ModStackAmount(-1);
+                        }
+
+                        break;
+                    }
                     // Defile damage depending from scale.
                     case 72754:
                     case 73708:
@@ -3119,6 +3133,13 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
 
                     if (needRemove)
                         unitTarget->RemoveAurasDueToSpell(71340);
+                    break;
+                }
+                case 71718:                                 // Conjure Flame
+                case 72040:                                 // Conjure Empowered Flame
+                {
+                    if (unitTarget)
+                        unitTarget->CastSpell(unitTarget, m_spellInfo->CalculateSimpleValue(eff_idx), true);
                     break;
                 }
                 case 72202:                                 // Blade power
