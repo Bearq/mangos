@@ -3875,10 +3875,7 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
                 {
                     // Aftermath - should be removed by shapeshifting
                     if ((*iter)->GetId() != 18118)
-                    {
-                        ++iter;
                         continue;
-                    }
                 }
 
                 // All OK, remove aura now
