@@ -52,4 +52,16 @@ typedef   ACE_Write_Guard<ObjectLockType>    WriteGuard;
 #  define MAPLOCK_WRITE(OBJ,TYPE) WriteGuard Guard((OBJ)->GetLock(TYPE));
 #endif
 
+#ifndef MAPLOCK_WRITE1
+#  define MAPLOCK_WRITE1(OBJ,TYPE) WriteGuard Guard1((OBJ)->GetLock(TYPE));
+#endif
+
+#if defined WIN32
+#     define NOTSAFE_SEMAPHORE_OVERHANDLING "Win32"
+#elif defined  (__FreeBSD__)
+#    define NOTSAFE_SEMAPHORE_OVERHANDLING "FreeBSD"
+#elif defined(__APPLE__)
+#    define NOTSAFE_SEMAPHORE_OVERHANDLING "MacOS"
+#endif
+
 #endif

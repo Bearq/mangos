@@ -786,7 +786,7 @@ float TerrainInfo::GetHeight(float x, float y, float z, bool pUseVmaps, float ma
     {
         mapHeight  += 200.0f;
         vmapHeight += 200.0f;
-    } 
+    }
 
     // mapHeight set for any above raw ground Z or <= INVALID_HEIGHT
     // vmapheight set for any under Z value or <= INVALID_HEIGHT
@@ -990,7 +990,7 @@ GridMapLiquidStatus TerrainInfo::getLiquidStatus(float x, float y, float z, uint
     return result;
 }
 
-bool TerrainInfo::IsInWater(float x, float y, float pZ, GridMapLiquidData *data) const
+bool TerrainInfo::IsInWater(float x, float y, float pZ, GridMapLiquidData *data, float min_depth) const
 {
     // Check surface in x, y point for liquid
     if (const_cast<TerrainInfo*>(this)->GetGrid(x, y))
@@ -1007,7 +1007,7 @@ bool TerrainInfo::IsInWater(float x, float y, float pZ, GridMapLiquidData *data)
         else if (status & LIQUID_MAP_IN_WATER ||
                  status & LIQUID_MAP_UNDER_WATER )
             {
-                if (liquid_ptr && (liquid_ptr->level - liquid_ptr->depth_level > 2)) // avoid water with depth < 2
+                if (liquid_ptr && (liquid_ptr->level - liquid_ptr->depth_level > min_depth)) // avoid water with depth < 2
                     return true;
                 else
                     return false;
@@ -1062,6 +1062,9 @@ GridMap * TerrainInfo::GetGrid( const float x, const float y )
     // half opt method
     int gx=(int)(32-x/SIZE_OF_GRIDS);                       //grid x
     int gy=(int)(32-y/SIZE_OF_GRIDS);                       //grid y
+
+    if (gx >= MAX_NUMBER_OF_GRIDS || gy >= MAX_NUMBER_OF_GRIDS)
+        return NULL;
 
     //quick check if GridMap already loaded
     GridMap * pMap = m_GridMaps[gx][gy];
@@ -1264,7 +1267,7 @@ bool TerrainInfo::CheckPathAccurate(float srcX, float srcY, float srcZ, float& d
                     }
                 }
             }
-            else 
+            else
                 ++goodCount;
         }
         else

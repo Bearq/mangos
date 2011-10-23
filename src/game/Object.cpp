@@ -282,9 +282,9 @@ void Object::BuildMovementUpdate(ByteBuffer * data, uint16 updateFlags) const
         // Unit speeds
         *data << float(unit->GetSpeed(MOVE_WALK));
         *data << float(unit->GetSpeed(MOVE_RUN));
-        *data << float(unit->GetSpeed(MOVE_SWIM_BACK));
-        *data << float(unit->GetSpeed(MOVE_SWIM));
         *data << float(unit->GetSpeed(MOVE_RUN_BACK));
+        *data << float(unit->GetSpeed(MOVE_SWIM));
+        *data << float(unit->GetSpeed(MOVE_SWIM_BACK));
         *data << float(unit->GetSpeed(MOVE_FLIGHT));
         *data << float(unit->GetSpeed(MOVE_FLIGHT_BACK));
         *data << float(unit->GetSpeed(MOVE_TURN_RATE));
@@ -417,7 +417,7 @@ void Object::BuildMovementUpdate(ByteBuffer * data, uint16 updateFlags) const
     // 0x200
     if (updateFlags & UPDATEFLAG_ROTATION)
     {
-        *data << uint64(((GameObject*)this)->GetRotation());
+        *data << int64(((GameObject*)this)->GetPackedWorldRotation());
     }
 }
 
@@ -1690,7 +1690,7 @@ GameObject* WorldObject::SummonGameobject(uint32 id, float x, float y, float z, 
         return NULL;
 
     if(!pGameObj->Create(map->GenerateLocalLowGuid(HIGHGUID_GAMEOBJECT), id, map,
-        GetPhaseMask(), x, y, z, angle, 0.0f, 0.0f, 0.0f, 0.0f, 100, GO_STATE_READY))
+        GetPhaseMask(), x, y, z, angle))
     {
         delete pGameObj;
         return NULL;
@@ -2161,4 +2161,21 @@ bool WorldObject::PrintCoordinatesError(float x, float y, float z, char const* d
 {
     sLog.outError("%s with invalid %s coordinates: mapid = %uu, x = %f, y = %f, z = %f", GetGuidStr().c_str(), descr, GetMapId(), x, y, z);
     return false;                                           // always false for continue assert fail
+}
+
+void WorldObject::SetActiveObjectState(bool active)
+{
+    if (m_isActiveObject == active || (isType(TYPEMASK_PLAYER) && !active))  // player shouldn't became inactive, never
+        return;
+
+    if (IsInWorld() && !isType(TYPEMASK_PLAYER))
+        // player's update implemented in a different from other active worldobject's way
+        // it's considired to use generic way in future
+    {
+        if (isActiveObject() && !active)
+            GetMap()->RemoveFromActive(this);
+        else if (!isActiveObject() && active)
+            GetMap()->AddToActive(this);
+    }
+    m_isActiveObject = active;
 }

@@ -449,6 +449,25 @@ void BattleGround::Update(uint32 diff)
 
     if (GetStatus() == STATUS_WAIT_JOIN && GetPlayersSize())
     {
+        // -- hacky anti-buggers check - prevent players from leave start BG location before BG actually starts
+        // -- only Arathi Basin and Eye of the Storm supported for now
+        float deadly_Z = 0.0f;
+        if (GetMapId() == 529)                              // Arathi Basin
+            deadly_Z = -20.0f;
+        else if (GetMapId() == 566)                         // Eye of the Storm
+            deadly_Z = 1260.0f;
+
+        for (BattleGroundPlayerMap::const_iterator itr = m_Players.begin(); itr != m_Players.end(); ++itr)
+        {
+            if (Player* plr = sObjectMgr.GetPlayer(itr->first))
+            {
+                BattleGroundTeamIndex teamIndex = GetTeamIndexByTeamId(plr->GetTeam());
+                if (!plr->isGameMaster() && plr->GetPositionZ() < deadly_Z)
+                    plr->TeleportTo(GetMapId(), m_TeamStartLocX[teamIndex], m_TeamStartLocY[teamIndex], m_TeamStartLocZ[teamIndex], m_TeamStartLocO[teamIndex]);
+            }
+        }
+        // ----------------------------------------------------------------------------------------------------
+
         ModifyStartDelayTime(diff);
 
         if (!(m_Events & BG_STARTING_EVENT_1))
@@ -890,8 +909,11 @@ void BattleGround::EndBattleGround(Team winner)
                         ratingChange = loser_change;
                     }
                     std::ostringstream sql_query;
-                    //                                                        gameid,             teamid,                   guid,                                         changeType,             ratingChange,              teamRating,               damageDone,                          deaths,                          healingDone,                          damageTaken,                          healingTaken,                          killingBlows,                          mapId,               start,                   end
-                    sql_query << "INSERT INTO armory_game_chart VALUES ('" << gameID << "', '" << resultTeamID << "', '" << plr->GetObjectGuid().GetCounter()<< "', '" << changeType << "', '" << ratingChange  << "', '" << resultRating << "', '" << itr->second->DamageDone << "', '" << itr->second->Deaths << "', '" << itr->second->HealingDone << "', '" << itr->second->DamageTaken << "', '" << itr->second->HealingTaken << "', '" << itr->second->KillingBlows << "', '" << m_MapId << "', '" << m_StartTime << "', '" << iRealEndTime << "')";
+
+                    sql_query << "INSERT INTO armory_game_chart (gameid, teamid, guid, changeType, ratingChange, teamRating, damageDone, deaths, healingDone, damageTaken, healingTaken, killingBlows, mapId, start, end) VALUES ('" <<
+                    // Actually, "start" is not arena start time, it is arena _duration_ time (in milliseconds). I don't touch this DB field name because some people can use this web wow armory.
+                    //  gameid,             teamid,                   guid,                                         changeType,             ratingChange,              teamRating,               damageDone,                          deaths,                          healingDone,                          damageTaken,                          healingTaken,                          killingBlows,                          mapId,               start,                   end
+                        gameID << "', '" << resultTeamID << "', '" << plr->GetObjectGuid().GetCounter()<< "', '" << changeType << "', '" << ratingChange  << "', '" << resultRating << "', '" << itr->second->DamageDone << "', '" << itr->second->Deaths << "', '" << itr->second->HealingDone << "', '" << itr->second->DamageTaken << "', '" << itr->second->HealingTaken << "', '" << itr->second->KillingBlows << "', '" << m_MapId << "', '" << m_StartTime << "', '" << iRealEndTime << "')";
                     CharacterDatabase.Execute(sql_query.str().c_str());
                 }
                 /** World of Warcraft Armory **/
@@ -1366,6 +1388,13 @@ void BattleGround::StartBattleGround()
     sBattleGroundMgr.AddBattleGround(GetInstanceID(), GetTypeID(), this);
 }
 
+void BattleGround::StartTimedAchievement(AchievementCriteriaTypes type, uint32 entry)
+{
+    for (BattleGroundPlayerMap::const_iterator itr = GetPlayers().begin(); itr != GetPlayers().end(); ++itr)
+        if (Player* pPlayer = GetBgMap()->GetPlayer(itr->first))
+            pPlayer->GetAchievementMgr().StartTimedAchievementCriteria(type, entry);
+}
+
 void BattleGround::AddPlayer(Player *plr)
 {
     // remove afk from player
@@ -1428,13 +1457,17 @@ void BattleGround::AddPlayer(Player *plr)
         plr->CastSpell(plr, SPELL_BATTLEGROUND_DAMPENING, true);
     }
 
-    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HEALING_DONE, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_KILL_CREATURE, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_WIN_BG, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
     plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_DAMAGE_DONE, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
-    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_GET_KILLING_BLOWS);
-    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL);
-    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_SPECIAL_PVP_KILL);
-    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL_AT_AREA);
-    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_BG_OBJECTIVE_CAPTURE);
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_BE_SPELL_TARGET, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_CAST_SPELL, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_BG_OBJECTIVE_CAPTURE, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL_AT_AREA, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HEALING_DONE, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_GET_KILLING_BLOWS, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_SPECIAL_PVP_KILL, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
+    plr->GetAchievementMgr().ResetAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL, ACHIEVEMENT_CRITERIA_CONDITION_MAP, GetMapId());
 
     // setup BG group membership
     PlayerAddedToBGCheckIfBGIsRunning(plr);
@@ -1603,8 +1636,8 @@ bool BattleGround::AddObject(uint32 type, uint32 entry, float x, float y, float 
     // and when loading it (in go::LoadFromDB()), a new guid would be assigned to the object, and a new object would be created
     // so we must create it specific for this instance
     GameObject * go = new GameObject;
-    if(!go->Create(GetBgMap()->GenerateLocalLowGuid(HIGHGUID_GAMEOBJECT),entry, GetBgMap(),
-        PHASEMASK_NORMAL, x,y,z,o,rotation0,rotation1,rotation2,rotation3,GO_ANIMPROGRESS_DEFAULT,GO_STATE_READY))
+    if (!go->Create(GetBgMap()->GenerateLocalLowGuid(HIGHGUID_GAMEOBJECT),entry, GetBgMap(),
+        PHASEMASK_NORMAL, x,y,z,o, QuaternionData(rotation0,rotation1,rotation2,rotation3)))
     {
         sLog.outErrorDb("Gameobject template %u not found in database! BattleGround not created!", entry);
         sLog.outError("Cannot create gameobject template %u! BattleGround not created!", entry);
@@ -1955,6 +1988,10 @@ void BattleGround::HandleKillPlayer( Player *player, Player *killer )
         killer->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL,1);
         killer->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL_AT_AREA,1);
 
+        killer->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_GET_KILLING_BLOWS, 1);
+        killer->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL, 1, 0, killer);
+        killer->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL_AT_AREA, 1);
+
         for(BattleGroundPlayerMap::const_iterator itr = m_Players.begin(); itr != m_Players.end(); ++itr)
         {
             Player *plr = sObjectMgr.GetPlayer(itr->first);
@@ -1963,7 +2000,13 @@ void BattleGround::HandleKillPlayer( Player *player, Player *killer )
                 continue;
 
             if (plr->GetTeam() == killer->GetTeam() && plr->IsAtGroupRewardDistance(player))
+            {
                 UpdatePlayerScore(plr, SCORE_HONORABLE_KILLS, 1);
+
+                plr->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_SPECIAL_PVP_KILL, 1);
+                plr->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL, 1, 0, plr);
+                plr->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL_AT_AREA, 1);
+            }
         }
     }
 

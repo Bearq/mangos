@@ -47,7 +47,6 @@
 #include "CellImpl.h"
 #include "TemporarySummon.h"
 #include "movement/MoveSplineInit.h"
-#include "movement/MoveSpline.h"
 #include "CreatureLinkingMgr.h"
 
 // apply implementation of the singletons
@@ -533,6 +532,8 @@ void Creature::Update(uint32 update_diff, uint32 diff)
         }
         case CORPSE:
         {
+            Unit::Update(update_diff, diff);
+
             if (m_isDeadByDefault)
                 break;
 
@@ -550,7 +551,6 @@ void Creature::Update(uint32 update_diff, uint32 diff)
             }
             else
             {
-                Unit::Update(update_diff, diff);
                 m_corpseDecayTimer -= update_diff;
                 if (m_groupLootId)
                 {
@@ -614,10 +614,6 @@ void Creature::Update(uint32 update_diff, uint32 diff)
 
             RegenerateAll(update_diff);
             break;
-        }
-        case CORPSE_FALLING:
-        {
-            SetDeathState(CORPSE);
         }
         default:
             break;
@@ -1339,8 +1335,8 @@ bool Creature::LoadFromDB(uint32 guidlow, Map *map)
     else if (m_respawnTime)                                  // respawn time set but expired
     {
         m_respawnTime = 0;
-
-        GetMap()->GetPersistentState()->SaveCreatureRespawnTime(GetGUIDLow(), 0);
+        if (GetMap()->GetPersistentState())
+            GetMap()->GetPersistentState()->SaveCreatureRespawnTime(GetGUIDLow(), 0);
     }
 
     uint32 curhealth = data->curhealth;
@@ -1358,11 +1354,11 @@ bool Creature::LoadFromDB(uint32 guidlow, Map *map)
         {
             m_deathState = DEAD;
 
-            // Just set to Dead, so need to relocate like abouve
-            if(CanFly())
+            // Just set to dead, so need to relocate like above
+            if (CanFly())
             {
                 float tz = GetTerrain()->GetHeight(data->posX, data->posY, data->posZ, false);
-                if(data->posZ - tz > 0.1)
+                if (data->posZ - tz > 0.1)
                     Relocate(data->posX, data->posY, tz);
             }
         }
@@ -1378,7 +1374,7 @@ bool Creature::LoadFromDB(uint32 guidlow, Map *map)
 
     AIM_Initialize();
 
-    // Creature Linking, Initial load id handled like respawn
+    // Creature Linking, Initial load is handled like respawn
     if (m_isCreatureLinkingTrigger && isAlive())
         GetMap()->GetCreatureLinkingHolder()->DoCreatureLinkingEvent(LINKING_EVENT_RESPAWN, this);
 
@@ -1538,11 +1534,8 @@ void Creature::SetDeathState(DeathState s)
         if (Pet* pet = GetPet())
             pet->Unsummon(PET_SAVE_AS_DELETED, this);
 
-        // return, since we promote to CORPSE_FALLING. CORPSE_FALLING is promoted to CORPSE at next update.
-        if (CanFly() && FallGround())
-            return;
-        else
-            SetLevitate(false);
+        if (CanFly())
+            i_motionMaster.MoveFall();
 
         Unit::SetDeathState(CORPSE);
     }
@@ -1577,45 +1570,6 @@ void Creature::SetDeathState(DeathState s)
     }
 }
 
-bool Creature::FallGround()
-{
-    // Only if state is JUST_DIED. CORPSE_FALLING is set below and promoted to CORPSE later
-    if (getDeathState() != JUST_DIED)
-        return false;
-
-    // some creatures should stay levitating
-    // Kologarn (Ulduar)
-    if (GetEntry() == 32930)
-        return false;
-    // use larger distance for vmap height search than in most other cases
-    float tz = GetTerrain()->GetHeight(GetPositionX(), GetPositionY(), GetPositionZ(), true, MAX_FALL_DISTANCE);
-
-    if (tz <= INVALID_HEIGHT)
-    {
-        DEBUG_LOG("FallGround: creature %u at map %u (x: %f, y: %f, z: %f), not able to retrive a proper GetHeight (z: %f).",
-            GetEntry(), GetMap()->GetId(), GetPositionX(), GetPositionX(), GetPositionZ(), tz);
-        return false;
-    }
-
-    // Abort too if the ground is very near
-    if (fabs(GetPositionZ() - tz) < 0.1f)
-        return false;
-
-    Unit::SetDeathState(CORPSE_FALLING);
-
-    // For creatures that are moving towards target and dies, the visual effect is not nice.
-    // It is possibly caused by a xyz mismatch in DestinationHolder's GetLocationNow and the location
-    // of the mob in client. For mob that are already reached target or dies while not moving
-    // the visual appear to be fairly close to the expected.
-
-    Movement::MoveSplineInit init(*this);
-    init.MoveTo(GetPositionX(),GetPositionY(),tz);
-    init.SetFall();
-    init.Launch();
-
-    return true;
-}
-
 void Creature::Respawn()
 {
     RemoveCorpse();
@@ -1630,7 +1584,8 @@ void Creature::Respawn()
     if (IsDespawned())
     {
         if (HasStaticDBSpawnData())
-            GetMap()->GetPersistentState()->SaveCreatureRespawnTime(GetGUIDLow(), 0);
+            if (GetMap()->GetPersistentState())
+                GetMap()->GetPersistentState()->SaveCreatureRespawnTime(GetGUIDLow(), 0);
         m_respawnTime = time(NULL);                         // respawn at next tick
     }
 }
@@ -1649,7 +1604,8 @@ void Creature::ForcedDespawn(uint32 timeMSToDespawn)
         SetDeathState(JUST_DIED);
 
     RemoveCorpse();
-    SetHealth(0);                                           // just for nice GM-mode view
+    if (IsInWorld())
+        SetHealth(0);                                           // just for nice GM-mode view
 
     if (IsTemporarySummon())
          ((TemporarySummon*)this)->UnSummon();
@@ -1750,7 +1706,7 @@ SpellEntry const *Creature::ReachWithSpellCure(Unit *pVictim)
     for(uint32 i = 0; i <= GetSpellMaxIndex(); ++i)
     {
         uint32 spellID = GetSpell(i);
-        if (spellID)
+        if (!spellID)
             continue;
 
         SpellEntry const *spellInfo = sSpellStore.LookupEntry(spellID);
@@ -1937,9 +1893,15 @@ void Creature::SaveRespawnTime()
         return;
 
     if (m_respawnTime > time(NULL))                          // dead (no corpse)
-        GetMap()->GetPersistentState()->SaveCreatureRespawnTime(GetGUIDLow(), m_respawnTime);
+    {
+        if (GetMap()->GetPersistentState())
+            GetMap()->GetPersistentState()->SaveCreatureRespawnTime(GetGUIDLow(), m_respawnTime);
+    }
     else if (m_corpseDecayTimer > 0)                        // dead (corpse)
-        GetMap()->GetPersistentState()->SaveCreatureRespawnTime(GetGUIDLow(), time(NULL) + m_respawnDelay + m_corpseDecayTimer / IN_MILLISECONDS);
+    {
+        if (GetMap()->GetPersistentState())
+            GetMap()->GetPersistentState()->SaveCreatureRespawnTime(GetGUIDLow(), time(NULL) + m_respawnDelay + m_corpseDecayTimer / IN_MILLISECONDS);
+    }
 }
 
 bool Creature::IsOutOfThreatArea(Unit* pVictim) const
@@ -2034,22 +1996,15 @@ bool Creature::LoadCreatureAddon(bool reload)
     {
         for (uint32 const* cAura = cainfo->auras; *cAura; ++cAura)
         {
-            SpellEntry const *AdditionalSpellInfo = sSpellStore.LookupEntry(*cAura);
-            if (!AdditionalSpellInfo)
-            {
-                sLog.outErrorDb("Creature (GUIDLow: %u Entry: %u ) has wrong spell %u defined in `auras` field.",GetGUIDLow(),GetEntry(), *cAura);
-                continue;
-            }
-
             if (HasAura(*cAura))
             {
                 if (!reload)
-                    sLog.outErrorDb("Creature (GUIDLow: %u Entry: %u) has duplicate spell %u in `auras` field.", GetGUIDLow(), GetEntry(), *cAura);
+                    sLog.outErrorDb("Creature (GUIDLow: %u Entry: %u) has spell %u in `auras` field, but aura is already applied.", GetGUIDLow(), GetEntry(), *cAura);
 
                 continue;
             }
 
-            CastSpell(this, AdditionalSpellInfo, true);
+            CastSpell(this, *cAura, true);
         }
     }
     return true;
@@ -2102,79 +2057,100 @@ void Creature::SetInCombatWithZone()
     }
 }
 
-Unit* Creature::SelectAttackingTarget(AttackingTarget target, uint32 position) const
+bool Creature::MeetsSelectAttackingRequirement(Unit* pTarget, SpellEntry const* pSpellInfo, uint32 selectFlags) const
+{
+    if (selectFlags & SELECT_FLAG_PLAYER && pTarget->GetTypeId() != TYPEID_PLAYER)
+        return false;
+
+    if (selectFlags & SELECT_FLAG_POWER_MANA && pTarget->getPowerType() != POWER_MANA)
+        return false;
+    else if (selectFlags & SELECT_FLAG_POWER_RAGE && pTarget->getPowerType() != POWER_RAGE)
+        return false;
+    else if (selectFlags & SELECT_FLAG_POWER_ENERGY && pTarget->getPowerType() != POWER_ENERGY)
+        return false;
+    else if (selectFlags & SELECT_FLAG_POWER_RUNIC && pTarget->getPowerType() != POWER_RUNIC_POWER)
+        return false;
+
+    if (selectFlags & SELECT_FLAG_IN_MELEE_RANGE && !CanReachWithMeleeAttack(pTarget))
+        return false;
+
+    if (selectFlags & SELECT_FLAG_IN_LOS && !IsWithinLOSInMap(pTarget))
+        return false;
+
+    if (pSpellInfo)
+    {
+        switch (pSpellInfo->rangeIndex)
+        {
+            case SPELL_RANGE_IDX_SELF_ONLY: return false;
+            case SPELL_RANGE_IDX_ANYWHERE:  return true;
+            case SPELL_RANGE_IDX_COMBAT:    return CanReachWithMeleeAttack(pTarget);
+        }
+
+        SpellRangeEntry const* srange = sSpellRangeStore.LookupEntry(pSpellInfo->rangeIndex);
+        float max_range = GetSpellMaxRange(srange);
+        float min_range = GetSpellMinRange(srange);
+        float dist = GetCombatDistance(pTarget);
+
+        return dist < max_range && dist >= min_range;
+    }
+
+    return true;
+}
+
+Unit* Creature::SelectAttackingTarget(AttackingTarget target, uint32 position, uint32 uiSpellEntry, uint32 selectFlags) const
+{
+    return SelectAttackingTarget(target, position, sSpellStore.LookupEntry(uiSpellEntry), selectFlags);
+}
+
+Unit* Creature::SelectAttackingTarget(AttackingTarget target, uint32 position, SpellEntry const* pSpellInfo /*= NULL*/, uint32 selectFlags/*= 0*/) const
 {
     if (!CanHaveThreatList())
         return NULL;
 
-    //ThreatList m_threatlist;
+    // ThreatList m_threatlist;
     ThreatList const& threatlist = getThreatManager().getThreatList();
-    ThreatList::const_iterator i = threatlist.begin();
-    ThreatList::const_reverse_iterator r = threatlist.rbegin();
+    ThreatList::const_iterator itr = threatlist.begin();
+    ThreatList::const_reverse_iterator ritr = threatlist.rbegin();
 
     if (position >= threatlist.size() || !threatlist.size())
         return NULL;
 
-    switch(target)
+    switch (target)
     {
         case ATTACKING_TARGET_RANDOM:
         {
-            advance(i, position + (rand() % (threatlist.size() - position)));
-            return GetMap()->GetUnit((*i)->getUnitGuid());
+            std::vector<Unit*> suitableUnits;
+            suitableUnits.reserve(threatlist.size() - position);
+            advance(itr, position);
+            for (itr; itr != threatlist.end(); ++itr)
+                if (Unit* pTarget = GetMap()->GetUnit((*itr)->getUnitGuid()))
+                    if (!selectFlags || MeetsSelectAttackingRequirement(pTarget, pSpellInfo, selectFlags))
+                        suitableUnits.push_back(pTarget);
+
+            if (!suitableUnits.empty())
+                return suitableUnits[urand(0, suitableUnits.size()-1)];
+
+            break;
         }
         case ATTACKING_TARGET_TOPAGGRO:
         {
-            advance(i, position);
-            return GetMap()->GetUnit((*i)->getUnitGuid());
+            advance(itr, position);
+            for (itr; itr != threatlist.end(); ++itr)
+                if (Unit* pTarget = GetMap()->GetUnit((*itr)->getUnitGuid()))
+                    if (!selectFlags || MeetsSelectAttackingRequirement(pTarget, pSpellInfo, selectFlags))
+                        return pTarget;
+
+            break;
         }
         case ATTACKING_TARGET_BOTTOMAGGRO:
         {
-            advance(r, position);
-            return GetMap()->GetUnit((*r)->getUnitGuid());
-        }
-        case ATTACKING_TARGET_RANDOM_PLAYER:
-        {
-            std::vector<Unit*> threatPlayers;
-            threatPlayers.reserve(threatlist.size());
-            for (; i != threatlist.end(); ++i)
-            {
-                Unit *target = GetMap()->GetUnit((*i)->getUnitGuid());
-                if (target && target->GetTypeId() == TYPEID_PLAYER)
-                    threatPlayers.push_back(target);
-            }
-            if (threatPlayers.empty() || position >= threatPlayers.size())
-                return NULL;
-            return threatPlayers[urand(position, threatPlayers.size()-1)];
-        }
-        case ATTACKING_TARGET_TOPAGGRO_PLAYER:
-        {
-            for (; i != threatlist.end(); ++i)
-            {
-                Unit *target = GetMap()->GetUnit((*i)->getUnitGuid());
-                if (target && target->GetTypeId() == TYPEID_PLAYER)
-                {
-                    if (!position)
-                        return target;
-                    else
-                        --position;
-                }
-            }
-            return NULL;
-        }
-        case ATTACKING_TARGET_BOTTOMAGGRO_PLAYER:
-        {
-            for (; r != threatlist.rend(); ++r)
-            {
-                Unit *target = GetMap()->GetUnit((*r)->getUnitGuid());
-                if (target && target->GetTypeId() == TYPEID_PLAYER)
-                {
-                    if (!position)
-                        return target;
-                    else
-                        --position;
-                }
-            }
-            return NULL;
+            advance(ritr, position);
+            for (ritr; ritr != threatlist.rend(); ++ritr)
+                if (Unit* pTarget = GetMap()->GetUnit((*itr)->getUnitGuid()))
+                    if (!selectFlags || MeetsSelectAttackingRequirement(pTarget, pSpellInfo, selectFlags))
+                        return pTarget;
+
+            break;
         }
     }
 
@@ -2468,26 +2444,6 @@ void Creature::ClearTemporaryFaction()
 
     m_temporaryFactionFlags = TEMPFACTION_NONE;
     setFaction(GetCreatureInfo()->faction_A);
-}
-
-void Creature::SetActiveObjectState( bool on )
-{
-    if (m_isActiveObject==on)
-        return;
-
-    bool world = IsInWorld();
-
-    Map* map;
-    if (world)
-    {
-        map = GetMap();
-        map->Remove(this,false);
-    }
-
-    m_isActiveObject = on;
-
-    if (world)
-        map->Add(this);
 }
 
 void Creature::SendAreaSpiritHealerQueryOpcode(Player *pl)

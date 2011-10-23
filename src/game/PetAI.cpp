@@ -173,12 +173,8 @@ void PetAI::UpdateAI(const uint32 diff)
                     return;
             }
             // not required to be stopped case
-            else if (m_creature->isAttackReady() && meleeReach)
+            else if (DoMeleeAttackIfReady())
             {
-                m_creature->AttackerStateUpdate(m_creature->getVictim());
-
-                m_creature->resetAttackTimer();
-
                 if (!m_creature->getVictim())
                     return;
 
@@ -256,7 +252,7 @@ void PetAI::UpdateAI(const uint32 diff)
 
             if (inCombat && m_creature->getVictim() && !m_creature->hasUnitState(UNIT_STAT_FOLLOW) && CanAutoCast(m_creature->getVictim(), spellInfo))
             {
-                targetSpellStore.push_back(std::make_pair<ObjectGuid, uint32>(m_creature->getVictim()->GetObjectGuid(), spellInfo->Id));
+                targetSpellStore.push_back(TargetSpellList::value_type(m_creature->getVictim()->GetObjectGuid(), spellInfo->Id));
                 continue;
             }
             else
@@ -271,7 +267,7 @@ void PetAI::UpdateAI(const uint32 diff)
 
                     if (CanAutoCast(Target, spellInfo))
                     {
-                        targetSpellStore.push_back(std::make_pair<ObjectGuid, uint32>(Target->GetObjectGuid(), spellInfo->Id));
+                        targetSpellStore.push_back(TargetSpellList::value_type(Target->GetObjectGuid(), spellInfo->Id));
                         break;
                     }
                 }

@@ -975,7 +975,7 @@ bool ChatHandler::HandleGameObjectTurnCommand(char* args)
 
     /*(float z_rot, y_rot, x_rot;
     if (!ExtractFloat(&args, z_rot) || !ExtractOptFloat(&args, y_rot, 0) || !ExtractOptFloat(&args, x_rot, 0))
-        return false;         
+        return false;
 
     obj->SetWorldRotationAngles(z_rot, y_rot, x_rot);*/
     float o;	
@@ -1119,7 +1119,7 @@ bool ChatHandler::HandleGameObjectAddCommand(char* args)
         return false;
     }
 
-    if (!pGameObj->Create(db_lowGUID, gInfo->id, map, chr->GetPhaseMaskForSpawn(), x, y, z, o, 0.0f, 0.0f, 0.0f, 0.0f, GO_ANIMPROGRESS_DEFAULT, GO_STATE_READY))
+    if (!pGameObj->Create(db_lowGUID, gInfo->id, map, chr->GetPhaseMaskForSpawn(), x, y, z, o))
     {
         delete pGameObj;
         return false;
@@ -2681,7 +2681,7 @@ bool ChatHandler::HandlePInfoCommand(char* args)
         case CLASS_WARLOCK:         Class_s = "Warlock";        break;
         case CLASS_DRUID:           Class_s = "Druid";          break;
     }
- 
+
     std::string timeStr = secsToTimeString(total_player_time, true, true);
     uint32 gold = money /GOLD;
     uint32 silv = (money % GOLD) / SILVER;
