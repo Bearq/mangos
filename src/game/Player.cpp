@@ -3511,7 +3511,7 @@ bool Player::IsNeedCastPassiveLikeSpellAtLearn(SpellEntry const* spellInfo) cons
 {
     ShapeshiftForm form = GetShapeshiftForm();
 
-    if (IsNeedCastSpellAtFormApply(spellInfo, form))        // SPELL_ATTR_PASSIVE | SPELL_ATTR_UNK7 spells
+    if (IsNeedCastSpellAtFormApply(spellInfo, form))        // SPELL_ATTR_PASSIVE | SPELL_ATTR_HIDDEN_CLIENTSIDE spells
         return true;                                        // all stance req. cases, not have auarastate cases
 
     if (!(spellInfo->Attributes & SPELL_ATTR_PASSIVE))
@@ -4734,7 +4734,7 @@ void Player::ResurrectPlayer(float restore_percent, bool applySickness)
         {
             int32 delta = (int32(getLevel()) - startLevel + 1)*MINUTE;
 
-            if (SpellAuraHolder* holder = GetSpellAuraHolder(SPELL_ID_PASSIVE_RESURRECTION_SICKNESS))
+            if (SpellAuraHolderPtr holder = GetSpellAuraHolder(SPELL_ID_PASSIVE_RESURRECTION_SICKNESS))
             {
                 holder->SetAuraDuration(delta*IN_MILLISECONDS);
                 holder->SendAuraUpdate(false);
@@ -7741,6 +7741,8 @@ void Player::_ApplyItemBonuses(ItemPrototype const *proto, uint8 slot, bool appl
 
 void Player::_ApplyWeaponDependentAuraMods(Item *item,WeaponAttackType attackType,bool apply)
 {
+    MAPLOCK_READ(this,MAP_LOCK_TYPE_AURAS);
+
     AuraList const& auraCritList = GetAurasByType(SPELL_AURA_MOD_CRIT_PERCENT);
     for(AuraList::const_iterator itr = auraCritList.begin(); itr!=auraCritList.end();++itr)
         _ApplyWeaponDependentAuraCritMod(item,attackType,*itr,apply);
@@ -8004,7 +8006,7 @@ void Player::DestroyItemWithOnStoreSpell(Item* item, uint32 spellId)
 /// handles unique effect of Deadly Poison: apply poison of the other weapon when already at max. stack
 void Player::_HandleDeadlyPoison(Unit* Target, WeaponAttackType attType, SpellEntry const *spellInfo)
 {
-    SpellAuraHolder const* dPoison = NULL;
+    SpellAuraHolderPtr dPoison = SpellAuraHolderPtr(NULL);
     SpellAuraHolderConstBounds holders = Target->GetSpellAuraHolderBounds(spellInfo->Id);
     for (SpellAuraHolderMap::const_iterator iter = holders.first; iter != holders.second; ++iter)
     {
@@ -16788,7 +16790,7 @@ void Player::_LoadAuras(QueryResult *result, uint32 timediff)
             else if (!stackcount)
                 stackcount = 1;
 
-            SpellAuraHolder *holder = CreateSpellAuraHolder(spellproto, this, NULL);
+            SpellAuraHolderPtr holder = CreateSpellAuraHolder(spellproto, this, NULL);
             holder->SetLoadedState(caster_guid, ObjectGuid(HIGHGUID_ITEM, item_lowguid), stackcount, remaincharges, maxduration, remaintime);
 
             for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
@@ -16796,12 +16798,12 @@ void Player::_LoadAuras(QueryResult *result, uint32 timediff)
                 if ((effIndexMask & (1 << i)) == 0)
                     continue;
 
-                Aura* aura = CreateAura(spellproto, SpellEffectIndex(i), NULL, holder, this);
+                Aura* aura = holder->CreateAura(spellproto, SpellEffectIndex(i), NULL, holder, this, NULL, NULL);
+
                 if (!damage[i])
                     damage[i] = aura->GetModifier()->m_amount;
 
                 aura->SetLoadedState(damage[i], periodicTime[i]);
-                holder->AddAura(aura, SpellEffectIndex(i));
             }
 
             if (!holder->IsEmptyHolder())
@@ -16813,8 +16815,6 @@ void Player::_LoadAuras(QueryResult *result, uint32 timediff)
                 AddSpellAuraHolder(holder);
                 DETAIL_LOG("Added auras from spellid %u", spellproto->Id);
             }
-            else
-                delete holder;
         }
         while( result->NextRow() );
         delete result;
@@ -17218,12 +17218,13 @@ void Player::LoadPet()
         else
         {
 
-            QueryResult* result = CharacterDatabase.PQuery("SELECT id, PetType, CreatedBySpell FROM character_pet WHERE owner = '%u' AND entry = (SELECT entry FROM character_pet WHERE owner = '%u' AND slot = '%u') ORDER BY slot ASC",
+            QueryResult* result = CharacterDatabase.PQuery("SELECT id, PetType, CreatedBySpell, savetime FROM character_pet WHERE owner = '%u' AND entry = (SELECT entry FROM character_pet WHERE owner = '%u' AND slot = '%u') ORDER BY slot ASC",
                 GetGUIDLow(), GetGUIDLow(),PET_SAVE_AS_CURRENT);
 
             std::vector<uint32> petnumber;
             uint32 _PetType = 0;
             uint32 _CreatedBySpell = 0;
+            uint64 _saveTime = 0;
 
             if (result)
             {
@@ -17237,6 +17238,8 @@ void Player::LoadPet()
                         _PetType = fields[1].GetUInt32();
                     if (!_CreatedBySpell)
                         _CreatedBySpell = fields[2].GetUInt32();
+                    if (!_saveTime)
+                        _saveTime = fields[3].GetUInt64();
                 }
                 while (result->NextRow());
                 delete result;
@@ -17247,9 +17250,27 @@ void Player::LoadPet()
             if (petnumber.empty())
                 return;
 
-            // temporary fix for count of pets (need correct size by spell basepoints)
-            if ((_PetType != SUMMON_PET) || (_CreatedBySpell != 51533 && _CreatedBySpell != 33831))
-                petnumber.resize(1);
+            if (_CreatedBySpell != 13481 && !HasSpell(_CreatedBySpell))
+                return;
+
+            SpellEntry const* spellInfo = sSpellStore.LookupEntry(_CreatedBySpell);
+
+            if (!spellInfo)
+                return;
+
+            uint32 count = 1;
+
+            if (_CreatedBySpell == 51533 || _CreatedBySpell == 33831)
+                count = spellInfo->CalculateSimpleValue(EFFECT_INDEX_0);
+
+            petnumber.resize(count);
+
+            if (GetSpellDuration(spellInfo) > 0)
+                if (uint64(time(NULL)) - GetSpellDuration(spellInfo)/IN_MILLISECONDS > _saveTime)
+                    return;
+
+            if (_CreatedBySpell != 13481 && !HasSpell(_CreatedBySpell))
+                return;
 
             if (!petnumber.empty())
             {
@@ -17671,7 +17692,8 @@ void Player::_LoadBoundInstances(QueryResult *result)
 
             // since non permanent binds are always solo bind, they can always be reset
             DungeonPersistentState *state = (DungeonPersistentState*)sMapPersistentStateMgr.AddPersistentState(mapEntry, instanceId, Difficulty(difficulty), resetTime, !perm, true);
-            if (state || extend) BindToInstance(state, perm, true, extend);
+            if (state) 
+                BindToInstance(state, perm, true, extend);
         } while(result->NextRow());
         delete result;
     }
@@ -17804,9 +17826,9 @@ void Player::SendRaidInfo()
                 data << uint32(state->GetMapId());              // map id
                 data << uint32(state->GetDifficulty());         // difficulty
                 data << ObjectGuid(state->GetInstanceGuid());   // instance guid
-                data << uint8((state->GetResetTime() > now) ? 1 : 0 );   // expired = 0
+                data << uint8((state->GetRealResetTime() > now) ? 1 : 0 );   // expired = 0
                 data << uint8(itr->second.extend ? 1 : 0);      // extended = 1
-                data << uint32(state->GetResetTime() > now ? state->GetResetTime() - now
+                data << uint32(state->GetRealResetTime() > now ? state->GetRealResetTime() - now
                     : DungeonResetScheduler::CalculateNextResetTime(GetMapDifficultyData(state->GetMapId(), state->GetDifficulty()), now));    // reset time
                 ++counter;
             }
@@ -18278,7 +18300,7 @@ void Player::_SaveAuras()
 
     for(SpellAuraHolderMap::const_iterator itr = auraHolders.begin(); itr != auraHolders.end(); ++itr)
     {
-        SpellAuraHolder *holder = itr->second;
+        SpellAuraHolderPtr holder = itr->second;
         //skip all holders from spells that are passive or channeled
         //do not save single target holders (unless they were cast by the player)
         if (!holder->IsPassive() && !IsChanneledSpell(holder->GetSpellProto()) && (holder->GetCasterGuid() == GetObjectGuid() || !holder->IsSingleTarget()) && !IsChanneledSpell(holder->GetSpellProto()))
@@ -21393,6 +21415,7 @@ void Player::SendAurasForTarget(Unit *target)
     WorldPacket data(SMSG_AURA_UPDATE_ALL);
     data << target->GetPackGUID();
 
+    MAPLOCK_READ(target,MAP_LOCK_TYPE_AURAS);
     Unit::VisibleAuraMap const& visibleAuras = target->GetVisibleAuras();
     for (Unit::VisibleAuraMap::const_iterator itr = visibleAuras.begin(); itr != visibleAuras.end(); ++itr)
     {
@@ -21789,7 +21812,7 @@ void Player::RemoveItemDependentAurasAndCasts( Item * pItem )
     SpellAuraHolderMap& auras = GetSpellAuraHolderMap();
     for(SpellAuraHolderMap::const_iterator itr = auras.begin(); itr != auras.end(); )
     {
-        SpellAuraHolder* holder = itr->second;
+        SpellAuraHolderPtr holder = itr->second;
 
         // skip passive (passive item dependent spells work in another way) and not self applied auras
         SpellEntry const* spellInfo = holder->GetSpellProto();
@@ -22049,7 +22072,7 @@ void Player::UpdateAreaDependentAuras()
     for(SpellAuraHolderMap::iterator iter = m_spellAuraHolders.begin(); iter != m_spellAuraHolders.end();)
     {
         // use m_zoneUpdateId for speed: UpdateArea called from UpdateZone or instead UpdateZone in both cases m_zoneUpdateId up-to-date
-        if (sSpellMgr.GetSpellAllowedInLocationError(iter->second->GetSpellProto(), GetMapId(), m_zoneUpdateId, m_areaUpdateId, this) != SPELL_CAST_OK)
+        if (iter->second && (sSpellMgr.GetSpellAllowedInLocationError(iter->second->GetSpellProto(), GetMapId(), m_zoneUpdateId, m_areaUpdateId, this) != SPELL_CAST_OK))
         {
             RemoveSpellAuraHolder(iter->second);
             iter = m_spellAuraHolders.begin();
@@ -23737,7 +23760,7 @@ void Player::ActivateSpec(uint8 specNum)
                                     if (pGroupGuy->GetObjectGuid() == GetObjectGuid())
                                         continue;
 
-                                    if (SpellAuraHolder *holder = pGroupGuy->GetSpellAuraHolder(talentInfo->RankID[r], GetObjectGuid()))
+                                    if (SpellAuraHolderPtr holder = pGroupGuy->GetSpellAuraHolder(talentInfo->RankID[r], GetObjectGuid()))
                                         pGroupGuy->RemoveSpellAuraHolder(holder);
                                 }
                             }
@@ -23878,6 +23901,9 @@ void Player::RemoveAtLoginFlag( AtLoginFlags f, bool in_db_also /*= false*/ )
 
 void Player::SendClearCooldown( uint32 spell_id, Unit* target )
 {
+    if (!target)
+        return;
+
     WorldPacket data(SMSG_CLEAR_COOLDOWN, 4+8);
     data << uint32(spell_id);
     data << target->GetObjectGuid();
