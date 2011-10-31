@@ -1065,11 +1065,7 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
                 (m_caster->isVisibleForOrDetect(unit, unit, false) && !m_IsTriggeredSpell))
             {
                 if (!unit->isInCombat() && unit->GetTypeId() != TYPEID_PLAYER && ((Creature*)unit)->AI())
-                    ((Creature*)unit)->AI()->AttackedBy(real_caster);
-
-                unit->AddThreat(real_caster);
-                unit->SetInCombatWith(real_caster);
-                real_caster->SetInCombatWith(unit);
+                    unit->AttackedBy(real_caster);
             }
         }
     }
@@ -1174,6 +1170,9 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
             if (count)
             {
                 int32 bp = count * CalculateDamage(EFFECT_INDEX_2, unitTarget) * damageInfo.damage / 100;
+                if (Aura* dummy = caster->GetDummyAura(64736)) // Item - Death Knight T8 Melee 4P Bonus
+                    bp *= ((float)dummy->GetModifier()->m_amount+100.0f)/100.0f;
+
                 if (bp)
                     caster->CastCustomSpell(unitTarget, 70890, &bp, NULL, NULL, true);
             }
@@ -3673,7 +3672,12 @@ void Spell::cast(bool skipCheck)
                 if (Aura *aur = m_caster->GetAura(70847, EFFECT_INDEX_0))
                 {
                     if (roll_chance_i(aur->GetModifier()->m_amount))
+                    {
                         AddTriggeredSpell(70849);           // Extra Charge!
+                        // Slam! trigger Slam GCD Reduced . Sudden Death trigger Execute GCD Reduced
+                        int32 gcd_spell=m_spellInfo->Id==46916 ? 71072 : 71069;
+                        AddPrecastSpell(gcd_spell);
+                    }
                 }
             }
             break;
@@ -4244,7 +4248,10 @@ void Spell::finish(bool ok)
     // update encounter state if needed
     Map* map = m_caster->GetMap();
     if (map && map->IsDungeon())
-        ((DungeonMap*)map)->GetPersistanceState()->UpdateEncounterState(ENCOUNTER_CREDIT_CAST_SPELL, m_spellInfo->Id);
+    {
+        if (DungeonPersistentState* state = ((DungeonMap*)map)->GetPersistanceState())
+            state->UpdateEncounterState(ENCOUNTER_CREDIT_CAST_SPELL, m_spellInfo->Id);
+    }
 }
 
 void Spell::SendCastResult(SpellCastResult result)
@@ -8024,9 +8031,15 @@ void Spell::FillRaidOrPartyHealthPriorityTargets(UnitList &targetUnitMap, Unit* 
     FillRaidOrPartyTargets(targetUnitMap, member, center, radius, raid, withPets, withCaster);
 
     PrioritizeHealthUnitQueue healthQueue;
-    for(UnitList::const_iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end(); ++itr)
-        if (!(*itr)->isDead())
-            healthQueue.push(PrioritizeHealthUnitWraper(*itr));
+    for (UnitList::const_iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end(); ++itr)
+    {
+        Unit* unit = *itr;
+        if (!unit)
+            continue;
+        if (unit->isDead() || !unit->IsInWorld())
+            continue;
+        healthQueue.push(PrioritizeHealthUnitWraper(unit));
+    }
 
     targetUnitMap.clear();
     while(!healthQueue.empty() && targetUnitMap.size() < count)

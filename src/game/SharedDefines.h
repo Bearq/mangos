@@ -360,7 +360,7 @@ const uint32 ItemQualityColors[MAX_ITEM_QUALITY] = {
 #define SPELL_ATTR_EX3_CANT_TRIGGER_PROC          0x00010000            // 16 no triggers effects that trigger on casting a spell??
 #define SPELL_ATTR_EX3_NO_INITIAL_AGGRO           0x00020000            // 17 Causes no aggro if not missed
 #define SPELL_ATTR_EX3_CANT_MISS                  0x00040000            // 18 Spell should always hit its target
-#define SPELL_ATTR_EX3_UNK19                      0x00080000            // 19
+#define SPELL_ATTR_EX3_IMPROVER                   0x00080000            // 19 only spells, that improve other spells
 #define SPELL_ATTR_EX3_DEATH_PERSISTENT           0x00100000            // 20 Death persistent spells
 #define SPELL_ATTR_EX3_UNK21                      0x00200000            // 21
 #define SPELL_ATTR_EX3_REQ_WAND                   0x00400000            // 22 Req wand
@@ -409,7 +409,7 @@ const uint32 ItemQualityColors[MAX_ITEM_QUALITY] = {
 
 #define SPELL_ATTR_EX5_UNK0                       0x00000001            // 0
 #define SPELL_ATTR_EX5_NO_REAGENT_WHILE_PREP      0x00000002            // 1 not need reagents if UNIT_FLAG_PREPARATION
-#define SPELL_ATTR_EX5_UNK2                       0x00000004            // 2 removed at enter arena (e.g. 31850 since 3.3.3)
+#define SPELL_ATTR_EX5_REMOVE_AT_ENTER_ARENA      0x00000004            // 2 removed at enter arena (e.g. 31850 since 3.3.3)
 #define SPELL_ATTR_EX5_USABLE_WHILE_STUNNED       0x00000008            // 3 usable while stunned
 #define SPELL_ATTR_EX5_UNK4                       0x00000010            // 4
 #define SPELL_ATTR_EX5_SINGLE_TARGET_SPELL        0x00000020            // 5 Only one target can be apply at a time
