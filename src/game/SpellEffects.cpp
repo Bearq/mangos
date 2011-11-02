@@ -1732,13 +1732,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     if (unitTarget->HasAura(42336))
                         return;
 
-                    // if hit Headless Horseman Fire bunny - Extingush Fire (without missile bucket)
-                    if (unitTarget->GetTypeId() == TYPEID_UNIT && unitTarget->GetEntry() == 23686)
-                    {
-                        m_caster->CastSpell(unitTarget, 42348, true);
-                        ((Creature*)unitTarget)->ForcedDespawn(3000);
-                        return;
-                    }
                     // apply aura Has Bucket
                     unitTarget->CastSpell(unitTarget, 42336, true);
                     // create new bucket for target
