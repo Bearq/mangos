@@ -3261,6 +3261,16 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 target->CastSpell(target, 68846, true, NULL, this);
                 return;
             }
+            case 69766:                                     // Instability (Sindragosa)
+            {
+                // trigger Backlash if aura wears off
+                if (m_removeMode != AURA_REMOVE_BY_EXPIRE)
+                    return;
+
+                int32 damage = GetModifier()->m_amount;
+                target->CastCustomSpell(target, 69770, &damage, 0, 0, true, 0, this, GetCasterGuid(), GetSpellProto());
+                return;
+            }
             case 72087:                                     // Kinetic Bomb Knockback
             {
                 float x, y, z;
