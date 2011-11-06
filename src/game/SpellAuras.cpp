@@ -1906,8 +1906,14 @@ void Aura::TriggerSpell()
                     case 70017:                             // Gunship Cannon Fire
                         trigger_spell_id = 70021;
                         break;
-//                    // Ice Tomb
-//                    case 70157: break;
+                    // Ice Tomb
+                    case 70157:
+                        GetModifier()->m_amount += 1;
+
+                        if (GetModifier()->m_amount == 25)
+                            triggerTarget->CastSpell(triggerTarget, 71665, true);
+                            
+                        break;
                     case 70842:                             // Mana Barrier
                     {
                         if (!triggerTarget || triggerTarget->getPowerType() != POWER_MANA)
@@ -5996,6 +6002,32 @@ void Aura::HandlePeriodicTriggerSpell(bool apply, bool /*Real*/)
                 return;
             default:
                 break;
+        }
+    }
+
+    switch (GetId())
+    {
+        case 70157:                                     // Ice Tomb (Sindragosa)
+        {
+            if (apply)
+            {
+                if (GameObject *pGO = target->SummonGameobject(201722, target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), 0.0f, 180))
+                {
+                    pGO->SetSpellId(GetId());
+                    target->AddGameObject(pGO);
+                }
+                if (Creature *pCreature = target->SummonCreature(36980, target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), 0.0f, TEMPSUMMON_TIMED_DESPAWN, 180000))
+                {
+                    pCreature->SetCreatorGuid(target->GetObjectGuid());
+                }
+            }
+            else
+            {
+                if (GameObject *pGo = target->GetGameObject(GetId()))
+                    pGo->Delete();
+            }
+
+            return;
         }
     }
 }
@@ -10757,6 +10789,11 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
                 case 63277:                                 // Shadow Crash (General Vezax - Ulduar)
                 {
                     spellId1 = 65269;
+                    break;
+                }
+                case 70157:                                 // Ice Tomb (Sindragosa)
+                {
+                    spellId1 = 69700;
                     break;
                 }
                 case 70867:                                 // Soul of Blood Qween
