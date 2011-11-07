@@ -3597,6 +3597,13 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(Unit *pVictim, uint32 d
 
                     return SPELL_AURA_PROC_OK;
                 }
+                case 71494:                                 // Vengeful Blast
+                {
+                    // despawn Vengeful Shade after proc
+                    if  (GetTypeId() == TYPEID_UNIT)
+                        ((Creature*)this)->ForcedDespawn(1000);
+                    break;
+                }
                 case 72178:                                 // Blood link Saurfang aura
                 {
                     target = this;
