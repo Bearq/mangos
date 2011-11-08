@@ -8226,6 +8226,63 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     unitTarget->RemoveAurasDueToSpell(47636);
                     return;
                 }
+                // mounts selected by area and skill
+                case 47977:                                 // Magic Broom
+                {
+                    if (unitTarget)
+                        SelectMountByAreaAndSkill(unitTarget, m_spellInfo, 42680, 42683, 42667, 42668, 0);
+
+                    return;
+                }
+                case 48025:                                 // Headless Horseman's Mount
+                {
+                    if (unitTarget)
+                        SelectMountByAreaAndSkill(unitTarget, m_spellInfo, 51621, 48024, 51617, 48023, 0);
+
+                    return;
+                }
+                case 54729:                                 // Winged Steed of the Ebon Blade
+                {
+                    if (unitTarget)
+                        SelectMountByAreaAndSkill(unitTarget, m_spellInfo, 0, 0, 54726, 54727, 0);
+
+                    return;
+                }
+                case 71342:                                 // Big Love Rocket
+                {
+                    if (unitTarget)
+                        SelectMountByAreaAndSkill(unitTarget, m_spellInfo, 71344, 71345, 71346, 71347, 0);
+
+                    return;
+                }
+                case 72286:                                 // Invincible
+                {
+                    if (unitTarget)
+                        SelectMountByAreaAndSkill(unitTarget, m_spellInfo, 72281, 72282, 72283, 72284, 0);
+
+                    return;
+                }
+                case 74856:                                 // Blazing Hippogryph
+                {
+                    if (unitTarget)
+                        SelectMountByAreaAndSkill(unitTarget, m_spellInfo, 0, 0, 74854, 74855, 0);
+
+                    return;
+                }
+                case 75614:                                 // Celestial Steed
+                {
+                    if (unitTarget)
+                        SelectMountByAreaAndSkill(unitTarget, m_spellInfo, 75619, 75620, 75617, 75618, 76153);
+
+                    return;
+                }
+                case 75973:                                 // X-53 Touring Rocket
+                {
+                    if (unitTarget)
+                        SelectMountByAreaAndSkill(unitTarget, m_spellInfo, 0, 0, 75957, 75972, 76154);
+
+                    return;
+                }
                 case 48679:                                 // Banshee's Magic Mirror
                 {
                     if (!unitTarget || m_caster->GetTypeId() != TYPEID_PLAYER)
