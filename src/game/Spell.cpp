@@ -1807,8 +1807,8 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
         }
         case SPELLFAMILY_WARRIOR:
         {
-            // Sunder Armor (main spell)
-            if (m_spellInfo->SpellFamilyFlags.test<CF_WARRIOR_SUNDER_ARMOR>() && m_spellInfo->SpellVisual[0] == 406)
+            // Sunder Armor (triggered spell)
+            if (m_spellInfo->SpellFamilyFlags.test<CF_WARRIOR_SUNDER_ARMOR>() && m_spellInfo->SpellVisual[0] == 0)
                 if (m_caster->HasAura(58387))               // Glyph of Sunder Armor
                     EffectChainTarget = 2;
             break;
@@ -3868,10 +3868,18 @@ void Spell::cast(bool skipCheck)
     }
     else
     {
-        m_caster->ProcDamageAndSpell(procTarget, m_procAttacker, 0, PROC_EX_CAST_END, 0, m_attackType, m_spellInfo);
+        if (GetCastTime())
+        {
+            m_caster->ProcDamageAndSpell(procTarget, m_procAttacker, 0, PROC_EX_CAST_END, 0, m_attackType, m_spellInfo);
+            // Immediate spell, no big deal
+            handle_immediate();
+        }
+        else
+        {
+            handle_immediate();
+            m_caster->ProcDamageAndSpell(procTarget, m_procAttacker, 0, PROC_EX_CAST_END, 0, m_attackType, m_spellInfo);
+        }
 
-        // Immediate spell, no big deal
-        handle_immediate();
     }
 
     m_caster->DecreaseCastCounter();
@@ -6060,7 +6068,7 @@ SpellCastResult Spell::CheckCast(bool strict)
                 {
                     // In BattleGround players can use only flags and banners
                     if ( ((Player*)m_caster)->InBattleGround() &&
-                        !((Player*)m_caster)->CanUseBattleGroundObject() )
+                        !((Player*)m_caster)->CanUseBattleGroundObject() && m_spellInfo->Id!= 1842 ) // Disarm Trap can be used
                         return SPELL_FAILED_TRY_AGAIN;
 
                     lockId = go->GetGOInfo()->GetLockId();
@@ -7615,46 +7623,67 @@ bool Spell::CheckTarget( Unit* target, SpellEffectIndex eff )
     }
 
     // Checkout if target is behing particular object
+    uint32 uiObjectEntry = 0;
+
     switch(m_spellInfo->Id)
     {
         case 68786:     // Permafrost (Garfrost)
         case 70336:     // Permafrost Heroic (Garfrost)
-        {
-            uint32 uiObjectEntry = 196485;
-
-            // Description:
-            // code check out if player is hidden behind GO in circle with diameter equal to GO size
-            // with center placed on the perimeter of GO
-            //     C<- caster
-            //    / \<- cone of spell
-            //   /   \
-            //  / (o) \<- shelter object
-            // /  (T)  \<- target in safty circle
-
-            std::list<GameObject*>lObjectList;
-            target->GetGameObjectListWithEntryInGrid(lObjectList, target, uiObjectEntry, target->GetDistance2d(m_caster));
-            float fTargetX, fTargetY, fTargetZ;
-            float fCasterX, fCasterY, fCasterZ;
-            target->GetPosition(fTargetX, fTargetY, fTargetZ);
-            m_caster->GetPosition(fCasterX, fCasterY, fCasterZ);
-            for (std::list<GameObject*>::iterator itr = lObjectList.begin(); itr != lObjectList.end(); ++itr)
-            { 
-                float fObjectSize = (*itr)->GetGOInfo()->size;
-                if (target->GetDistance2d(*itr) > fObjectSize)
-                    continue;
-
-                float fObjectX, fObjectY, fObjectZ;
-                (*itr)->GetPosition(fObjectX, fObjectY, fObjectZ);
-                float fAlpha = m_caster->GetAngle(fTargetX, fTargetY);
-                float fCircleX, fCircleY;
-                fCircleY = fObjectY + fObjectSize*sin(fAlpha);
-                fCircleX = fObjectX + fObjectSize*cos(fAlpha);
-                if (target->GetDistance2d(fCircleX, fCircleY) <= fObjectSize)
-                    return false;
-            }
+            uiObjectEntry = 196485;
             break;
+        case 69845:     // Frost Bomb (Sindragosa)
+        case 71053:
+        case 71054:
+        case 71055:
+        case 70127:     // Mystic Buffet (Sindragosa)
+        case 72528:
+        case 72529:
+        case 72530:
+            uiObjectEntry = 201722;
+            break;
+    }
+
+    if (uiObjectEntry)
+    {
+        // Description:
+        // code check out if player is hidden behind GO in circle with diameter equal to GO size
+        // with center placed on the perimeter of GO
+        //     C<- caster
+        //    / \<- cone of spell
+        //   /   \
+        //  / (o) \<- shelter object
+        // /  (T)  \<- target in safty circle
+
+        std::list<GameObject*>lObjectList;
+        target->GetGameObjectListWithEntryInGrid(lObjectList, target, uiObjectEntry, target->GetDistance2d(m_caster));
+        float fTargetX, fTargetY, fTargetZ;
+        float fCasterX, fCasterY, fCasterZ;
+        target->GetPosition(fTargetX, fTargetY, fTargetZ);
+        m_caster->GetPosition(fCasterX, fCasterY, fCasterZ);
+        for (std::list<GameObject*>::iterator itr = lObjectList.begin(); itr != lObjectList.end(); ++itr)
+        {
+            float fDistBlock = m_caster->GetDistance2d(*itr);
+            float fDistVictim = m_caster->GetDistance2d(target);
+            float fDistVictimToBlock = target->GetDistance2d(*itr);
+
+            // quick check
+            if (fDistBlock > fDistVictim)
+                continue;
+
+            float fObjectSize = (*itr)->GetGOInfo()->size;
+
+            // Ice Block in Sindragosa ecounter - size is very small, so we have to use bigger values
+            if (uiObjectEntry == 201722)
+                fObjectSize = 4.0f;
+
+            // not too accurate but fast, good enough for now
+            // small part of ground behind and on sides of the obstacle
+            if (fDistVictimToBlock < fObjectSize + 5.0f &&
+                fDistVictim > fDistBlock + fObjectSize - 2.0f)
+            {
+                return false;
+            }
         }
-        default: break;
     }
 
     // Check Sated & Exhaustion debuffs
@@ -7664,14 +7693,6 @@ bool Spell::CheckTarget( Unit* target, SpellEffectIndex eff )
 
     // Check vampiric bite
     if (m_spellInfo->Id == 70946 && target->HasAura(70867))
-        return false;
-
-    // Sindragosa frost bomb hack
-    if ((m_spellInfo->Id == 69845
-        || m_spellInfo->Id == 71053
-        || m_spellInfo->Id == 71054
-        || m_spellInfo->Id == 71055)
-         && target->HasAura(70867))
         return false;
 
     // Check targets for LOS visibility (except spells without range limitations )
@@ -8512,6 +8533,11 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             }
             break;
         }
+        case 59754:                    //Rune Tap triggered from Glyph of Rune Tap
+        {
+            FillRaidOrPartyTargets(targetUnitMap, m_caster, m_caster, radius, false, true, false);
+            break;
+        }
         case 61999: // Raise ally
         {
             WorldObject* result = FindCorpseUsing<MaNGOS::RaiseAllyObjectCheck>();
@@ -8807,6 +8833,20 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
 
             break;
         }
+        case 69762: // Unchained Magic (Sindragosa)
+        {
+            UnitList tempTargetUnitMap;
+            FillAreaTargets(tempTargetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+            if (!tempTargetUnitMap.empty())
+            {
+                for (UnitList::const_iterator iter = tempTargetUnitMap.begin(); iter != tempTargetUnitMap.end(); ++iter)
+                {
+                    if ((*iter)->getPowerType() == POWER_MANA)
+                        targetUnitMap.push_back(*iter);
+                }
+            }
+            break;
+        }
         case 69832: // Unstable Ooze Explosion (Rotface)
         {
             UnitList tempTargetUnitMap;
@@ -8854,6 +8894,15 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                 }
             }
 
+            break;
+        }
+        case 70127: // Mystic Buffet (Sindragosa)
+        case 72528:
+        case 72529:
+        case 72530:
+        {
+            FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+            targetUnitMap.remove(m_caster);
             break;
         }
         case 71075: // Invocation of Blood (V) Move

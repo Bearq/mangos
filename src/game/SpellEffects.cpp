@@ -1720,6 +1720,24 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                         m_caster->CastSpell(m_caster, 42288, true);
                     return;
                 }
+                case 42339:                                 // Bucket Lands
+                {
+                    // remove aura Has Bucket from caster
+                    m_caster->RemoveAurasDueToSpell(42336);
+
+                    if (!unitTarget)
+                        return;
+
+                    // if target has aura Has Bucket do nothing
+                    if (unitTarget->HasAura(42336))
+                        return;
+
+                    // apply aura Has Bucket
+                    unitTarget->CastSpell(unitTarget, 42336, true);
+                    // create new bucket for target
+                    m_caster->CastSpell(unitTarget, 42349, true);
+                    return;
+                }
                 case 42793:                                 // Burn Body
                 {
                     if (!unitTarget || unitTarget->GetTypeId() != TYPEID_UNIT || m_caster->GetTypeId() != TYPEID_PLAYER)
@@ -3082,6 +3100,24 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     m_caster->DealDamage(unitTarget, unitTarget->GetMaxHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
                     ((Creature*)unitTarget)->ForcedDespawn(5000);
                     m_caster->GetMotionMaster()->MovementExpired();
+                    return;
+                }
+                case 69675:                                 // Ice Tomb (Sindragosa)
+                {
+                    if (unitTarget)
+                        m_caster->CastSpell(unitTarget, 70157, true, 0, 0, ObjectGuid(), m_spellInfo);
+
+                    return;
+                }
+                case 69712:                                 // Ice Tomb (Sindragosa)
+                {
+                    // trigger spheres to targets with Frost Beacon mark
+                    if (unitTarget)
+                    {
+                        if (unitTarget->HasAura(70126, EFFECT_INDEX_0))
+                            m_caster->CastSpell(unitTarget, 69675, true, 0, 0, ObjectGuid(), m_spellInfo);
+                    }
+
                     return;
                 }
                 case 69922:                                 // Temper Quel'Delar
@@ -4626,7 +4662,9 @@ void Spell::EffectApplyAura(SpellEffectIndex eff_idx)
 
     Aura* aur = m_spellAuraHolder->CreateAura(m_spellInfo, eff_idx, &m_currentBasePoints[eff_idx], m_spellAuraHolder, unitTarget, caster, m_CastItem);
 
-    if (!aur)
+    SpellAuraHolderPtr _holder = aur->GetHolder();
+
+    if (!aur || !_holder)
     {
         sLog.outError("Spell::EffectApplyAura cannot create aura, spell %u effect %u", m_spellInfo->Id, eff_idx);
         return;
@@ -6895,19 +6933,34 @@ void Spell::EffectWeaponDmg(SpellEffectIndex eff_idx)
                 // Sunder Armor
                 Aura* sunder = unitTarget->GetAura<SPELL_AURA_MOD_RESISTANCE_PCT, SPELLFAMILY_WARRIOR, CF_WARRIOR_SUNDER_ARMOR>(m_caster->GetObjectGuid());
 
+                uint32 stack = 0;
+                uint32 stackMax = 0;
+
                 // Devastate bonus and sunder armor refresh
                 if (sunder)
                 {
                     sunder->GetHolder()->RefreshHolder();
-                    spell_bonus += sunder->GetStackAmount() * CalculateDamage(EFFECT_INDEX_2, unitTarget);
+                    stack = sunder->GetStackAmount();
+                    stackMax = sunder->GetSpellProto()->StackAmount;
+                    spell_bonus += stack * CalculateDamage(EFFECT_INDEX_2, unitTarget);
+                }
+                else
+                {
+                    SpellEntry const* spellInfo = sSpellStore.LookupEntry(58567);
+                    if (spellInfo)
+                       stackMax = spellInfo->StackAmount;
                 }
 
                 // Devastate causing Sunder Armor Effect
                 // and no need to cast over max stack amount
-                if (!sunder || sunder->GetStackAmount() < sunder->GetSpellProto()->StackAmount)
+                if (!stack || stack < stackMax)
+                {
                     m_caster->CastSpell(unitTarget, 58567, true);
-                    if (m_caster->GetDummyAura(58388))
-                        m_caster->CastSpell (unitTarget, 58567, true);
+
+                    // Glyph of Devastate
+                    if (++stack < stackMax && m_caster->GetDummyAura(58388))
+                        m_caster->CastSpell(unitTarget, 58567, true);
+                }
             }
             break;
         }
@@ -7845,6 +7898,16 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                         case 3 : m_caster->CastSpell(m_caster, 43970, true); break;
                     }
                     break;
+                }
+                case 44436:                                 // Tricky Treat
+                {
+                    if (!unitTarget)
+                        return;
+
+                    if (roll_chance_i(25))                  // chance unknown, using 25, Script Effect Cast Upset Tummy
+                        unitTarget->CastSpell(unitTarget, 42966, true);
+
+                    return;
                 }
                 case 44455:                                 // Character Script Effect Reverse Cast
                 {
@@ -10317,6 +10380,9 @@ void Spell::DoSummonTotem(SpellEffectIndex eff_idx, uint8 slot_dbc)
     if (m_spellInfo->Id == 16190)
         damage = m_caster->GetMaxHealth() * m_spellInfo->CalculateSimpleValue(EFFECT_INDEX_1) / 100;
 
+    if (m_spellInfo->Id == 51052) // Anti-Magic Zone
+        damage += m_caster->GetTotalAttackPowerValue(BASE_ATTACK) * 2; //AP bonus;
+
     if (damage)                                             // if not spell info, DB values used
     {
         pTotem->SetMaxHealth(damage);
@@ -10782,10 +10848,8 @@ void Spell::EffectCharge(SpellEffectIndex /*eff_idx*/)
     if (!unitTarget)
         return;
 
-    //TODO: research more ContactPoint/attack distance.
-    //3.666666 instead of ATTACK_DISTANCE(5.0f) in below seem to give more accurate result.
     float x, y, z;
-    unitTarget->GetContactPoint(m_caster, x, y, z, 3.666666f);
+    unitTarget->GetContactPoint(m_caster, x, y, z);
 
     // Try to normalize Z coord cuz GetContactPoint do nothing with Z axis
     unitTarget->UpdateGroundPositionZ(x, y, z);
@@ -10818,7 +10882,7 @@ void Spell::EffectCharge2(SpellEffectIndex /*eff_idx*/)
             ((Creature *)unitTarget)->StopMoving();
     }
     else if (unitTarget && unitTarget != m_caster)
-        unitTarget->GetContactPoint(m_caster, x, y, z, 3.666666f);
+        unitTarget->GetContactPoint(m_caster, x, y, z);
     else
         return;
 
