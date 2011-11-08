@@ -752,10 +752,15 @@ void Spell::prepareDataForTriggerSystem()
                 break;
             case SPELLFAMILY_PALADIN:
                 // For Judgements (all) / Holy Shock triggers need do it
-                if (m_spellInfo->SpellFamilyFlags.test<CF_PALADIN_JUDGEMENT_OF_RIGHT, CF_PALADIN_JUDGEMENT_OF_WISDOM_LIGHT, CF_PALADIN_JUDGEMENT_OF_JUSTICE, CF_PALADIN_HOLY_SHOCK1, CF_PALADIN_JUDGEMENT_ACTIVATE, CF_PALADIN_JUDGEMENT_OF_LIGHT, CF_PALADIN_JUDGEMENT_OF_BLOOD_MARTYR, CF_PALADIN_HOLY_SHOCK>())
+                if (m_spellInfo->SpellFamilyFlags.test<CF_PALADIN_JUDGEMENT_OF_RIGHT, CF_PALADIN_JUDGEMENT_OF_WISDOM_LIGHT, CF_PALADIN_JUDGEMENT_OF_JUSTICE, CF_PALADIN_HOLY_SHOCK1, CF_PALADIN_JUDGEMENT_ACTIVATE, CF_PALADIN_JUDGEMENT_OF_LIGHT, CF_PALADIN_JUDGEMENT_OF_BLOOD_MARTYR, CF_PALADIN_HOLY_SHOCK, CF_PALADIN_STUN>())
                     m_canTrigger = true;
                 break;
             case SPELLFAMILY_WARRIOR:
+                break;
+            case SPELLFAMILY_SHAMAN:
+                // Earthgrab, Entangling Roots
+                if (m_spellInfo->Id == 64695 || m_spellInfo->SpellFamilyFlags & UI64LIT(0x0000000000000200))
+                    m_canTrigger = true;
                 break;
             case SPELLFAMILY_GENERIC:
                 // Bladestorm triggered
