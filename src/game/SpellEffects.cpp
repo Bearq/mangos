@@ -7882,6 +7882,24 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     }
                     break;
                 }
+                case 44436:                                 // Tricky Treat
+                {
+                    if (!unitTarget)                        // effect depends of how fast you eat treats
+                        return;                             // if speed is around GCD Upset Tummy should be triggered
+
+                    if (Aura* aura = unitTarget->GetAura(42919, EFFECT_INDEX_0))
+                    {
+                        if (aura->GetAuraMaxDuration() - aura->GetAuraDuration() < 1700)
+                        {                                   // remove Tricky Treat speed boost aura, trigger Upset Tummy
+                            unitTarget->RemoveAurasDueToSpell(42919);
+                            unitTarget->CastSpell(unitTarget, 42966, true);
+                            return;
+                        }
+                    }
+                                                            // Tricky Treat speed boost aura
+                    unitTarget->CastSpell(unitTarget, 42919, true);
+                    return;
+                }
                 case 44455:                                 // Character Script Effect Reverse Cast
                 {
                     if (!unitTarget || unitTarget->GetTypeId() != TYPEID_UNIT)
