@@ -4,6 +4,7 @@
 -- INSERT INTO battleground_template (id, MinPlayersPerTeam, MaxPlayersPerTeam, AllianceStartLoc, AllianceStartO, HordeStartLoc, HordeStartO) VALUES
 -- (30, 10, 40, 1485, 0, 1486, 3.14159);
 
+SET names utf8;
 DELETE FROM mangos_string WHERE entry BETWEEN 20079 AND 20103;
 INSERT INTO mangos_string (entry, content_default, content_loc6, content_loc7, content_loc8) VALUES
 (20080, 'The battle will begin in 2 minutes.', 'La batalla por la Isla de la Conquista comenzará en 2 minutos.', 'La batalla por la Isla de la Conquista comenzará en 2 minutos.', 'Бой на Острове Завоеваний начнется через 2 минуты!'),
@@ -31,9 +32,9 @@ INSERT INTO mangos_string (entry, content_default, content_loc6, content_loc7, c
 (20102, 'Hangar', 'el Hangar', 'el Hangar', 'Ангар');
 
 -- Alliance Gunship Cannon
-UPDATE creature_template SET vehicle_id = 452, iconName = 'vehichleCursor', faction_A = 3, faction_H = 3, ScriptName = 'npc_battleground_vehicle' WHERE entry = 34929;
+UPDATE creature_template SET vehicle_id = 452, iconName = 'vehichleCursor', faction_A = 3, faction_H = 3, ScriptName = '' WHERE entry = 34929;
 -- Horde Gunship Cannon
-UPDATE creature_template SET vehicle_id = 453, iconName = 'vehichleCursor', faction_A = 6, faction_H = 6, ScriptName = 'npc_battleground_vehicle' WHERE entry = 34935;
+UPDATE creature_template SET vehicle_id = 453, iconName = 'vehichleCursor', faction_A = 6, faction_H = 6, ScriptName = '' WHERE entry = 34935;
 -- Keep Cannon
 UPDATE creature_template SET vehicle_id = 160, iconName = 'vehichleCursor', faction_A = 35, faction_H = 35, unit_flags = unit_flags | 4, ScriptName = 'npc_ic_cannon' WHERE entry = 34944;
 UPDATE creature_template SET unit_flags = unit_flags | 4 WHERE entry = 34944;
