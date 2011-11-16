@@ -1226,11 +1226,6 @@ void Player::Update( uint32 update_diff, uint32 p_time )
         setAttackTimer(RANGED_ATTACK, (update_diff >= ranged_att ? 0 : ranged_att - update_diff) );
     }
 
-    if (uint32 off_att = getAttackTimer(OFF_ATTACK))
-    {
-        setAttackTimer(OFF_ATTACK, (update_diff >= off_att ? 0 : off_att - update_diff) );
-    }
-
     time_t now = time (NULL);
 
     UpdatePvPFlag(now);
@@ -5725,10 +5720,10 @@ bool Player::UpdateSkillPro(uint16 SkillId, int32 Chance, uint32 step)
     return false;
 }
 
-void Player::UpdateWeaponSkill (WeaponAttackType attType)
+void Player::UpdateWeaponSkill(WeaponAttackType attType)
 {
     // no skill gain in pvp
-    Unit *pVictim = getVictim();
+    Unit* pVictim = getVictim();
     if (pVictim && pVictim->IsCharmerOrOwnerPlayerOrPlayerItself())
         return;
 
@@ -5738,31 +5733,14 @@ void Player::UpdateWeaponSkill (WeaponAttackType attType)
     if (GetShapeshiftForm() == FORM_TREE)
         return;                                             // use weapon but not skill up
 
-    uint32 weapon_skill_gain = sWorld.getConfig(CONFIG_UINT32_SKILL_GAIN_WEAPON);
+    uint32 weaponSkillGain = sWorld.getConfig(CONFIG_UINT32_SKILL_GAIN_WEAPON);
 
-    switch(attType)
-    {
-        case BASE_ATTACK:
-        {
-            Item *tmpitem = GetWeaponForAttack(attType,true,true);
+    Item* pWeapon = GetWeaponForAttack(attType, true, true);
+    if (pWeapon && pWeapon->GetProto()->SubClass != ITEM_SUBCLASS_WEAPON_FISHING_POLE)
+        UpdateSkill(pWeapon->GetSkill(), weaponSkillGain);
+    else if (!pWeapon && attType == BASE_ATTACK)
+        UpdateSkill(SKILL_UNARMED, weaponSkillGain);
 
-            if (!tmpitem)
-                UpdateSkill(SKILL_UNARMED,weapon_skill_gain);
-            else if (tmpitem->GetProto()->SubClass != ITEM_SUBCLASS_WEAPON_FISHING_POLE)
-                UpdateSkill(tmpitem->GetSkill(),weapon_skill_gain);
-            break;
-        }
-        case OFF_ATTACK:
-        case RANGED_ATTACK:
-        {
-            Item *tmpitem = GetWeaponForAttack(attType,true,true);
-            if (tmpitem)
-                UpdateSkill(tmpitem->GetSkill(),weapon_skill_gain);
-            break;
-        }
-        default:
-            break;
-    }
     UpdateAllCritPercentages();
 }
 
@@ -9182,6 +9160,32 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
                 data << uint32(0xe2b) << uint32(0x1);       // 29 3627 Beach1 - Alliance control
                 data << uint32(0xe2a) << uint32(0x1);       // 30 3626 Beach2 - Alliance control
                 // and many unks...
+            }
+            break;
+        case 4710:
+            if (bg && bg->GetTypeID(true) == BATTLEGROUND_IC)
+                bg->FillInitialWorldStates(data, count);
+            else
+            {
+                data << uint32(4221) << uint32(1); // 7
+                data << uint32(4222) << uint32(1); // 8
+                data << uint32(4226) << uint32(300); // 9
+                data << uint32(4227) << uint32(300); // 10
+                data << uint32(4322) << uint32(1); // 11
+                data << uint32(4321) << uint32(1); // 12
+                data << uint32(4320) << uint32(1); // 13
+                data << uint32(4323) << uint32(1); // 14
+                data << uint32(4324) << uint32(1); // 15
+                data << uint32(4325) << uint32(1); // 16
+                data << uint32(4317) << uint32(1); // 17
+
+                data << uint32(4301) << uint32(1); // 18
+                data << uint32(4296) << uint32(1); // 19
+                data << uint32(4306) << uint32(1); // 20
+                data << uint32(4311) << uint32(1); // 21
+                data << uint32(4294) << uint32(1); // 22
+                data << uint32(4243) << uint32(1); // 23
+                data << uint32(4345) << uint32(1); // 24
             }
             break;
         default:
@@ -17964,20 +17968,6 @@ void Player::SaveToDB()
     DEBUG_FILTER_LOG(LOG_FILTER_PLAYER_STATS, "The value of player %s at save: ", m_name.c_str());
     outDebugStatsValues();
 
-    /** World of Warcraft Armory **/
-    if (sWorld.getConfig(CONFIG_BOOL_ARMORY_SUPPORT))
-    {
-        std::ostringstream ps;
-        ps << "REPLACE INTO armory_character_stats (guid,data) VALUES ('" << GetGUIDLow() << "', '";
-        for(uint16 i = 0; i < m_valuesCount; ++i )
-        {
-            ps << GetUInt32Value(i) << " ";
-        }
-        ps << "')";
-        CharacterDatabase.Execute( ps.str().c_str() );
-    }
-    /** World of Warcraft Armory **/
-
     CharacterDatabase.BeginTransaction();
 
     static SqlStatementID delChar ;
@@ -24188,45 +24178,6 @@ bool Player::IsReferAFriendLinked(Player* target)
     return false;
 }
 
-/** World of Warcraft Armory **/
-void Player::WriteWowArmoryDatabaseLog(uint32 type, uint32 data)
-{
-    if (!sWorld.getConfig(CONFIG_BOOL_ARMORY_SUPPORT))
-        return;
-    /*
-        Log types:
-        1 - achievement feed
-        2 - loot feed
-        3 - boss kill feed
-    */
-    uint32 pGuid = GetGUIDLow();
-    sLog.outDetail("WoWArmory: write feed log (guid: %u, type: %u, data: %u", pGuid, type, data);
-    if (type <= 0 || type > 3)    // Unknown type
-    {
-        sLog.outError("WoWArmory: unknown type id: %d, ignore.", type);
-        return;
-    }
-    if (type == 3)    // Do not write same bosses many times - just update counter.
-    {
-        uint8 Difficulty = GetMap()->GetDifficulty();
-        QueryResult *result = CharacterDatabase.PQuery("SELECT counter FROM armory_character_feed_log WHERE guid='%u' AND type=3 AND data='%u' AND difficulty='%u' LIMIT 1", pGuid, data, Difficulty);
-        if (result)
-        {
-            CharacterDatabase.PExecute("UPDATE armory_character_feed_log SET counter=counter+1, date=UNIX_TIMESTAMP(NOW()) WHERE guid='%u' AND type=3 AND data='%u' AND difficulty='%u' LIMIT 1", pGuid, data, Difficulty);
-        }
-        else
-        {
-            CharacterDatabase.PExecute("INSERT INTO armory_character_feed_log (guid, type, data, date, counter, difficulty) VALUES('%u', '%d', '%u', UNIX_TIMESTAMP(NOW()), 1, '%u')", pGuid, type, data, Difficulty);
-        }
-        delete result;
-    }
-    else
-    {
-        CharacterDatabase.PExecute("REPLACE INTO armory_character_feed_log (guid, type, data, date, counter) VALUES('%u', '%d', '%u', UNIX_TIMESTAMP(NOW()), 1)", pGuid, type, data);
-    }
-}
-/** World of Warcraft Armory **/
-
 AreaLockStatus Player::GetAreaTriggerLockStatus(AreaTrigger const* at, Difficulty difficulty)
 {
 
@@ -24306,11 +24257,6 @@ uint32 Player::GetEquipGearScore(bool withBags, bool withBank)
 
     GearScoreVec gearScore (EQUIPMENT_SLOT_END);
     uint32 twoHandScore = 0;
-
-    for (uint8 i = EQUIPMENT_SLOT_START; i < EQUIPMENT_SLOT_END; ++i)
-    {
-        gearScore[i] = 0;
-    }
 
     for (uint8 i = EQUIPMENT_SLOT_START; i < EQUIPMENT_SLOT_END; ++i)
     {

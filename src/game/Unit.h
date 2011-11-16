@@ -1240,6 +1240,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
 
         uint32 GetResistance(SpellSchools school) const { return GetUInt32Value(UNIT_FIELD_RESISTANCES+school); }
         void SetResistance(SpellSchools school, int32 val) { SetStatInt32Value(UNIT_FIELD_RESISTANCES+school,val); }
+        uint32 GetResistance(SpellSchoolMask schoolMask) const;
 
         uint32 GetHealth()    const { return GetUInt32Value(UNIT_FIELD_HEALTH); }
         uint32 GetMaxHealth() const { return GetUInt32Value(UNIT_FIELD_MAXHEALTH); }
@@ -1414,6 +1415,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         }
 
         bool HasAuraType(AuraType auraType) const;
+        bool HasNegativeAuraType(AuraType auraType) const;
         bool HasAffectedAura(AuraType auraType, SpellEntry const* spellProto) const;
         bool HasAura(uint32 spellId, SpellEffectIndex effIndex) const;
         bool HasAura(uint32 spellId) const
@@ -1429,6 +1431,8 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         bool isFeared()  const { return HasAuraType(SPELL_AURA_MOD_FEAR); }
         bool isInRoots() const { return HasAuraType(SPELL_AURA_MOD_ROOT); }
         bool IsPolymorphed() const;
+
+        bool IsCrowdControlled() const;
 
         bool isFrozen() const;
         bool IsIgnoreUnitState(SpellEntry const *spell, IgnoreUnitState ignoreState);
@@ -1881,7 +1885,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         uint32 SpellCriticalHealingBonus(SpellEntry const *spellProto, uint32 damage, Unit *pVictim);
 
         bool IsTriggeredAtSpellProcEvent(Unit *pVictim, SpellAuraHolderPtr holder, SpellEntry const* procSpell, uint32 procFlag, uint32 procExtra, WeaponAttackType attType, bool isVictim, SpellProcEventEntry const*& spellProcEvent );
-        bool IsTriggeredAtCustomProcEvent(Unit *pVictim, SpellAuraHolderPtr holder, SpellEntry const* procSpell, uint32 procFlag, uint32 procExtra, WeaponAttackType attType, bool isVictim, SpellProcEventEntry const*& spellProcEvent );
+        SpellAuraProcResult IsTriggeredAtCustomProcEvent(Unit *pVictim, SpellAuraHolderPtr holder, SpellEntry const* procSpell, uint32 procFlag, uint32 procExtra, WeaponAttackType attType, bool isVictim, SpellProcEventEntry const*& spellProcEvent );
         // Aura proc handlers
         SpellAuraProcResult HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAura, SpellEntry const *procSpell, uint32 procFlag, uint32 procEx, uint32 cooldown);
         SpellAuraProcResult HandleHasteAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAura, SpellEntry const *procSpell, uint32 procFlag, uint32 procEx, uint32 cooldown);
