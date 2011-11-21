@@ -25,6 +25,7 @@ class BattleGround;
 
 #define BG_EY_FLAG_RESPAWN_TIME         (10*IN_MILLISECONDS) //10 seconds
 #define BG_EY_FPOINTS_TICK_TIME         (2*IN_MILLISECONDS)  //2 seconds
+#define BG_EY_EVENT_START_BATTLE        13180
 
 enum BG_EY_WorldStates
 {
@@ -116,6 +117,11 @@ enum BG_EY_Nodes
     BG_EY_PLAYERS_OUT_OF_POINTS   = 4,                      // used for store out of node players data
 };
 
+enum BG_EY_Objectives
+{
+    EY_OBJECTIVE_CAPTURE_FLAG     = 183
+};
+
 #define BG_EY_NODES_MAX             4
 #define BG_EY_NODES_MAX_WITH_SPEIAL 5
 
@@ -154,6 +160,7 @@ enum EYBattleGroundObjectTypes
 
 #define BG_EY_NotEYWeekendHonorTicks    330
 #define BG_EY_EYWeekendHonorTicks       200
+#define BG_EY_EVENT_START_BATTLE        13180
 
 enum BG_EY_Score
 {

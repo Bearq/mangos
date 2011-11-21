@@ -153,7 +153,7 @@ void WorldSession::HandleBattlemasterJoinOpcode( WorldPacket & recv_data )
             _player->GetSession()->SendPacket(&data);
             return;
         }
-        
+
         if(_player->InBattleGroundQueue() && bgTypeId == BATTLEGROUND_RB)
         {
             //player is already in queue, can't start random queue
@@ -758,6 +758,9 @@ void WorldSession::HandleBattlemasterJoinArena( WorldPacket & recv_data )
         }
 
         avg_pers_rating /= grp->GetMembersCount();
+
+        /* Save mmr before enter arena (matchmaker rating fix) */
+        at->SetBattleRating(avg_pers_rating);
 
         arenaRating = avg_pers_rating;
     }

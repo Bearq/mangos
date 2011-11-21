@@ -27,6 +27,7 @@
 #define BG_WS_TIME_LIMIT          (25*MINUTE*IN_MILLISECONDS)
 #define BG_WS_FIVE_MINUTES        (5*MINUTE*IN_MILLISECONDS)
 #define BG_WS_CARRIER_DEBUFF      (15*MINUTE*IN_MILLISECONDS)
+#define BG_WS_EVENT_START_BATTLE  8563
 
 enum BG_WS_Sound
 {
@@ -43,8 +44,10 @@ enum BG_WS_SpellId
 {
     BG_WS_SPELL_WARSONG_FLAG            = 23333,
     BG_WS_SPELL_WARSONG_FLAG_DROPPED    = 23334,
+    BG_WS_SPELL_WARSONG_FLAG_PICKED     = 61266,    // Not real, used to start timed event
     BG_WS_SPELL_SILVERWING_FLAG         = 23335,
     BG_WS_SPELL_SILVERWING_FLAG_DROPPED = 23336,
+    BG_WS_SPELL_SILVERWING_FLAG_PICKED  = 61265,    // Not real, used to start timed event
     BG_WS_SPELL_FOCUSED_ASSAULT         = 46392,
     BG_WS_SPELL_BRUTAL_ASSAULT          = 46393
 };
@@ -69,6 +72,12 @@ enum BG_WS_FlagState
     BG_WS_FLAG_STATE_WAIT_RESPAWN = 1,
     BG_WS_FLAG_STATE_ON_PLAYER    = 2,
     BG_WS_FLAG_STATE_ON_GROUND    = 3
+};
+
+enum BG_WS_Objectives
+{
+    WS_OBJECTIVE_CAPTURE_FLAG     = 42,
+    WS_OBJECTIVE_RETURN_FLAG      = 44
 };
 
 enum BG_WS_Graveyards
@@ -153,6 +162,8 @@ class BattleGroundWS : public BattleGround
         void SetTeamPoint(Team team, uint32 Points = 0) { m_TeamScores[GetTeamIndexByTeamId(team)] = Points; }
         void RemovePoint(Team team, uint32 Points = 1)  { m_TeamScores[GetTeamIndexByTeamId(team)] -= Points; }
     private:
+        void PickOrReturnFlag(Player* pPlayer, Team forTeam, bool pickedUp, bool fromGround = false);
+
         ObjectGuid m_FlagKeepers[BG_TEAMS_COUNT];
 
         ObjectGuid m_DroppedFlagGuid[BG_TEAMS_COUNT];
@@ -171,4 +182,5 @@ class BattleGroundWS : public BattleGround
         uint32 m_FocusedAssault;
         bool   m_FocusedAssaultExtra;
 };
+
 #endif

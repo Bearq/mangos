@@ -23,6 +23,7 @@
 #include "LFGMgr.h"
 #include "Group.h"
 #include "Player.h"
+#include "World.h"
 
 void LFGStateStructure::SetDungeons(LFGDungeonSet* dungeons)
 {
@@ -289,9 +290,9 @@ LFGAnswer LFGGroupState::GetBootResult()
 }
 
 void  LFGGroupState::DecreaseKicksLeft()
-{ 
+{
     LFGMgr::WriteGuard Guard(sLFGMgr.GetLock());
-    if (m_kicksLeft > 0) 
+    if (m_kicksLeft > 0)
         --m_kicksLeft;
 };
 

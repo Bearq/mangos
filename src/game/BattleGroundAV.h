@@ -25,6 +25,7 @@
 #define BG_AV_MAX_NODE_DISTANCE             25              // distance in which players are still counted in range of a banner (for alliance towers this is calculated from the center of the tower)
 
 #define BG_AV_BOSS_KILL_QUEST_SPELL         23658
+#define BG_AV_EVENT_START_BATTLE            9166
 
 #define BG_AV_CAPTIME                       240000          // 4 minutes
 #define BG_AV_SNOWFALL_FIRSTCAP             300000          // 5 minutes but i also have seen 4:05
@@ -292,6 +293,14 @@ struct BG_AV_NodeInfo
     bool         Tower;
 };
 
+enum BG_AV_Objectives
+{
+    AV_OBJECTIVE_ASSAULT_TOWER       = 61,
+    AV_OBJECTIVE_ASSAULT_GRAVEYARD   = 63,
+    AV_OBJECTIVE_DEFEND_TOWER        = 64,
+    AV_OBJECTIVE_DEFEND_GRAVEYARD    = 65
+};
+
 inline BG_AV_Nodes &operator++(BG_AV_Nodes &i)
 {
     return i = BG_AV_Nodes(i + 1);
@@ -339,8 +348,8 @@ class BattleGroundAV : public BattleGround
         void HandleKillPlayer(Player* player, Player *killer);
         void HandleKillUnit(Creature *creature, Player *killer);
         void HandleQuestComplete(uint32 questid, Player *player);
-        bool IsMineOwnedBy(uint8 mine, uint32 team) { return (m_Mine_Owner[mine] == int8(team)) ? true : false; }
         bool PlayerCanDoMineQuest(int32 GOId, Team team);
+        bool IsMineOwnedBy(uint8 mine, uint32 team) { return (m_Mine_Owner[mine] == int8(team)) ? true : false; }
 
         void EndBattleGround(Team winner);
 

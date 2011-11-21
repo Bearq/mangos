@@ -129,7 +129,7 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
         void MessageDistBroadcast(Player *, WorldPacket *, float dist, bool to_self, bool own_team_only = false);
         void MessageDistBroadcast(WorldObject *, WorldPacket *, float dist);
 
-        float GetVisibilityDistance() const { return m_VisibleDistance; }
+        float GetVisibilityDistance(WorldObject* obj = NULL) const;
         //function for setting up visibility distance for maps on per-type/per-Id basis
         virtual void InitVisibilityDistance();
 
@@ -198,7 +198,7 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
         bool IsBattleGroundOrArena() const { return i_mapEntry && i_mapEntry->IsBattleGroundOrArena(); }
 
         // can't be NULL for loaded map
-        MapPersistentState* GetPersistentState() const { return m_persistentState; }
+        MapPersistentState* GetPersistentState() const;
 
         void AddObjectToRemoveList(WorldObject *obj);
 
@@ -261,7 +261,7 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
 
         void MonsterYellToMap(ObjectGuid guid, int32 textId, uint32 language, Unit* target);
         void MonsterYellToMap(CreatureInfo const* cinfo, int32 textId, uint32 language, Unit* target, uint32 senderLowGuid = 0);
-        void PlayDirectSoundToMap(uint32 soundId);
+        void PlayDirectSoundToMap(uint32 soundId, uint32 zoneId = 0);
 
         // Attacker per-map storage operations
         void AddAttackerFor(ObjectGuid targetGuid, ObjectGuid attackerGuid);
@@ -276,6 +276,11 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
 
         // Get Holder for Creature Linking
         CreatureLinkingHolder* GetCreatureLinkingHolder() { return &m_creatureLinkingHolder; }
+
+        // map restarting system
+        bool const IsBroken() { return m_broken; };
+        void SetBroken( bool _value = true ) { m_broken = _value; };
+        void ForcedUnload();
 
     private:
         void LoadMapAndVMap(int gx, int gy);
@@ -306,7 +311,7 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
             return i_grids[x][y];
         }
 
-        bool isGridObjectDataLoaded(uint32 x, uint32 y) const { return getNGrid(x,y)->isGridObjectDataLoaded(); }
+        bool isGridObjectDataLoaded(uint32 x, uint32 y) const { return (getNGrid(x,y) ? getNGrid(x,y)->isGridObjectDataLoaded() : NULL); }
         void setGridObjectDataLoaded(bool pLoaded, uint32 x, uint32 y) { getNGrid(x,y)->setGridObjectDataLoaded(pLoaded); }
 
         void setNGrid(NGridType* grid, uint32 x, uint32 y);
@@ -324,7 +329,6 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
         uint32 i_InstanceId;
         uint32 m_unloadTimer;
         float m_VisibleDistance;
-        MapPersistentState* m_persistentState;
 
         MapRefManager m_mapRefManager;
         MapRefManager::iterator m_mapRefIter;
@@ -371,6 +375,7 @@ class MANGOS_DLL_SPEC Map : public GridRefManager<NGridType>
 
         ObjectLockType      i_lock[MAP_LOCK_TYPE_MAX];
         AttackersMap        m_attackersMap;
+        bool                m_broken;
 
 };
 

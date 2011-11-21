@@ -649,12 +649,6 @@ void Pet::Update(uint32 update_diff, uint32 diff)
             }
             RegenerateAll(update_diff);
 
-            // Update scaling auras from queue
-            while (!m_scalingQueue.empty())
-            {
-                ApplyScalingBonus(&m_scalingQueue.front());
-                m_scalingQueue.pop();
-            };
 
             break;
         }
@@ -664,6 +658,15 @@ void Pet::Update(uint32 update_diff, uint32 diff)
 
     Creature::Update(update_diff, diff);
 
+    if (IsInWorld() && isAlive())
+    {
+        // Update scaling auras from queue
+        while (!m_scalingQueue.empty())
+        {
+            ApplyScalingBonus(&m_scalingQueue.front());
+            m_scalingQueue.pop();
+        };
+    }
     m_updated = false;
 }
 
@@ -1363,6 +1366,12 @@ void Pet::_LoadAuras(uint32 timediff)
                 continue;
             }
 
+            if (casterGuid.IsEmpty() || !casterGuid.IsUnit())
+            {
+                sLog.outError("Pet::LoadAuras Unknown caster %u, ignore.",fields[0].GetUInt64());
+                continue;
+            }
+
             // do not load single target auras (unless they were cast by the player)
             if (casterGuid != GetObjectGuid() && IsSingleTargetSpell(spellproto))
                 continue;
@@ -1386,7 +1395,7 @@ void Pet::_LoadAuras(uint32 timediff)
             else if (!stackcount)
                 stackcount = 1;
 
-            SpellAuraHolder *holder = CreateSpellAuraHolder(spellproto, this, NULL);
+            SpellAuraHolderPtr holder = CreateSpellAuraHolder(spellproto, this, NULL);
             holder->SetLoadedState(casterGuid, ObjectGuid(HIGHGUID_ITEM, item_lowguid), stackcount, remaincharges, maxduration, remaintime);
 
             for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
@@ -1394,18 +1403,15 @@ void Pet::_LoadAuras(uint32 timediff)
                 if ((effIndexMask & (1 << i)) == 0)
                     continue;
 
-                Aura* aura = CreateAura(spellproto, SpellEffectIndex(i), NULL, holder, this);
+                Aura* aura = holder->CreateAura(spellproto, SpellEffectIndex(i), NULL, holder, (Unit*)this, NULL, NULL);
                 if (!damage[i])
                     damage[i] = aura->GetModifier()->m_amount;
 
                 aura->SetLoadedState(damage[i], periodicTime[i]);
-                holder->AddAura(aura, SpellEffectIndex(i));
             }
 
             if (!holder->IsEmptyHolder())
                 AddSpellAuraHolder(holder);
-            else
-                delete holder;
         }
         while( result->NextRow() );
 
@@ -1433,7 +1439,7 @@ void Pet::_SaveAuras()
 
     for(SpellAuraHolderMap::const_iterator itr = auraHolders.begin(); itr != auraHolders.end(); ++itr)
     {
-        SpellAuraHolder *holder = itr->second;
+        SpellAuraHolderPtr holder = itr->second;
 
         bool save = true;
         for (int32 j = 0; j < MAX_EFFECT_INDEX; ++j)
@@ -2223,8 +2229,6 @@ void Pet::ApplyStatScalingBonus(Stats stat, bool apply)
     if (!owner || owner->GetTypeId() != TYPEID_PLAYER || m_removed)
         return;
 
-    //UnitMods unitMod = UnitMods(stat);
-
     int32 newStat = owner->GetTotalStatValue(stat);
 
     if (m_baseBonusData->statScale[stat] == newStat && !apply)
@@ -2239,37 +2243,11 @@ void Pet::ApplyStatScalingBonus(Stats stat, bool apply)
     if (basePoints == 0)
         needRecalculateStat = true;
 
-    AuraList const& scalingAuras = GetAurasByType(SPELL_AURA_MOD_STAT);
+    if (Aura* aura = GetScalingAura(SPELL_AURA_MOD_STAT, stat))
+        if (ReapplyScalingAura(aura, basePoints))
+            needRecalculateStat = true;
 
-    for (AuraList::const_iterator itr = scalingAuras.begin(); itr != scalingAuras.end(); ++itr)
-    {
-        Aura* _aura = (*itr);
-        if (!_aura || _aura->IsInUse())
-            continue;
-
-        SpellAuraHolder* holder = _aura->GetHolder();
-
-        if (!holder || holder->IsDeleted() || holder->IsEmptyHolder() || holder->GetCasterGuid() != GetObjectGuid())
-            continue;
-
-        SpellEntry const *spellproto = holder->GetSpellProto();
-
-        if (!spellproto)
-            continue;
-
-        SpellEffectIndex i = _aura->GetEffIndex();
-
-        if (Stats(spellproto->EffectMiscValue[i]) == stat
-            && (spellproto->AttributesEx4 & SPELL_ATTR_EX4_PET_SCALING_AURA))
-        {
-            SetCanModifyStats(false);
-            if (ReapplyScalingAura(holder, spellproto, i, basePoints))
-                needRecalculateStat = true;
-            SetCanModifyStats(true);
-            break;
-        }
-    }
-    if(needRecalculateStat)
+    if (needRecalculateStat)
         UpdateStats(stat);
 }
 
@@ -2303,38 +2281,11 @@ void Pet::ApplyResistanceScalingBonus(uint32 school, bool apply)
     if (basePoints == 0)
         needRecalculateStat = true;
 
-    AuraList const& scalingAuras = GetAurasByType(SPELL_AURA_MOD_RESISTANCE);
+    if (Aura* aura = GetScalingAura(SPELL_AURA_MOD_RESISTANCE, school))
+        if (ReapplyScalingAura(aura, basePoints))
+            needRecalculateStat = true;
 
-    for(AuraList::const_iterator itr = scalingAuras.begin(); itr != scalingAuras.end(); ++itr)
-    {
-        Aura* _aura = (*itr);
-        if (!_aura || _aura->IsInUse())
-            continue;
-
-        SpellAuraHolder* holder = _aura->GetHolder();
-
-        if (!holder || holder->IsDeleted() || holder->IsEmptyHolder() || holder->GetCasterGuid() != GetObjectGuid())
-            continue;
-
-        SpellEntry const *spellproto = holder->GetSpellProto();
-
-        if (!spellproto)
-            continue;
-
-        SpellEffectIndex i = _aura->GetEffIndex();
-
-        if ((spellproto->AttributesEx4 & SPELL_ATTR_EX4_PET_SCALING_AURA)
-            && (spellproto->EffectMiscValue[i] & (1 << SpellSchools(school))))
-        {
-            SetCanModifyStats(false);
-            if (ReapplyScalingAura(holder, spellproto, i, basePoints))
-                needRecalculateStat = true;
-            SetCanModifyStats(true);
-            break;
-        }
-    }
-
-    if(needRecalculateStat)
+    if (needRecalculateStat)
     {
         if (school == SPELL_SCHOOL_NORMAL)
             UpdateArmor();
@@ -2417,37 +2368,11 @@ void Pet::ApplyAttackPowerScalingBonus(bool apply)
     if (basePoints == 0)
         needRecalculateStat = true;
 
-    AuraList const& scalingAuras = GetAurasByType(SPELL_AURA_MOD_ATTACK_POWER);
+    if (Aura* aura = GetScalingAura(SPELL_AURA_MOD_ATTACK_POWER))
+        if (ReapplyScalingAura(aura, basePoints))
+            needRecalculateStat = true;
 
-    for(AuraList::const_iterator itr = scalingAuras.begin(); itr != scalingAuras.end(); ++itr)
-    {
-        Aura* _aura = (*itr);
-        if (!_aura || _aura->IsInUse())
-            continue;
-
-        SpellAuraHolder* holder = _aura->GetHolder();
-
-        if (!holder || holder->IsDeleted() || holder->IsEmptyHolder() || holder->GetCasterGuid() != GetObjectGuid())
-            continue;
-
-        SpellEntry const *spellproto = holder->GetSpellProto();
-
-        if (!spellproto)
-            continue;
-
-        SpellEffectIndex i = _aura->GetEffIndex();
-
-        if (spellproto->AttributesEx4 & SPELL_ATTR_EX4_PET_SCALING_AURA)
-        {
-            SetCanModifyStats(false);
-            if (ReapplyScalingAura(holder, spellproto, i, basePoints))
-                needRecalculateStat = true;
-            SetCanModifyStats(true);
-            break;
-        }
-    }
-
-    if(needRecalculateStat)
+    if (needRecalculateStat)
     {
         UpdateAttackPowerAndDamage();
         UpdateAttackPowerAndDamage(true);
@@ -2507,36 +2432,9 @@ void Pet::ApplyDamageScalingBonus(bool apply)
     if (basePoints == 0)
         needRecalculateStat = true;
 
-    AuraList const& scalingAuras = GetAurasByType(SPELL_AURA_MOD_DAMAGE_DONE);
-
-    for(AuraList::const_iterator itr = scalingAuras.begin(); itr != scalingAuras.end(); ++itr)
-    {
-        Aura* _aura = (*itr);
-        if (!_aura || _aura->IsInUse())
-            continue;
-
-        SpellAuraHolder* holder = _aura->GetHolder();
-
-        if (!holder || holder->IsDeleted() || holder->IsEmptyHolder() || holder->GetCasterGuid() != GetObjectGuid())
-            continue;
-
-        SpellEntry const *spellproto = holder->GetSpellProto();
-
-        if (!spellproto)
-            continue;
-
-        SpellEffectIndex i = _aura->GetEffIndex();
-                                                                            // First scan aura with 127 mask
-        if ((spellproto->AttributesEx4 & SPELL_ATTR_EX4_PET_SCALING_AURA)
-            && spellproto->EffectMiscValue[i] == SPELL_SCHOOL_MASK_ALL)
-        {
-            SetCanModifyStats(false);
-            if (ReapplyScalingAura(holder, spellproto, i, basePoints))
-                needRecalculateStat = true;
-            SetCanModifyStats(true);
-            break;
-        }
-    }
+    if (Aura* aura = GetScalingAura(SPELL_AURA_MOD_DAMAGE_DONE, SPELL_SCHOOL_MASK_ALL))
+        if (ReapplyScalingAura(aura, basePoints))
+            needRecalculateStat = true;
 
     if (needRecalculateStat)
     {
@@ -2615,36 +2513,9 @@ void Pet::ApplySpellDamageScalingBonus(bool apply)
     if (basePoints == 0)
         needRecalculateStat = true;
 
-    AuraList const& scalingAuras = GetAurasByType(SPELL_AURA_MOD_DAMAGE_DONE);
-
-    for(AuraList::const_iterator itr = scalingAuras.begin(); itr != scalingAuras.end(); ++itr)
-    {
-        Aura* _aura = (*itr);
-        if (!_aura || _aura->IsInUse())
-            continue;
-
-        SpellAuraHolder* holder = _aura->GetHolder();
-
-        if (!holder || holder->IsDeleted() || holder->IsEmptyHolder() || holder->GetCasterGuid() != GetObjectGuid())
-            continue;
-
-        SpellEntry const *spellproto = holder->GetSpellProto();
-
-        if (!spellproto)
-            continue;
-
-        SpellEffectIndex i = _aura->GetEffIndex();
-
-        if ((spellproto->AttributesEx4 & SPELL_ATTR_EX4_PET_SCALING_AURA)
-            && spellproto->EffectMiscValue[i] == SPELL_SCHOOL_MASK_MAGIC)
-        {
-            SetCanModifyStats(false);
-            if (ReapplyScalingAura(holder, spellproto, i, basePoints))
-                needRecalculateStat = true;
-            SetCanModifyStats(true);
-            break;
-        }
-    }
+    if (Aura* aura = GetScalingAura(SPELL_AURA_MOD_DAMAGE_DONE, SPELL_SCHOOL_MASK_MAGIC))
+        if (ReapplyScalingAura(aura, basePoints))
+            needRecalculateStat = true;
 
     if (needRecalculateStat)
         UpdateSpellPower();
@@ -2666,6 +2537,7 @@ void Pet::ApplyAllScalingBonuses(bool apply)
     ApplySpellHitScalingBonus(apply);
     ApplyExpertizeScalingBonus(apply);
     ApplyPowerregenScalingBonus(apply);
+    ApplyAttackSpeedScalingBonus(apply);
 }
 
 void Pet::ApplyHitScalingBonus(bool apply)
@@ -2690,35 +2562,10 @@ void Pet::ApplyHitScalingBonus(bool apply)
     if (basePoints == 0)
         needRecalculateStat = true;
 
-    AuraList const& scalingAuras = GetAurasByType(SPELL_AURA_MOD_HIT_CHANCE);
+    if (Aura* aura = GetScalingAura(SPELL_AURA_MOD_HIT_CHANCE))
+        if (ReapplyScalingAura(aura, basePoints))
+            needRecalculateStat = true;
 
-    for(AuraList::const_iterator itr = scalingAuras.begin(); itr != scalingAuras.end(); ++itr)
-    {
-        Aura* _aura = (*itr);
-        if (!_aura || _aura->IsInUse())
-            continue;
-
-        SpellAuraHolder* holder = _aura->GetHolder();
-
-        if (!holder || holder->IsDeleted() || holder->IsEmptyHolder() || holder->GetCasterGuid() != GetObjectGuid())
-            continue;
-
-        SpellEntry const *spellproto = holder->GetSpellProto();
-
-        if (!spellproto)
-            continue;
-
-        SpellEffectIndex i = _aura->GetEffIndex();
-
-        if (spellproto->AttributesEx4 & SPELL_ATTR_EX4_PET_SCALING_AURA)
-        {
-            SetCanModifyStats(false);
-            if (ReapplyScalingAura(holder, spellproto, i, basePoints))
-                needRecalculateStat = true;
-            SetCanModifyStats(true);
-            break;
-        }
-    }
 }
 
 void Pet::ApplySpellHitScalingBonus(bool apply)
@@ -2744,35 +2591,9 @@ void Pet::ApplySpellHitScalingBonus(bool apply)
     if (basePoints == 0)
         needRecalculateStat = true;
 
-    AuraList const& scalingAuras = GetAurasByType(SPELL_AURA_MOD_SPELL_HIT_CHANCE);
-
-    for(AuraList::const_iterator itr = scalingAuras.begin(); itr != scalingAuras.end(); ++itr)
-    {
-        Aura* _aura = (*itr);
-        if (!_aura || _aura->IsInUse())
-            continue;
-
-        SpellAuraHolder* holder = _aura->GetHolder();
-
-        if (!holder || holder->IsDeleted() || holder->IsEmptyHolder() || holder->GetCasterGuid() != GetObjectGuid())
-            continue;
-
-        SpellEntry const *spellproto = holder->GetSpellProto();
-
-        if (!spellproto)
-            continue;
-
-        SpellEffectIndex i = _aura->GetEffIndex();
-
-        if (spellproto->AttributesEx4 & SPELL_ATTR_EX4_PET_SCALING_AURA)
-        {
-            SetCanModifyStats(false);
-            if (ReapplyScalingAura(holder, spellproto, i, basePoints))
-                needRecalculateStat = true;
-            SetCanModifyStats(true);
-            break;
-        }
-    }
+    if (Aura* aura = GetScalingAura(SPELL_AURA_MOD_SPELL_HIT_CHANCE))
+        if (ReapplyScalingAura(aura, basePoints))
+            needRecalculateStat = true;
 }
 
 void Pet::ApplyExpertizeScalingBonus(bool apply)
@@ -2796,36 +2617,9 @@ void Pet::ApplyExpertizeScalingBonus(bool apply)
     if (basePoints == 0)
         needRecalculateStat = true;
 
-    AuraList const& scalingAuras = GetAurasByType(SPELL_AURA_MOD_EXPERTISE);
-
-    for(AuraList::const_iterator itr = scalingAuras.begin(); itr != scalingAuras.end(); ++itr)
-    {
-        Aura* _aura = (*itr);
-        if (!_aura || _aura->IsInUse())
-            continue;
-
-        SpellAuraHolder* holder = _aura->GetHolder();
-
-        if (!holder || holder->IsDeleted() || holder->IsEmptyHolder() || holder->GetCasterGuid() != GetObjectGuid())
-            continue;
-
-        SpellEntry const *spellproto = holder->GetSpellProto();
-
-        if (!spellproto)
-            continue;
-
-        SpellEffectIndex i = _aura->GetEffIndex();
-
-        if (spellproto->AttributesEx4 & SPELL_ATTR_EX4_PET_SCALING_AURA)
-        {
-            SetCanModifyStats(false);
-            if (ReapplyScalingAura(holder, spellproto, i, basePoints))
-                needRecalculateStat = true;
-            SetCanModifyStats(true);
-            break;
-        }
-    }
-
+    if (Aura* aura = GetScalingAura(SPELL_AURA_MOD_EXPERTISE))
+        if (ReapplyScalingAura(aura, basePoints))
+            needRecalculateStat = true;
 }
 
 void Pet::ApplyPowerregenScalingBonus(bool apply)
@@ -2850,38 +2644,34 @@ void Pet::ApplyPowerregenScalingBonus(bool apply)
     if (basePoints == 0)
         needRecalculateStat = true;
 
-    AuraList const& scalingAuras = GetAurasByType(SPELL_AURA_MOD_POWER_REGEN);
+    if (Aura* aura = GetScalingAura(SPELL_AURA_MOD_POWER_REGEN))
+        if (ReapplyScalingAura(aura, basePoints))
+            needRecalculateStat = true;
 
-    for(AuraList::const_iterator itr = scalingAuras.begin(); itr != scalingAuras.end(); ++itr)
-    {
-        Aura* _aura = (*itr);
-        if (!_aura || _aura->IsInUse())
-            continue;
-
-        SpellAuraHolder* holder = _aura->GetHolder();
-
-        if (!holder || holder->IsDeleted() || holder->IsEmptyHolder() || holder->GetCasterGuid() != GetObjectGuid())
-            continue;
-
-        SpellEntry const *spellproto = holder->GetSpellProto();
-
-        if (!spellproto)
-            continue;
-
-        SpellEffectIndex i = _aura->GetEffIndex();
-
-        if (spellproto->AttributesEx4 & SPELL_ATTR_EX4_PET_SCALING_AURA)
-        {
-            SetCanModifyStats(false);
-            if (ReapplyScalingAura(holder, spellproto, i, basePoints))
-                needRecalculateStat = true;
-            SetCanModifyStats(true);
-            break;
-        }
-    }
-
-    if(needRecalculateStat)
+    if (needRecalculateStat)
         UpdateManaRegen();
+}
+
+void Pet::ApplyAttackSpeedScalingBonus(bool apply)
+{
+    Unit* owner = GetOwner();
+
+    // Don't apply scaling bonuses if no owner or owner is not player
+    if (!owner || owner->GetTypeId() != TYPEID_PLAYER || m_removed)
+        return;
+
+    int32 m_attackspeed = int32((1.0f - owner->m_modAttackSpeedPct[BASE_ATTACK])*100.0f);
+
+    if (m_baseBonusData->attackspeedScale == m_attackspeed && !apply)
+        return;
+
+    m_baseBonusData->attackspeedScale = m_attackspeed;
+
+    int32 basePoints = int32((float)m_baseBonusData->attackspeedScale * float(CalculateScalingData()->attackspeedScale) / 100.0f);
+
+    if (Aura* aura = GetScalingAura(SPELL_AURA_HASTE_ALL))
+        ReapplyScalingAura(aura, basePoints);
+
 }
 
 bool Pet::Summon()
@@ -3074,29 +2864,26 @@ Unit* Pet::GetOwner() const
 }
 
 
-bool Pet::ReapplyScalingAura(SpellAuraHolder* holder, SpellEntry const *spellproto, SpellEffectIndex index, int32 basePoints)
+bool Pet::ReapplyScalingAura(Aura* aura, int32 basePoints)
 {
-    if (!holder || holder->IsDeleted() || holder->IsEmptyHolder() || holder->IsInUse())
+    if (!aura)
         return false;
 
+    SpellAuraHolderPtr holder = aura->GetHolder();
+    if (!holder || holder->IsDeleted() || holder->IsInUse())
+        return false;
+
+    SetCanModifyStats(false);
+    DEBUG_LOG("Pet::ReapplyScalingAura pet %u, spell %u, index %u, oldValue %u, newValue %u", GetObjectGuid().GetCounter(), holder->GetId(), aura->GetEffIndex(), aura->GetModifier()->m_amount, basePoints);
     holder->SetInUse(true);
-
-    Aura* oldaura = holder->GetAuraByEffectIndex(index);
-
-    if (oldaura)
     {
-//    RemoveSingleAuraFromSpellAuraHolder(holder, index, AURA_REMOVE_BY_STACK);
-        RemoveAura(oldaura, AURA_REMOVE_BY_STACK);
+        MAPLOCK_READ(this,MAP_LOCK_TYPE_AURAS);
+        aura->ApplyModifier(false,true);
+        aura->GetModifier()->m_amount = basePoints;
+        aura->ApplyModifier(true,true);
     }
-
-    Aura* aura = CreateAura(spellproto, index, &basePoints, holder, this, this, NULL);
-    holder->AddAura(aura, index);
-    holder->SetAuraDuration(aura->GetAuraMaxDuration());
-    AddAuraToModList(aura);
-    aura->ApplyModifier(true,true);
-
     holder->SetInUse(false);
-
+    SetCanModifyStats(true);
     return true;
 }
 
@@ -3374,6 +3161,9 @@ void Pet::ApplyScalingBonus(ScalingAction* action)
         case SCALING_TARGET_POWERREGEN:
             ApplyPowerregenScalingBonus(action->apply);
             break;
+        case SCALING_TARGET_ATTACKSPEED:
+            ApplyAttackSpeedScalingBonus(action->apply);
+            break;
         case SCALING_TARGET_MAX:
         default:
             break;
@@ -3484,4 +3274,13 @@ float Pet::OCTRegenMPPerSpirit()
     float spirit    = GetStat(STAT_SPIRIT);
     float regen     = spirit * moreRatio->ratio;
     return regen;
+}
+
+void ApplyArenaPreparationWithHelper::operator() (Unit* unit) const
+{
+    if (!unit || !unit->GetObjectGuid().IsPet())
+        return;
+
+    if (unit->IsInWorld())
+        unit->HandleArenaPreparation(apply);
 }

@@ -4008,7 +4008,7 @@ bool ChatHandler::HandleAuraCommand(char* args)
         return false;
     }
 
-    SpellAuraHolder *holder = CreateSpellAuraHolder(spellInfo, target, m_session->GetPlayer());
+    SpellAuraHolderPtr holder = CreateSpellAuraHolder(spellInfo, target, m_session->GetPlayer());
 
     for(uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
     {
@@ -4019,8 +4019,7 @@ bool ChatHandler::HandleAuraCommand(char* args)
             eff == SPELL_EFFECT_APPLY_AURA  ||
             eff == SPELL_EFFECT_PERSISTENT_AREA_AURA)
         {
-            Aura *aur = CreateAura(spellInfo, SpellEffectIndex(i), NULL, holder, target);
-            holder->AddAura(aur, SpellEffectIndex(i));
+            holder->CreateAura(spellInfo, SpellEffectIndex(i), NULL, holder, target, NULL, NULL);
         }
     }
     target->AddSpellAuraHolder(holder);
@@ -4878,7 +4877,7 @@ bool ChatHandler::HandleListAurasCommand (char* /*args*/)
     {
         bool talent = GetTalentSpellCost(itr->second->GetId()) > 0;
 
-        SpellAuraHolder *holder = itr->second;
+        SpellAuraHolderPtr holder = itr->second;
         char const* name = holder->GetSpellProto()->SpellName[GetSessionDbcLocale()];
 
         for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
@@ -7288,3 +7287,30 @@ bool ChatHandler::HandleMmapTestArea(char* args)
     return true;
 }
 
+bool ChatHandler::HandleShowGearScoreCommand(char *args)
+{
+    Player *player = getSelectedPlayer();
+
+    if (!player)
+    {
+        PSendSysMessage(LANG_PLAYER_NOT_FOUND);
+        SetSentErrorMessage(true);
+        return false;
+    }
+
+    uint32 withBags, withBank;
+    if (!ExtractOptUInt32(&args, withBags, 1))
+        return false;
+
+    if (!ExtractOptUInt32(&args, withBank, 0))
+        return false;
+
+    // always recalculate gear score for display
+    player->ResetCachedGearScore();
+
+    uint32 gearScore = player->GetEquipGearScore(withBags != 0, withBank != 0);
+
+    PSendSysMessage(LANG_GEARSCORE, GetNameLink(player).c_str(), gearScore);
+
+    return true;
+}

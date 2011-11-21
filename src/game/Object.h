@@ -26,17 +26,10 @@
 #include "ObjectGuid.h"
 #include "Camera.h"
 #include "ObjectLock.h"
+#include "SharedDefines.h"
 
 #include <set>
 #include <string>
-
-#define CONTACT_DISTANCE            0.5f
-#define INTERACTION_DISTANCE        5.0f
-#define ATTACK_DISTANCE             5.0f
-#define MAX_VISIBILITY_DISTANCE     333.0f      // max distance for visible object show, limited in 333 yards
-#define DEFAULT_VISIBILITY_DISTANCE 90.0f       // default visible distance, 90 yards on continents
-#define DEFAULT_VISIBILITY_INSTANCE 120.0f      // default visible distance in instances, 120 yards
-#define DEFAULT_VISIBILITY_BGARENAS 180.0f      // default visible distance in BG/Arenas, 180 yards
 
 #define DEFAULT_WORLD_OBJECT_SIZE   0.388999998569489f      // currently used (correctly?) for any non Unit world objects. This is actually the bounding_radius, like player/creature from creature_model_data
 #define DEFAULT_OBJECT_SCALE        1.0f                    // player/item scale as default, npc/go from database, pets from dbc
@@ -52,7 +45,8 @@ enum TempSummonType
     TEMPSUMMON_CORPSE_DESPAWN              = 5,             // despawns instantly after death
     TEMPSUMMON_CORPSE_TIMED_DESPAWN        = 6,             // despawns after a specified time after death
     TEMPSUMMON_DEAD_DESPAWN                = 7,             // despawns when the creature disappears
-    TEMPSUMMON_MANUAL_DESPAWN              = 8              // despawns when UnSummon() is called
+    TEMPSUMMON_MANUAL_DESPAWN              = 8,             // despawns when UnSummon() is called
+    TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT_OR_DEAD_DESPAWN = 9 // despawns after a specified time after the creature is out of combat OR when the creature disappears
 };
 
 enum PhaseMasks
@@ -615,6 +609,7 @@ class MANGOS_DLL_SPEC WorldObject : public Object
         void GetGameObjectListWithEntryInGrid(std::list<GameObject*>& lList, uint32 uiEntry, float fMaxSearchRange);
 
         bool isActiveObject() const { return m_isActiveObject || m_viewPoint.hasViewers(); }
+        void SetActiveObjectState(bool active);
 
         ViewPoint& GetViewPoint() { return m_viewPoint; }
 
@@ -637,7 +632,6 @@ class MANGOS_DLL_SPEC WorldObject : public Object
 
         std::string m_name;
 
-        bool m_isActiveObject;
     private:
         Map * m_currMap;                                    //current object's Map location
 
@@ -646,10 +640,9 @@ class MANGOS_DLL_SPEC WorldObject : public Object
         uint32 m_phaseMask;                                 // in area phase state
 
         Position m_position;
-
         ViewPoint m_viewPoint;
-
         WorldUpdateCounter m_updateTracker;
+        bool m_isActiveObject;
 };
 
 #endif

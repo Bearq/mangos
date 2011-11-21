@@ -549,6 +549,16 @@ enum GOState
 
 #define MAX_GO_STATE              3
 
+struct QuaternionData
+{
+    float x, y, z, w;
+
+    QuaternionData() : x(0.f), y(0.f), z(0.f), w(0.f) {}
+    QuaternionData(float X, float Y, float Z, float W) : x(X), y(Y), z(Z), w(W) {}
+
+    bool isUnit() const { return fabs(x*x + y*y + z*z + w*w - 1.f) < 1e-5;}
+};
+
 // from `gameobject`
 struct GameObjectData
 {
@@ -559,14 +569,18 @@ struct GameObjectData
     float posY;
     float posZ;
     float orientation;
-    float rotation0;
-    float rotation1;
-    float rotation2;
-    float rotation3;
+    QuaternionData rotation;
     int32  spawntimesecs;
     uint32 animprogress;
     GOState go_state;
     uint8 spawnMask;
+};
+
+// from `gameobject_addon`
+struct GameObjectDataAddon
+{
+    uint32 guid;
+    QuaternionData path_rotation;
 };
 
 // For containers:  [GO_NOT_READY]->GO_READY (close)->GO_ACTIVATED (open) ->GO_JUST_DEACTIVATED->GO_READY        -> ...
@@ -617,7 +631,8 @@ class MANGOS_DLL_SPEC GameObject : public WorldObject
         void AddToWorld();
         void RemoveFromWorld();
 
-        bool Create(uint32 guidlow, uint32 name_id, Map *map, uint32 phaseMask, float x, float y, float z, float ang, float rotation0, float rotation1, float rotation2, float rotation3, uint8 animprogress, GOState go_state);
+        bool Create(uint32 guidlow, uint32 name_id, Map *map, uint32 phaseMask, float x, float y, float z, float ang,
+            QuaternionData rotation = QuaternionData(), uint8 animprogress = GO_ANIMPROGRESS_DEFAULT, GOState go_state = GO_STATE_READY);
         void Update(uint32 update_diff, uint32 p_time) override;
         GameObjectInfo const* GetGOInfo() const;
 
@@ -629,11 +644,11 @@ class MANGOS_DLL_SPEC GameObject : public WorldObject
 
         // z_rot, y_rot, x_rot - rotation angles around z, y and x axes
         void SetWorldRotationAngles(float z_rot, float y_rot, float x_rot);
-        void SetWorldRotation(float qx, float qy, float qz, float qw);   
-        void SetTransportPathRotation(float qx, float qy, float qz, float qw);      // transforms(rotates) transport's path
+        void SetWorldRotation(float qx, float qy, float qz, float qw);
+        void SetTransportPathRotation(QuaternionData rotation);      // transforms(rotates) transport's path
+        int64 GetPackedWorldRotation() const { return m_packedRotation; }
 
         void UpdateRotationFields(float rotation2 = 0.0f, float rotation3 = 0.0f);
-        int64 GetRotation() const { return m_rotation; }
 
         // overwrite WorldObject function for proper name localization
         const char* GetNameForLocaleIdx(int32 locale_idx) const;
@@ -757,6 +772,8 @@ class MANGOS_DLL_SPEC GameObject : public WorldObject
         uint32 GetHealth() const { return m_health; }
         uint32 GetMaxHealth() const { return m_goInfo->destructibleBuilding.intactNumHits + m_goInfo->destructibleBuilding.damagedNumHits; }
 
+        float GetDeterminativeSize() const;
+
     protected:
         uint32      m_spellId;
         time_t      m_respawnTime;                          // (secs) time of next respawn (or despawn if GO have owner()),
@@ -787,8 +804,8 @@ class MANGOS_DLL_SPEC GameObject : public WorldObject
 
         GameObjectInfo const* m_goInfo;
         GameObjectDisplayInfoEntry const* m_displayInfo;
-        int64 m_rotation;
-        float m_quatX, m_quatY, m_quatZ, m_quatW;
+        int64 m_packedRotation;
+        QuaternionData m_worldRotation;
     private:
         void SwitchDoorOrButton(bool activate, bool alternative = false);
         //void SetRotationQuat(float qx, float qy, float qz, float qw);
