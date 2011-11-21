@@ -318,7 +318,7 @@ Spell::Spell( Unit* caster, SpellEntry const *info, bool triggered, ObjectGuid o
     MANGOS_ASSERT( caster != NULL && info != NULL );
     MANGOS_ASSERT( info == sSpellStore.LookupEntry( info->Id ) && "`info` must be pointer to sSpellStore element");
 
-    if (info->SpellDifficultyId && caster->GetTypeId() != TYPEID_PLAYER && caster->IsInWorld() && caster->GetMap()->IsDungeon())
+    if (info->SpellDifficultyId && caster->IsInWorld() && caster->GetMap()->IsDungeon())
     {
         if (SpellEntry const* spellEntry = GetSpellEntryByDifficulty(info->SpellDifficultyId, caster->GetMap()->GetDifficulty(), caster->GetMap()->IsRaid()))
             m_spellInfo = spellEntry;
@@ -752,10 +752,15 @@ void Spell::prepareDataForTriggerSystem()
                 break;
             case SPELLFAMILY_PALADIN:
                 // For Judgements (all) / Holy Shock triggers need do it
-                if (m_spellInfo->SpellFamilyFlags.test<CF_PALADIN_JUDGEMENT_OF_RIGHT, CF_PALADIN_JUDGEMENT_OF_WISDOM_LIGHT, CF_PALADIN_JUDGEMENT_OF_JUSTICE, CF_PALADIN_HOLY_SHOCK1, CF_PALADIN_JUDGEMENT_ACTIVATE, CF_PALADIN_JUDGEMENT_OF_LIGHT, CF_PALADIN_JUDGEMENT_OF_BLOOD_MARTYR, CF_PALADIN_HOLY_SHOCK>())
+                if (m_spellInfo->SpellFamilyFlags.test<CF_PALADIN_JUDGEMENT_OF_RIGHT, CF_PALADIN_JUDGEMENT_OF_WISDOM_LIGHT, CF_PALADIN_JUDGEMENT_OF_JUSTICE, CF_PALADIN_HOLY_SHOCK1, CF_PALADIN_JUDGEMENT_ACTIVATE, CF_PALADIN_JUDGEMENT_OF_LIGHT, CF_PALADIN_JUDGEMENT_OF_BLOOD_MARTYR, CF_PALADIN_HOLY_SHOCK, CF_PALADIN_STUN>())
                     m_canTrigger = true;
                 break;
             case SPELLFAMILY_WARRIOR:
+                break;
+            case SPELLFAMILY_SHAMAN:
+                // Earthgrab, Entangling Roots
+                if (m_spellInfo->Id == 64695 || m_spellInfo->SpellFamilyFlags & UI64LIT(0x0000000000000200))
+                    m_canTrigger = true;
                 break;
             case SPELLFAMILY_GENERIC:
                 // Bladestorm triggered
@@ -1346,7 +1351,7 @@ void Spell::DoSpellHitOnUnit(Unit *unit, uint32 effectMask)
 
     // Get Data Needed for Diminishing Returns, some effects may have multiple auras, so this must be done on spell hit, not aura add
     // Diminishing must not affect spells, casted on self
-    if (realCaster && unit && realCaster != unit)
+    if (realCaster && unit && realCaster != unit || (m_spellFlags & SPELL_FLAG_REFLECTED))
     {
         m_diminishGroup = GetDiminishingReturnsGroupForSpell(m_spellInfo,m_triggeredByAuraSpell);
         m_diminishLevel = unit->GetDiminishing(m_diminishGroup);
@@ -1679,6 +1684,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 31347:                                 // Doom TODO: exclude top threat target from target selection
                 case 33711:                                 // Murmur's Touch
                 case 38794:                                 // Murmur's Touch (h)
+                case 45976:                                 // Open Portal
                 case 48278:                                 // Paralyze (Utgarde Pinnacle)
                 case 50988:                                 // Glare of the Tribunal (Halls of Stone)
                 case 54148:                                 // Svala Get Random Target
@@ -1959,6 +1965,64 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
 
             break;
         }
+        case TARGET_LEAP_FORWARD:
+        {
+            Unit* target = m_targets.getUnitTarget();
+            if (!target)
+                target = m_caster;
+
+            float ox, oy, oz;
+            target->GetPosition(ox, oy, oz);
+            float direction = target->GetOrientation();
+            float distance = radius;
+
+            //Glyph of blink or etc this type
+            if (m_caster->GetTypeId() == TYPEID_PLAYER)
+                ((Player*)m_caster)->ApplySpellMod(m_spellInfo->Id, SPELLMOD_RADIUS, distance, this);
+
+            float fx = target->GetPositionX() + distance * cos(direction);
+            float fy = target->GetPositionY() + distance * sin(direction);
+            float fz = oz + 5.0f;
+
+            MaNGOS::NormalizeMapCoord(fx);
+            MaNGOS::NormalizeMapCoord(fy);
+            target->UpdateAllowedPositionZ(fx, fy, fz);
+
+            TerrainInfo const* terrain = target->GetTerrain();
+            if (terrain)
+            {
+                if (terrain->CheckPathAccurate(ox,oy,oz,fx,fy,fz, sWorld.getConfig(CONFIG_BOOL_CHECK_GO_IN_PATH) ? target : NULL ))
+                    DEBUG_LOG("Spell::EffectLeap/Teleport unit %u forwarded on %f", target->GetObjectGuid().GetCounter(), target->GetDistance(fx,fy,fz));
+                else
+                    DEBUG_LOG("Spell::EffectLeap/Teleport unit %u NOT forwarded on %f, real distance is %f", target->GetObjectGuid().GetCounter(), distance, target->GetDistance(fx,fy,fz));
+            }
+            m_targets.setDestination(fx,fy,fz);
+
+            break;
+        }
+        case TARGET_RANDOM_POINT_NEAR_TARGET:
+        case TARGET_RANDOM_POINT_NEAR_TARGET_2:
+        {
+            // First effect already may set TARGET_FLAG_DEST_LOCATION - use his for source (and set source point)
+            if (m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION)
+            {
+                m_targets.setSource(m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ);
+                m_caster->GetRandomPoint(m_targets.m_srcX, m_targets.m_srcY, m_targets.m_srcZ, radius, m_targets.m_destX, m_targets.m_destY, m_targets.m_destZ);
+                targetUnitMap.push_back(m_caster);
+            }
+            else
+            {
+                Unit* target = m_targets.getUnitTarget();
+                if (!target)
+                    target = m_caster;
+                float angle = 2.0f * M_PI_F * rand_norm_f();
+                float dest_x, dest_y, dest_z;
+                target->GetClosePoint(dest_x, dest_y, dest_z, 0.0f, radius, angle);
+                m_targets.setDestination(dest_x, dest_y, dest_z);
+                targetUnitMap.push_back(target);
+            }
+            break;
+        }
         case TARGET_TOTEM_EARTH:
         case TARGET_TOTEM_WATER:
         case TARGET_TOTEM_AIR:
@@ -1980,6 +2044,9 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
             {
                 // caster included here?
                 FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_ALL);
+
+                if (targetUnitMap.empty())
+                    targetUnitMap.push_back(m_caster);
             }
             else if (IsPositiveSpell(m_spellInfo->Id))
                     targetUnitMap.push_back(m_caster);
@@ -3427,6 +3494,10 @@ void Spell::prepare(SpellCastTargets const* targets, Aura* triggeredByAura)
 
     // Fill cost data
     m_powerCost = CalculatePowerCost(m_spellInfo, m_caster, this, m_CastItem);
+
+    // Slam (hacky hacky hack, double rage cost fix)
+    if (m_spellInfo->Id == 50782)
+        m_powerCost = 0;
 
     SpellCastResult result = CheckCast(true);
     if (result != SPELL_CAST_OK && !IsAutoRepeat())          //always cast autorepeat dummy for triggering
@@ -6009,7 +6080,7 @@ SpellCastResult Spell::CheckCast(bool strict)
             }
             case SPELL_EFFECT_CHARGE:
             {
-                if (m_caster->hasUnitState(UNIT_STAT_ROOT) && !(m_spellInfo->Id == 3411 && m_caster->HasAura(57499)))
+                if (m_caster->hasUnitState(UNIT_STAT_ROOT))
                 {
                     // Intervene with Warbringer talent
                     if (m_spellInfo->Id == 3411 && m_caster->HasAura(57499))
@@ -6215,6 +6286,21 @@ SpellCastResult Spell::CheckCast(bool strict)
 
                 break;
             }
+            case SPELL_EFFECT_LEAP:
+            {
+                // Check destination point (if setted it SetTargetMap())
+                if (m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION)
+                {
+                    // spell failed, if distance less then 1.0f
+                    if (m_caster->GetDistance2d(m_targets.m_destX,m_targets.m_destY) < 1.0f)
+                        return SPELL_FAILED_TRY_AGAIN;
+
+                    if (fabs(m_caster->GetPositionZ() - m_targets.m_destZ) > 8.0f)
+                        return SPELL_FAILED_TRY_AGAIN;
+                }
+                // Target point setted after first time check
+            }
+            // no break here!
             case SPELL_EFFECT_LEAP_BACK:
             {
                 if (m_spellInfo->Id == 781)
@@ -6222,9 +6308,11 @@ SpellCastResult Spell::CheckCast(bool strict)
                         return SPELL_FAILED_CANT_DO_THAT_RIGHT_NOW;
             }
             // no break here!
-            case SPELL_EFFECT_LEAP:
             case SPELL_EFFECT_TELEPORT_UNITS_FACE_CASTER:
             {
+                if (m_caster->hasUnitState(UNIT_STAT_ROOT))
+                    return SPELL_FAILED_ROOTED;
+
                 // not allow use this effect at battleground until battleground start
                 if (m_caster->GetTypeId() == TYPEID_PLAYER)
                 {
@@ -6241,6 +6329,14 @@ SpellCastResult Spell::CheckCast(bool strict)
             {
                 if (m_targets.getUnitTarget() == m_caster)
                     return SPELL_FAILED_BAD_TARGETS;
+                break;
+            }
+            case SPELL_EFFECT_JUMP:
+            case SPELL_EFFECT_JUMP2:
+            case SPELL_EFFECT_CHARGE2:
+            {
+                if (m_caster->hasUnitState(UNIT_STAT_ROOT))
+                    return SPELL_FAILED_ROOTED;
                 break;
             }
             default:
@@ -8903,6 +8999,25 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
         {
             FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_AOE_DAMAGE);
             targetUnitMap.remove(m_caster);
+            break;
+        }
+        case 70728: // Exploit Weakness triggered
+        case 70840: // Devious Minds triggered
+        {
+            targetUnitMap.push_back(m_caster);
+            if (m_caster->GetObjectGuid().IsPet())
+            {
+                if (Unit* owner = m_caster->GetOwner())
+                    targetUnitMap.push_back(owner);
+            }
+            else
+            {
+               GroupPetList const& groupPets = m_caster->GetPets();
+               if (!groupPets.empty())
+                   for (GroupPetList::const_iterator itr = groupPets.begin(); itr != groupPets.end(); ++itr)
+                       if (Pet* pet = m_caster->GetMap()->GetPet(*itr))
+                           targetUnitMap.push_back((Unit*)pet);
+            }
             break;
         }
         case 71075: // Invocation of Blood (V) Move

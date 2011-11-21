@@ -2102,8 +2102,8 @@ void Unit::CalculateDamageAbsorbAndResist(Unit *pCaster, SpellSchoolMask schoolM
     // Magic damage, check for resists
     if ((schoolMask & SPELL_SCHOOL_MASK_NORMAL)==0)
     {
-        // Get base victim resistance for school
-        float tmpvalue2 = (float)GetResistance(GetFirstSchoolInMask(schoolMask));
+        // Get base resistance for schoolmask
+        float tmpvalue2 = (float)GetResistance(schoolMask);
         // Ignore resistance by self SPELL_AURA_MOD_TARGET_RESISTANCE aura
         tmpvalue2 += (float)pCaster->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_TARGET_RESISTANCE, schoolMask);
 
@@ -3224,6 +3224,10 @@ SpellMissInfo Unit::MeleeSpellHitResult(Unit *pVictim, SpellEntry const *spell)
     if (pVictim && pVictim->GetObjectGuid() == GetObjectGuid())
         return SPELL_MISS_NONE;
 
+    // hack: Slam dummy/client spell (do not check miss twice)
+    if (spell->SpellFamilyFlags.test<CF_WARRIOR_SLAM>() && spell->Id != 50782)
+        return SPELL_MISS_NONE;
+
     // bonus from skills is 0.04% per skill Diff
     int32 attackerWeaponSkill = (spell->EquippedItemClass == ITEM_CLASS_WEAPON) ? int32(GetWeaponSkillValue(attType,pVictim)) : GetMaxSkillValueForLevel();
     int32 skillDiff = attackerWeaponSkill - int32(pVictim->GetMaxSkillValueForLevel(this));
@@ -3267,6 +3271,9 @@ SpellMissInfo Unit::MeleeSpellHitResult(Unit *pVictim, SpellEntry const *spell)
         // only if in front or special ability
         if (!from_behind || pVictim->HasAuraType(SPELL_AURA_MOD_PARRY_FROM_BEHIND_PERCENT))
         {
+            if (spell->AttributesEx3 & SPELL_ATTR_EX3_CANT_MISS)
+                return SPELL_MISS_NONE;
+
             int32 deflect_chance = pVictim->GetTotalAuraModifier(SPELL_AURA_DEFLECT_SPELLS)*100;
 
             //if (from_behind) -- only 100% currently and not 100% sure way value apply
@@ -12942,4 +12949,20 @@ void Unit::DisableSpline()
 {
     m_movementInfo.RemoveMovementFlag(MovementFlags(MOVEFLAG_SPLINE_ENABLED|MOVEFLAG_FORWARD));
     movespline->_Interrupt();
+}
+
+uint32 Unit::GetResistance(SpellSchoolMask schoolMask) const
+{
+    uint32 resistance = 0;
+
+    for (int i = SPELL_SCHOOL_NORMAL; i < MAX_SPELL_SCHOOL; ++i)
+    {
+        if (schoolMask & (1 << i))
+        {
+            if (resistance < GetResistance(SpellSchools(i)))
+                resistance = GetResistance(SpellSchools(i));
+                // by some sources, may be resistance += GetResistance(SpellSchools(i)), but i not sure (/dev/rsa)
+        }
+    }
+    return resistance;
 }

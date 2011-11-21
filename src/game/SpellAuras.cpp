@@ -2498,12 +2498,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                         }
                         return;
                     }
-                    case 47977:                             // Magic Broom
-                        Spell::SelectMountByAreaAndSkill(target, GetSpellProto(), 42680, 42683, 42667, 42668, 0);
-                        return;
-                    case 48025:                             // Headless Horseman's Mount
-                        Spell::SelectMountByAreaAndSkill(target, GetSpellProto(), 51621, 48024, 51617, 48023, 0);
-                        return;
                     case 48143:                             // Forgotten Aura
                         // See Death's Door
                         target->CastSpell(target, 48814, true, NULL, this);
@@ -2567,9 +2561,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                         if (target->HasAura(57874))
                             target->RemoveAurasDueToSpell(57874);
                         break;
-                    case 54729:                             // Winged Steed of the Ebon Blade
-                        Spell::SelectMountByAreaAndSkill(target, GetSpellProto(), 0, 0, 54726, 54727, 0);
-                        return;
                     case 62061:                             // Festive Holiday Mount
                     {
                         if (target->HasAuraType(SPELL_AURA_MOUNTED))
@@ -2626,9 +2617,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                     case 69154:                             // Gaseous Blight (Festergut)
                         target->RemoveAurasDueToSpell(69152); // previous gas state
                         return;
-                    case 71342:                             // Big Love Rocket
-                        Spell::SelectMountByAreaAndSkill(target, GetSpellProto(), 71344, 71345, 71346, 71347, 0);
-                        return;
                     case 71563:                             // Deadly Precision
                         target->CastSpell(target, 71564, true, NULL, this);
                         return;
@@ -2637,18 +2625,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                         target->GetPosition(x, y, z);
                         target->GetMotionMaster()->Clear();
                         target->GetMotionMaster()->MovePoint(0, x, y, z + 6.0f * GetStackAmount(), false);
-                        return;
-                    case 72286:                             // Invincible
-                        Spell::SelectMountByAreaAndSkill(target, GetSpellProto(), 72281, 72282, 72283, 72284, 0);
-                        return;
-                    case 74856:                             // Blazing Hippogryph
-                        Spell::SelectMountByAreaAndSkill(target, GetSpellProto(), 0, 0, 74854, 74855, 0);
-                        return;
-                    case 75614:                             // Celestial Steed
-                        Spell::SelectMountByAreaAndSkill(target, GetSpellProto(), 75619, 75620, 75617, 75618, 76153);
-                        return;
-                    case 75973:                             // X-53 Touring Rocket
-                        Spell::SelectMountByAreaAndSkill(target, GetSpellProto(), 0, 0, 75957, 75972, 76154);
                         return;
                 }
                 break;
@@ -9813,6 +9789,14 @@ void Aura::HandleAuraLinked(bool apply, bool Real)
             int32 bp1 = int32(((float)spellInfo->EffectBasePoints[EFFECT_INDEX_1] + bonus) * 100);
             int32 bp2 = int32(((float)spellInfo->EffectBasePoints[EFFECT_INDEX_2] + bonus) * 100);
 
+            // don't lower stats of vehicle, if GS player below then calculation base
+            if (bp0 < 0)
+                bp0 = 0;
+            if (bp1 < 0)
+                bp1 = 0;
+            if (bp2 < 0)
+                bp2 = 0;
+
             pTarget->CastCustomSpell(pTarget, spellInfo, &bp0, &bp1, &bp2, true, NULL, this, GetCasterGuid(), GetSpellProto());
             pTarget->SetHealth(uint32((float)pTarget->GetMaxHealth() * curHealthRatio));
         }
@@ -10147,9 +10131,6 @@ m_permanent(false), m_isRemovedOnShapeLost(true), m_deleted(false), m_in_use(0)
             m_stackAmount = m_spellProto->StackAmount;
             break;
     }
-
-    for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
-        RemoveAura(SpellEffectIndex(i));
 }
 
 void SpellAuraHolder::AddAura(Aura aura, SpellEffectIndex index)
@@ -10249,13 +10230,7 @@ void SpellAuraHolder::_AddSpellAuraHolder()
         }
     }
 
-    uint8 flags = 0;
-    for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
-    {
-        if (GetAuraByEffectIndex(SpellEffectIndex(i)))
-            flags |= (1 << i);
-    }
-    flags |= ((GetCasterGuid() == GetTarget()->GetObjectGuid()) ? AFLAG_NOT_CASTER : AFLAG_NONE) | ((GetSpellMaxDuration(m_spellProto) > 0 && !(m_spellProto->AttributesEx5 & SPELL_ATTR_EX5_NO_DURATION)) ? AFLAG_DURATION : AFLAG_NONE) | (IsPositive() ? AFLAG_POSITIVE : AFLAG_NEGATIVE);
+    uint8 flags = GetAuraFlags() | ((GetCasterGuid() == GetTarget()->GetObjectGuid()) ? AFLAG_NOT_CASTER : AFLAG_NONE) | ((GetSpellMaxDuration(m_spellProto) > 0 && !(m_spellProto->AttributesEx5 & SPELL_ATTR_EX5_NO_DURATION)) ? AFLAG_DURATION : AFLAG_NONE) | (IsPositive() ? AFLAG_POSITIVE : AFLAG_NEGATIVE);
     SetAuraFlags(flags);
 
     SetAuraLevel(caster ? caster->getLevel() : sWorld.getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL));
@@ -10501,6 +10476,9 @@ bool SpellAuraHolder::ModStackAmount(int32 num)
     // Can`t mod
     if (!protoStackAmount)
         return true;
+
+    if (num != 0)
+        HandleSpellSpecificBoostsForward(num > 0);
 
     // Modify stack but limit it
     int32 stackAmount = m_stackAmount + num;
@@ -10893,10 +10871,16 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
             }
             else if (!apply && m_spellProto->SpellFamilyFlags.test<CF_MAGE_ARCANE_MISSILES_CHANNEL>())
             {
-                // Remove missile barrage
                 if (Unit * caster = GetCaster())
+                {
+                    // Remove missile barrage
                     if (caster->HasAura(44401))
                         caster->RemoveAurasByCasterSpell(44401, caster->GetObjectGuid());
+
+                    // Remove Arcane Blast
+                    if (caster->HasAura(36032))
+                        caster->RemoveAurasByCasterSpell(36032, caster->GetObjectGuid());
+                }
             }
 
             switch(GetId())
@@ -11123,6 +11107,16 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
                     int32 heal = aura->GetModifier()->m_amount;
                     caster->CastCustomSpell(m_target, 64801, &heal, NULL, NULL, true, NULL);
                 }
+            }
+            // Rip
+            else if (GetSpellProto()->SpellFamilyFlags.test<CF_DRUID_RIP>())
+            {
+                Unit* caster = GetCaster();
+                if (!caster)
+                    return;
+
+                if (caster->HasAura(63974))                 // Glyph of Shred triggered
+                    caster->RemoveAurasDueToSpell(63974);
             }
             // Barkskin
             else if (GetId()==22812 && m_target->HasAura(63057)) // Glyph of Barkskin
@@ -11631,6 +11625,30 @@ void SpellAuraHolder::HandleSpellSpecificBoostsForward(bool apply)
                 return;
             break;
         }
+        case SPELLFAMILY_HUNTER:
+        {
+            // Cobra strike
+            if (m_spellProto->Id == 53257)
+            {
+                if (m_target->GetObjectGuid().IsPet())
+                {
+                    if (!apply)
+                        if (Unit* owner = ((Pet*)m_target)->GetOwner())
+                            if (SpellAuraHolderPtr holder = owner->GetSpellAuraHolder(m_spellProto->Id))
+                                if (holder->ModStackAmount(-1))
+                                    owner->RemoveSpellAuraHolder(holder);
+                }
+                else if (apply)
+                {
+                    if (Pet* pet = m_target->GetPet())
+                        if (pet->isAlive())
+                            pet->CastSpell(pet,m_spellProto->Id,true);
+                }
+                return;
+            }
+            else
+            break;
+        }
         default:
             return;
     }
@@ -11805,6 +11823,12 @@ bool SpellAuraHolder::IsAreaAura() const
 
 bool SpellAuraHolder::IsPositive() const
 {
+    if (GetAuraFlags() & AFLAG_POSITIVE)
+        return true;
+    else if (GetAuraFlags() & AFLAG_NEGATIVE)
+        return false;
+
+    // check, if no aura flags defined
     for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
         if (Aura const* aur = GetAura(SpellEffectIndex(i)))
             if (!aur->IsPositive())
@@ -11936,6 +11960,11 @@ uint32 Aura::CalculateCrowdControlBreakDamage()
 
     if (damageCap < 50)
         damageCap = 50;
+
+    // some specific values
+    // Hungering Cold - any damage
+    if (GetSpellProto()->SpellIconID == 2797)
+        damageCap = 1;
 
     Unit* caster = GetCaster();
 

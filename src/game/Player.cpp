@@ -1226,11 +1226,6 @@ void Player::Update( uint32 update_diff, uint32 p_time )
         setAttackTimer(RANGED_ATTACK, (update_diff >= ranged_att ? 0 : ranged_att - update_diff) );
     }
 
-    if (uint32 off_att = getAttackTimer(OFF_ATTACK))
-    {
-        setAttackTimer(OFF_ATTACK, (update_diff >= off_att ? 0 : off_att - update_diff) );
-    }
-
     time_t now = time (NULL);
 
     UpdatePvPFlag(now);
@@ -9165,6 +9160,32 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
                 data << uint32(0xe2b) << uint32(0x1);       // 29 3627 Beach1 - Alliance control
                 data << uint32(0xe2a) << uint32(0x1);       // 30 3626 Beach2 - Alliance control
                 // and many unks...
+            }
+            break;
+        case 4710:
+            if (bg && bg->GetTypeID(true) == BATTLEGROUND_IC)
+                bg->FillInitialWorldStates(data, count);
+            else
+            {
+                data << uint32(4221) << uint32(1); // 7
+                data << uint32(4222) << uint32(1); // 8
+                data << uint32(4226) << uint32(300); // 9
+                data << uint32(4227) << uint32(300); // 10
+                data << uint32(4322) << uint32(1); // 11
+                data << uint32(4321) << uint32(1); // 12
+                data << uint32(4320) << uint32(1); // 13
+                data << uint32(4323) << uint32(1); // 14
+                data << uint32(4324) << uint32(1); // 15
+                data << uint32(4325) << uint32(1); // 16
+                data << uint32(4317) << uint32(1); // 17
+
+                data << uint32(4301) << uint32(1); // 18
+                data << uint32(4296) << uint32(1); // 19
+                data << uint32(4306) << uint32(1); // 20
+                data << uint32(4311) << uint32(1); // 21
+                data << uint32(4294) << uint32(1); // 22
+                data << uint32(4243) << uint32(1); // 23
+                data << uint32(4345) << uint32(1); // 24
             }
             break;
         default:
