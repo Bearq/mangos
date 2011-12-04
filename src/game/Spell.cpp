@@ -1768,7 +1768,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 68950:                                 // Fear (ICC: Forge of Souls)
                 case 68912:                                 // Wailing Souls (FoS)
                 case 69048:                                 // Mirrored Soul (FoS)
-                case 69057:                                 // Bone Spike Graveyard (Icecrown Citadel, Lord Marrowgar encounter, 10N)
                 case 69674:                                 // Mutated Infection (Rotface)
                 case 70882:                                 // Slime Spray Summon Trigger (Rotface)
                 case 71224:
@@ -1781,8 +1780,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 73022:                                 // Mutated Infection (heroic)
                 case 73023:                                 // Mutated Infection (heroic)
                 case 73058:                                 // Blood Nova
-                case 73142:                                 // Bone Spike Graveyard (during Bone Storm) (Icecrown Citadel, Lord Marrowgar encounter, 10N)
-                case 73144:                                 // Bone Spike Graveyard (during Bone Storm) (Icecrown Citadel, Lord Marrowgar encounter, 10H)
                 case 51146:                                 // Searching Gaze (Halls Of Stone)
                     unMaxTargets = 1;
                     break;
@@ -1810,10 +1807,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 69055:                                 // Bone Slice (Icecrown Citadel, Lord Marrowgar, normal)
                 case 70814:                                 // Bone Slice (Icecrown Citadel, Lord Marrowgar, heroic)
                 case 71221:                                 // Gas spore - 25 (Festergut)
-                case 70826:                                 // Bone Spike Graveyard (Icecrown Citadel, Lord Marrowgar encounter, 25N)
-                case 72089:                                 // Bone Spike Graveyard (Icecrown Citadel, Lord Marrowgar encounter, 25H)
-                case 73143:                                 // Bone Spike Graveyard (during Bone Storm) (Icecrown Citadel, Lord Marrowgar encounter, 25N)
-                case 73145:                                 // Bone Spike Graveyard (during Bone Storm) (Icecrown Citadel, Lord Marrowgar encounter, 25H)
                 case 72095:                                 // Frozen Orb (Vault of Archavon, Toravon encounter, heroic)
                     unMaxTargets = 3;
                     break;
@@ -1903,10 +1896,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
         {
             switch(m_spellInfo->Id)
             {
-                case 73142:                                 // Bone Spike Graveyard (during Bone Storm) (Icecrown Citadel, Lord Marrowgar encounter, 10N)
-                case 73143:                                 // Bone Spike Graveyard (during Bone Storm) (Icecrown Citadel, Lord Marrowgar encounter, 25N)
-                case 73144:                                 // Bone Spike Graveyard (during Bone Storm) (Icecrown Citadel, Lord Marrowgar encounter, 10H)
-                case 73145:                                 // Bone Spike Graveyard (during Bone Storm) (Icecrown Citadel, Lord Marrowgar encounter, 25H)
                 case 69075:                                 // Bone Storm
                 case 69832:                                 // Unstable Ooze Explosion (Rotface)
                 case 70834:                                 // Bone Storm
@@ -8862,21 +8851,37 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
         case 73144:                                 // Bone Spike Graveyard (during Bone Storm) (Icecrown Citadel, Lord Marrowgar encounter, 10H)
         case 73145:                                 // Bone Spike Graveyard (during Bone Storm) (Icecrown Citadel, Lord Marrowgar encounter, 25H)
         {
+            int maxTargets = 1;
+            switch (m_spellInfo->Id)
+            {
+                case 72089:
+                case 70826:
+                case 73143:
+                case 73145:
+                    maxTargets = 3;
+            }
+
+            radius = DEFAULT_VISIBILITY_INSTANCE;
+
             UnitList tmpUnitMap;
             FillAreaTargets(tmpUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
             if (!tmpUnitMap.empty())
             {
                 for (UnitList::const_iterator itr = tmpUnitMap.begin(); itr != tmpUnitMap.end(); ++itr)
                 {
-                    if (*itr && (*itr)->GetTypeId() == TYPEID_PLAYER)
+                    if (*itr && (*itr)->GetTypeId() == TYPEID_PLAYER && // target players only
+                        m_caster->getVictim() &&                        // don't target tank
+                        m_caster->getVictim()->GetObjectGuid() != (*itr)->GetObjectGuid())
+                    {
                         targetUnitMap.push_back(*itr);
+                    }
                 }
             }
 
             if (!targetUnitMap.empty())
             {
                 // remove random units from the map
-                while (targetUnitMap.size() > 1)
+                while (targetUnitMap.size() > maxTargets)
                 {
                     uint32 poz = urand(0, targetUnitMap.size()-1);
                     for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end(); ++itr, --poz)
