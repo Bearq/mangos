@@ -1055,11 +1055,12 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura
                     target = this;
                     break;
                 }
+                // Essence of the Blood Queen
                 case 70871:
                 {
-                    // Soul of Blood qween
                     triggered_spell_id = 70872;
-                    basepoints[0] = int32(triggerAmount* damage /100);
+                    target = this;
+                    basepoints[0] = int32((damage * triggerAmount) / 100.0f);
                     if (basepoints[0] < 0)
                         return SPELL_AURA_PROC_FAILED;
                     break;

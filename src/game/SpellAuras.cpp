@@ -6005,6 +6005,18 @@ void Aura::HandlePeriodicTriggerSpell(bool apply, bool /*Real*/)
 
             return;
         }
+        case 71265:                                     // Swarming Shadows (Queen Lana'thel)
+        {
+            if (apply)
+            {
+                target->CastSpell(target, 70871, true); // add the buff same as for the Essence
+            }
+            else
+            {
+                target->RemoveAurasDueToSpell(70871); // remove the buff
+            }
+            break;
+        }
     }
 }
 
