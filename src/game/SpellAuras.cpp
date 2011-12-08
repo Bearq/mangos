@@ -351,7 +351,7 @@ pAuraHandler AuraHandler[TOTAL_AURAS]=
     &Aura::HandleNULL,                                      //297 1 spell (counter spell school?)
     &Aura::HandleUnused,                                    //298 unused (3.2.2a)
     &Aura::HandleUnused,                                    //299 unused (3.2.2a)
-    &Aura::HandleAuraShareDamage,                           //300 3 spells, share damage (in percent) with aura owner and aura target. implemented in Unit::DealDamage
+    &Aura::HandleNULL,                                      //300 3 spells, share damage (in percent) with aura owner and aura target. implemented in Unit::DealDamage
     &Aura::HandleNULL,                                      //301 SPELL_AURA_HEAL_ABSORB 5 spells
     &Aura::HandleUnused,                                    //302 unused (3.2.2a)
     &Aura::HandleNULL,                                      //303 17 spells
@@ -2618,10 +2618,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                         return;
                     case 69154:                             // Gaseous Blight (Festergut)
                         target->RemoveAurasDueToSpell(69152); // previous gas state
-                        return;
-                    case 70871:                             // Essence of the Blood Queen (Queen Lana'thel ICC)
-                        if (Unit *pCaster = GetCaster())
-                            target->CastSpell(pCaster, 71952, true);
                         return;
                     case 71563:                             // Deadly Precision
                         target->CastSpell(target, 71564, true, NULL, this);
@@ -9823,10 +9819,7 @@ void Aura::HandleAuraAddMechanicAbilities(bool apply, bool Real)
         if (GetId() == 70877 || GetId() == 71474)
         {
             if (m_removeMode == AURA_REMOVE_BY_EXPIRE)
-            {
-                if (Unit *pCaster = GetCaster())
-                    pCaster->CastSpell(target, 70923, true); // cast Uncontrollable Frenzy
-            }
+                target->CastSpell(target, 70923, true); // cast Uncontrollable Frenzy
         }
     }
 }
@@ -12000,41 +11993,6 @@ uint32 Aura::CalculateCrowdControlBreakDamage()
     return damageCap;
 }
 
-void Aura::HandleAuraShareDamage(bool apply, bool Real)
-{
-    // Invocation of Blood
-    // not sure if all spells should work like that
-    switch (GetId())
-    {
-        case 70952:
-        case 70981:
-        case 70982:
-        {
-            Unit *pTarget = GetTarget();
-
-            if (!pTarget)
-                return;
-
-            if (apply)
-            {
-                Unit *pCaster = GetCaster();
-
-                if (!pCaster)
-                    return;
-
-                pTarget->SetHealthPercent(pCaster->GetHealthPercent());
-            }
-            else
-            {
-                if (pTarget->isAlive())
-                    pTarget->SetHealth(1);
-            }
-
-            break;
-        }
-    }
-}
-
 bool Aura::IsAffectedByCrowdControlEffect(uint32 damage)
 {
     if (!IsCrowdControlAura(m_modifier.m_auraname))
@@ -12048,4 +12006,14 @@ bool Aura::IsAffectedByCrowdControlEffect(uint32 damage)
 
     m_modifier.m_baseamount -= damage;
     return true;
+}
+
+void Aura::HandleAuraAoECharm(bool apply, bool real)
+{
+    if (!real)
+        return;
+
+    // Uncontrollable Frenzy
+    if (GetId() == 70923)
+        GetTarget()->CastSpell(GetTarget(), 73015, true);
 }
