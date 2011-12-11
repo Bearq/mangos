@@ -5571,6 +5571,13 @@ SpellCastResult Spell::CheckCast(bool strict)
                     if (m_caster->GetTypeId() == TYPEID_PLAYER)
                         return SPELL_FAILED_DONT_REPORT;
             }
+
+            // Vampiric Bite (Lana'thel encounter)
+            if (m_spellInfo->Id == 70946 || m_spellInfo->Id == 71475 ||
+                m_spellInfo->Id == 71476 || m_spellInfo->Id == 71477)
+            {
+                return SPELL_FAILED_BAD_TARGETS;
+            }
         }
 
         // check pet presents
