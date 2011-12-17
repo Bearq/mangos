@@ -9076,6 +9076,18 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
 
             break;
         }
+        case 70346: // Slime Puddle
+        case 72868:
+        case 72869:
+        {
+            radius = 5.0f;
+
+            if (Aura *aur = m_caster->GetAura(70343, EFFECT_INDEX_0))
+                radius += aur->GetModifier()->m_miscvalue * 0.12f;
+
+            FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+            break;
+        }
         case 70127: // Mystic Buffet (Sindragosa)
         case 72528:
         case 72529:
