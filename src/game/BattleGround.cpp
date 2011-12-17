@@ -960,7 +960,8 @@ void BattleGround::EndBattleGround(Team winner)
 
             if (IsRandom() || BattleGroundMgr::IsBGWeekend(GetTypeID()))
             {
-                UpdatePlayerScore(plr, SCORE_BONUS_HONOR, GetBonusHonorFromKill(win_kills*4));
+                float honorRate = sWorld.getConfig(CONFIG_FLOAT_RATE_HONOR);
+                UpdatePlayerScore(plr, SCORE_BONUS_HONOR, GetBonusHonorFromKill(win_kills*4) * honorRate);
                 plr->ModifyArenaPoints(win_arena);
                 if(!plr->GetRandomWinner())
                     plr->SetRandomWinner(true);
@@ -972,7 +973,10 @@ void BattleGround::EndBattleGround(Team winner)
         {
             RewardMark(plr,ITEM_LOSER_COUNT);
             if (IsRandom() || BattleGroundMgr::IsBGWeekend(GetTypeID()))
-                UpdatePlayerScore(plr, SCORE_BONUS_HONOR, GetBonusHonorFromKill(loos_kills*4));
+            {
+                float honorRate = sWorld.getConfig(CONFIG_FLOAT_RATE_HONOR);
+                UpdatePlayerScore(plr, SCORE_BONUS_HONOR, GetBonusHonorFromKill(loos_kills*4) * honorRate);
+            }
         }
 
         plr->CombatStopWithPets(true);
