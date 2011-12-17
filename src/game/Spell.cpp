@@ -1790,6 +1790,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 67755:                                 // -> Anub'arak encounter, 10 and 10 heroic)
                 case 68509:                                 // Penetrating Cold (10 man heroic)
                 case 69278:                                 // Gas spore - 10 (Festergut)
+                case 70341:                                 // Slime Puddle (Putricide)
                 case 71336:                                 // Pact of the Darkfallen
                 case 71390:                                 // Pact of the Darkfallen
                 case 63476:                                 // Icicle (Hodir - 10)
@@ -1898,6 +1899,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
             {
                 case 69075:                                 // Bone Storm
                 case 69832:                                 // Unstable Ooze Explosion (Rotface)
+                case 70341:                                 // Slime Puddle (Putricide)
                 case 70834:                                 // Bone Storm
                 case 70835:                                 // Bone Storm
                 case 70836:                                 // Bone Storm

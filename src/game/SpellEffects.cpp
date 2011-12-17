@@ -9598,6 +9598,13 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     unitTarget->NearTeleportTo(fPosX, fPosY, fPosZ+1.0f, -unitTarget->GetOrientation(), false);
                     return;
                 }
+                case 71255:                                 // Choking Gas Bomb (Putricide)
+                {
+                    m_caster->CastSpell(m_caster, m_spellInfo->CalculateSimpleValue(EFFECT_INDEX_0), true);
+                    // second is on random side
+                    m_caster->CastSpell(m_caster, m_spellInfo->CalculateSimpleValue(SpellEffectIndex(urand(1, 2))), true);
+                    return;
+                }
                 case 71446:                                 // Twilight Bloodbolt 10N
                 {
                     if (!unitTarget)
