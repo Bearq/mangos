@@ -592,6 +592,112 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                             unitTarget->CastSpell(unitTarget, 72202, true); // Blood Link
                         break;
                     }
+                    // Mutated Plague (Putricide)
+                    // need to find correct formula
+                    case 72454: // 10normal
+                    {
+                        if (SpellAuraHolderPtr holder = m_caster->GetSpellAuraHolder(72451))
+                        {
+                            uint32 stack = holder->GetStackAmount();
+                            switch(stack)
+                            {
+                                case 2:
+                                    damage = urand(200, 500);
+                                    break;
+                                case 3:
+                                    damage = urand(1000, 1200);
+                                    break;
+                                case 4:
+                                    damage = urand(2500, 3000);
+                                    break;
+                                case 5:
+                                    damage = urand(6500, 7500);
+                                    break;
+                                case 6:
+                                    damage = 3000 * stack;
+                                    break;
+                            }
+                        }
+                        break;
+                    }
+                    case 72464: // 25normal
+                    {
+                        if (SpellAuraHolderPtr holder = m_caster->GetSpellAuraHolder(72463))
+                        {
+                            uint32 stack = holder->GetStackAmount();
+                            switch(stack)
+                            {
+                                case 2:
+                                    damage = urand(500, 1000);
+                                    break;
+                                case 3:
+                                    damage = urand(1800, 2300);
+                                    break;
+                                case 4:
+                                    damage = urand(4200, 4700);
+                                    break;
+                                case 5:
+                                    damage = urand(9000, 9500);
+                                    break;
+                                case 6:
+                                    damage = 3500 * stack;
+                                    break;
+                            }
+                        }
+                        break;
+                    }
+                    case 72506: // 10hero
+                    {
+                        if (SpellAuraHolderPtr holder = m_caster->GetSpellAuraHolder(72745))
+                        {
+                            uint32 stack = holder->GetStackAmount();
+                            switch(stack)
+                            {
+                                case 2:
+                                    damage = urand(400, 800);
+                                    break;
+                                case 3:
+                                    damage = urand(1500, 2000);
+                                    break;
+                                case 4:
+                                    damage = urand(3500, 4000);
+                                    break;
+                                case 5:
+                                    damage = urand(7000, 8000);
+                                    break;
+                                case 6:
+                                    damage = 3500 * stack;
+                                    break;
+                            }
+                        }
+                        break;
+                    }
+                    case 72507: // 25hero
+                    {
+                        if (SpellAuraHolderPtr holder = m_caster->GetSpellAuraHolder(72672))
+                        {
+                            uint32 stack = holder->GetStackAmount();
+                            switch(stack)
+                            {
+                                case 2:
+                                    damage = urand(500, 1000);
+                                    break;
+                                case 3:
+                                    damage = urand(2000, 3000);
+                                    break;
+                                case 4:
+                                    damage = urand(4500, 5500);
+                                    break;
+                                case 5:
+                                    damage = urand(10000, 1200);
+                                    break;
+                                case 6:
+                                    damage = 4000 * stack;
+                                    break;
+                            }
+                        }
+                        break;
+                    }
                     // Shadow Prison
                     case 72999:
                     {
@@ -9638,6 +9744,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     return;
                 }
                 case 71620:                                 // Tear Gas Cancel (Putricide)
+                case 72618:                                 // Mutated Plague Clear (Putricide)
                 {
                     if (unitTarget)
                     {

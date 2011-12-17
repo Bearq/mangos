@@ -5866,6 +5866,19 @@ void Aura::HandleAuraProcTriggerSpell(bool apply, bool Real)
                     ((Creature*)target)->ForcedDespawn();
             }
             break;
+        case 72451:                                         // Mutated Plague (Putricide)
+        case 72463:
+        case 72671:
+        case 72672:
+            if (!apply)
+            {
+                if (Unit *pCaster = GetCaster())
+                {
+                    if (pCaster->isAlive())
+                        target->CastSpell(pCaster, GetModifier()->m_amount, true); // cast healing spell
+                }
+            }
+            break;
         default:
             break;
     }
