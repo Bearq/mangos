@@ -9637,6 +9637,15 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     unitTarget->CastSpell(unitTarget, 71483, true);
                     return;
                 }
+                case 71620:                                 // Tear Gas Cancel (Putricide)
+                {
+                    if (unitTarget)
+                    {
+                        unitTarget->RemoveAurasDueToSpell(m_spellInfo->CalculateSimpleValue(EFFECT_INDEX_0));
+                        unitTarget->RemoveAurasDueToSpell(m_spellInfo->CalculateSimpleValue(EFFECT_INDEX_1));
+                    }
+                    return;
+                }
                 case 71899:                                 // Bloodbolt Whirl 10N
                 {
                     if (!unitTarget)
