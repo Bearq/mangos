@@ -9280,8 +9280,17 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
         case 71482:                                 // Bloodbolt Splash 10H
         case 71483:                                 // Bloodbolt Splash 25H
         {
+            radius = DEFAULT_VISIBILITY_INSTANCE;
             FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_AOE_DAMAGE, GetAffectiveCaster());
             targetUnitMap.remove(m_caster);
+            break;
+        }
+        case 72454:                                 // Mutated Plague (Putricide)
+        case 72464:
+        case 72506:
+        case 72507:
+        {
+            FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_AOE_DAMAGE, GetAffectiveCaster());
             break;
         }
         case 74960:                                     // Infrigidate

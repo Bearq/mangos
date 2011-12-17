@@ -601,6 +601,9 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                             uint32 stack = holder->GetStackAmount();
                             switch(stack)
                             {
+                                case 1:
+                                    // deal normal dmg
+                                    break;
                                 case 2:
                                     damage = urand(200, 500);
                                     break;
@@ -613,7 +616,7 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                                 case 5:
                                     damage = urand(6500, 7500);
                                     break;
-                                case 6:
+                                default:
                                     damage = 3000 * stack;
                                     break;
                             }
@@ -627,6 +630,9 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                             uint32 stack = holder->GetStackAmount();
                             switch(stack)
                             {
+                                case 1:
+                                    // deal normal dmg
+                                    break;
                                 case 2:
                                     damage = urand(500, 1000);
                                     break;
@@ -639,7 +645,7 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                                 case 5:
                                     damage = urand(9000, 9500);
                                     break;
-                                case 6:
+                                default:
                                     damage = 3500 * stack;
                                     break;
                             }
@@ -653,6 +659,9 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                             uint32 stack = holder->GetStackAmount();
                             switch(stack)
                             {
+                                case 1:
+                                    // deal normal dmg
+                                    break;
                                 case 2:
                                     damage = urand(400, 800);
                                     break;
@@ -665,7 +674,7 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                                 case 5:
                                     damage = urand(7000, 8000);
                                     break;
-                                case 6:
+                                default:
                                     damage = 3500 * stack;
                                     break;
                             }
@@ -679,6 +688,9 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                             uint32 stack = holder->GetStackAmount();
                             switch(stack)
                             {
+                                case 1:
+                                    // deal normal dmg
+                                    break;
                                 case 2:
                                     damage = urand(500, 1000);
                                     break;
@@ -691,7 +703,7 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                                 case 5:
                                     damage = urand(10000, 1200);
                                     break;
-                                case 6:
+                                default:
                                     damage = 4000 * stack;
                                     break;
                             }
