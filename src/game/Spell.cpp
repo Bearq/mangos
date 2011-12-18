@@ -9097,6 +9097,14 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             targetUnitMap.remove(m_caster);
             break;
         }
+        case 70402: // Mutated Transformation (Putricide)
+        case 72511:
+        case 72512:
+        case 72513:
+        {
+            FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_FRIENDLY);
+            break;
+        }
         case 70447: // Volatile Ooze Adhesive (Putricide)
         case 72836:
         case 72837:

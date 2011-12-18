@@ -3271,6 +3271,24 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 target->CastCustomSpell(target, 69770, &damage, 0, 0, true, 0, this, GetCasterGuid(), GetSpellProto());
                 return;
             }
+            case 70308:                                     // Mutated Transformation (Putricide)
+            {
+                uint32 entry = 37672;
+
+                if (target->GetMap()->GetDifficulty() == RAID_DIFFICULTY_25MAN_NORMAL ||
+                    target->GetMap()->GetDifficulty() == RAID_DIFFICULTY_25MAN_HEROIC)
+                {
+                    entry = 38285;
+                }
+
+                if (Creature *pAbomination = target->SummonCreature(entry, target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), target->GetOrientation(), TEMPSUMMON_DEAD_DESPAWN, 0))
+                {
+                    target->CastSpell(pAbomination, 46598, true);
+                    pAbomination->CastSpell(pAbomination, 70405, true);
+                }
+
+                return;
+            }
             case 72087:                                     // Kinetic Bomb Knockback
             {
                 float x, y, z;
@@ -5981,6 +5999,13 @@ void Aura::HandlePeriodicTriggerSpell(bool apply, bool /*Real*/)
                         pCaster->CastSpell(pCaster, 66085, true, NULL, this);
                 }
 
+                return;
+            case 70405:                                     // Mutated Transformation (Putricide)
+            case 72508:
+            case 72509:
+            case 72510:
+                if (target->GetTypeId() == TYPEID_UNIT)
+                    ((Creature*)target)->ForcedDespawn();
                 return;
             case 71441:                                     // Unstable Ooze Explosion (Icecrown Citadel encounter)
                 if (m_removeMode == AURA_REMOVE_BY_EXPIRE)
