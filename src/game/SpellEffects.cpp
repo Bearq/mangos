@@ -570,24 +570,29 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                     case 70701:
                     {
                         uint32 stack = 1;
-                        uint32 damage = 0;
+                        int32 extraDamage = 0;
+                        damage = 1;
 
-                        SpellAuraHolderPtr holder = unitTarget->GetSpellAuraHolder(70672);
+                        SpellAuraHolderPtr holder = m_caster->GetSpellAuraHolder(70672);
                         if (!holder)
-                            holder = unitTarget->GetSpellAuraHolder(72455);
+                            holder = m_caster->GetSpellAuraHolder(72455);
                         if (!holder)
-                            holder = unitTarget->GetSpellAuraHolder(72832);
+                            holder = m_caster->GetSpellAuraHolder(72832);
                         if (!holder)
-                            holder = unitTarget->GetSpellAuraHolder(72833);
+                            holder = m_caster->GetSpellAuraHolder(72833);
 
                         if (holder)
                         {
                             stack = holder->GetStackAmount();
-                            damage = holder->GetSpellProto()->CalculateSimpleValue(EFFECT_INDEX_0);
+
+                            if (m_caster->GetMap()->GetDifficulty() >= RAID_DIFFICULTY_25MAN_NORMAL)
+                                extraDamage = 1500;
+                            else
+                                extraDamage = 1250;
                         }
 
-                        for (uint32 i = 0; i < stack; ++i)
-                            damage += damage * i;
+                        for (uint32 i = 1; i <= stack; ++i)
+                            damage += extraDamage * i;
 
                         break;
                     }

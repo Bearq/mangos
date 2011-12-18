@@ -9109,6 +9109,11 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             targetUnitMap.push_back(m_targets.getUnitTarget());
             break;
         }
+        case 70701: // Expunged Gas (Putricide)
+        {
+            FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_FRIENDLY);
+            break;
+        }
         case 70728: // Exploit Weakness triggered
         case 70840: // Devious Minds triggered
         {
