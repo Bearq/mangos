@@ -9190,6 +9190,19 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             }
             break;
         }
+        case 72873: // Malleable Goo (Putricide)
+        case 72874:
+        case 72550:
+        case 72458:
+        case 72549:
+        case 70853:
+        case 72297:
+        case 72548:
+        {
+            FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_ALL);
+            targetUnitMap.remove(m_caster);
+            break;
+        }
         case 72038: // Empowered Shock Vortex (Blood Council)
         case 72815:
         case 72816:
