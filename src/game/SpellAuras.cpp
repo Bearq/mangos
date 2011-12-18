@@ -8314,6 +8314,20 @@ void Aura::PeriodicTick()
                         }
                         break;
                     }
+                    case 70672: // Gaseous Bloat (Putricide)
+                    case 72455:
+                    case 72832:
+                    case 72833:
+                    {
+                        // drop 1 stack
+                        if (GetHolder()->ModStackAmount(-1))
+                        {
+                            target->RemoveAurasDueToSpell(GetId());
+                            return;
+                        }
+
+                        break;
+                    }
                     case 74562: // SPELL_FIERY_COMBUSTION - Ruby sanctum boss Halion, added mark (74567, dummy) every tick
                     {
                         target->CastSpell(target, 74567, true, NULL, NULL, GetCasterGuid());
@@ -10117,6 +10131,10 @@ m_permanent(false), m_isRemovedOnShapeLost(true), m_deleted(false), m_in_use(0)
         case 67108:                                         // Nether Power (ToC: Lord Jaraxxus)
         case 71564:                                         // Deadly Precision
         case 74396:                                         // Fingers of Frost
+        case 70672:                                         // Gaseous Bloat (Putricide)
+        case 72455:
+        case 72832:
+        case 72833:
             m_stackAmount = m_spellProto->StackAmount;
             break;
     }

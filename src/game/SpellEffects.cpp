@@ -566,6 +566,31 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                         damage *= exp(-distance/(27.5f));
                         break;
                     }
+                    // Expunged Gas (Putricide)
+                    case 70701:
+                    {
+                        uint32 stack = 1;
+                        uint32 damage = 0;
+
+                        SpellAuraHolderPtr holder = unitTarget->GetSpellAuraHolder(70672);
+                        if (!holder)
+                            holder = unitTarget->GetSpellAuraHolder(72455);
+                        if (!holder)
+                            holder = unitTarget->GetSpellAuraHolder(72832);
+                        if (!holder)
+                            holder = unitTarget->GetSpellAuraHolder(72833);
+
+                        if (holder)
+                        {
+                            stack = holder->GetStackAmount();
+                            damage = holder->GetSpellProto()->CalculateSimpleValue(EFFECT_INDEX_0);
+                        }
+
+                        for (uint32 i = 0; i < stack; ++i)
+                            damage += damage * i;
+
+                        break;
+                    }
                     // Vampiric Bite (Queen Lana'thel)
                     case 70946:
                     case 71475:

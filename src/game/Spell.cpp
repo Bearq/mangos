@@ -9097,6 +9097,18 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             targetUnitMap.remove(m_caster);
             break;
         }
+        case 70447: // Volatile Ooze Adhesive (Putricide)
+        case 72836:
+        case 72837:
+        case 72838:
+        case 70672: // Gaseous Bloat (Putricide)
+        case 72455:
+        case 72832:
+        case 72833:
+        {
+            targetUnitMap.push_back(m_targets.getUnitTarget());
+            break;
+        }
         case 70728: // Exploit Weakness triggered
         case 70840: // Devious Minds triggered
         {
