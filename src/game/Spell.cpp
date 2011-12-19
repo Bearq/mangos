@@ -9103,6 +9103,13 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
         case 72513:
         {
             FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_FRIENDLY);
+            for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end();)
+            {
+                if ((*itr) && (*itr)->GetObjectGuid().IsVehicle())
+                    itr = targetUnitMap.erase(itr);
+                else
+                    ++itr;
+            }
             break;
         }
         case 70447: // Volatile Ooze Adhesive (Putricide)
@@ -9120,6 +9127,13 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
         case 70701: // Expunged Gas (Putricide)
         {
             FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_FRIENDLY);
+            for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end();)
+            {
+                if ((*itr) && (*itr)->GetObjectGuid().IsVehicle())
+                    itr = targetUnitMap.erase(itr);
+                else
+                    ++itr;
+            }
             break;
         }
         case 70728: // Exploit Weakness triggered
@@ -9209,6 +9223,13 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
         {
             FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_ALL);
             targetUnitMap.remove(m_caster);
+            for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end();)
+            {
+                if ((*itr) && (*itr)->GetObjectGuid().IsVehicle())
+                    itr = targetUnitMap.erase(itr);
+                else
+                    ++itr;
+            }
             break;
         }
         case 72038: // Empowered Shock Vortex (Blood Council)
@@ -9329,6 +9350,13 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
         {
             radius = DEFAULT_VISIBILITY_INSTANCE;
             FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_AOE_DAMAGE, GetAffectiveCaster());
+            for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end();)
+            {
+                if ((*itr) && (*itr)->GetObjectGuid().IsVehicle())
+                    itr = targetUnitMap.erase(itr);
+                else
+                    ++itr;
+            }
             break;
         }
         case 74960:                                     // Infrigidate
