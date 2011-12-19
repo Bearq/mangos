@@ -1770,7 +1770,8 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 69048:                                 // Mirrored Soul (FoS)
                 case 69674:                                 // Mutated Infection (Rotface)
                 case 70882:                                 // Slime Spray Summon Trigger (Rotface)
-                case 71224:
+                case 70920:                                 // Unbound Plague Search Effect (Putricide)
+                case 71224:                                 // Mutated Infection (Rotface)
                 case 71307:                                 // Vile Gas (Rotface, Festergut)
                 case 71908:                                 // Vile Gas (Rotface, Festergut)
                 case 72091:                                 // Frozen Orb (Vault of Archavon, Toravon encounter, normal)
@@ -9153,6 +9154,52 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                        if (Pet* pet = m_caster->GetMap()->GetPet(*itr))
                            targetUnitMap.push_back((Unit*)pet);
             }
+            break;
+        }
+        case 70911: // Unbound Plague (Putricide)
+        case 72854:
+        case 72855:
+        case 72856:
+        {
+            if (m_targets.getUnitTarget())
+                targetUnitMap.push_back(m_targets.getUnitTarget());
+
+            break;
+        }
+        case 70920: // Unbound Plague Search Effect (Putricide)
+        {
+            UnitList tempTargetUnitMap;
+            FillAreaTargets(tempTargetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_ALL);
+            for (UnitList::const_iterator iter = tempTargetUnitMap.begin(); iter != tempTargetUnitMap.end(); ++iter)
+            {
+                // target only other players which dont have Mutated Transformation aura on self
+                if ((*iter) && (*iter)->GetTypeId() == TYPEID_PLAYER &&
+                    (*iter) != m_caster && !(*iter)->GetDummyAura(70308))
+                {
+                    targetUnitMap.push_back(*iter);
+                }
+            }
+            
+            // random 1 target
+            if (!targetUnitMap.empty())
+            {
+                // remove random units from the map
+                while (targetUnitMap.size() > 1)
+                {
+                    uint32 poz = urand(0, targetUnitMap.size()-1);
+                    for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end(); ++itr, --poz)
+                    {
+                        if (!*itr) continue;
+
+                        if (!poz)
+                        {
+                            targetUnitMap.erase(itr);
+                            break;
+                        }
+                    }
+                }
+            }
+
             break;
         }
         case 71075: // Invocation of Blood (V) Move

@@ -6549,6 +6549,29 @@ void Aura::HandlePeriodicDamage(bool apply, bool Real)
         else if (spellProto->Id == 54361 || spellProto->Id == 59743)
             target->CastSpell(target, 54343, true, NULL, NULL, GetCasterGuid());
     }
+
+    // Unbound Plague (Putricide)
+    switch (GetId())
+    {
+        case 70911:
+        case 72854:
+        case 72855:
+        case 72856:
+        {
+            if (apply)
+            {
+                target->CastSpell(target, 70917, true); // Search Periodic
+                target->CastSpell(target, 70955, true); // Bounce Protection
+            }
+            else
+            {
+                target->RemoveAurasDueToSpell(70917); // remove Search Periodic
+                target->CastSpell(target, 70953, true); // Plague Sickness
+            }
+
+            break;
+        }
+    }
 }
 
 void Aura::HandlePeriodicDamagePCT(bool apply, bool /*Real*/)
@@ -8378,6 +8401,15 @@ void Aura::PeriodicTick()
                     case 67296:
                     case 67298:
                         pCaster->CastSpell(target, 65952, true);
+                        break;
+                    // Unbound Plague (Putricide)
+                    case 70911:
+                    case 72854:
+                    case 72855:
+                    case 72856:
+                        m_modifier.m_miscvalue += 1; // store ticks number in miscvalue
+                        m_modifier.m_amount = m_modifier.m_baseamount * pow(2.7f, m_modifier.m_miscvalue * 0.223f);
+                        sLog.outDebug("========    TICK!  %d  %d   %d   ==========", m_modifier.m_baseamount, m_modifier.m_amount, m_modifier.m_miscvalue);
                         break;
                     // Boiling Blood (Saurfang)
                     case 72385:
