@@ -9746,6 +9746,25 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     unitTarget->NearTeleportTo(fPosX, fPosY, fPosZ+1.0f, -unitTarget->GetOrientation(), false);
                     return;
                 }
+                case 70360:                                 // Eat Ooze (Putricide)
+                {
+                    if (!unitTarget)
+                        return;
+
+                    if (SpellAuraHolderPtr holder = unitTarget->GetSpellAuraHolder(70347))
+                    {
+                        if (holder->GetStackAmount() <= 3)
+                        {
+                            if (unitTarget->GetTypeId() == TYPEID_UNIT)
+                                ((Creature*)unitTarget)->ForcedDespawn();
+                            else
+                                unitTarget->RemoveAurasDueToSpell(70347);
+                        }
+                        else
+                            holder->ModStackAmount(-3);
+                    }
+                    return;
+                }
                 case 71255:                                 // Choking Gas Bomb (Putricide)
                 {
                     m_caster->CastSpell(m_caster, m_spellInfo->CalculateSimpleValue(EFFECT_INDEX_0), true);

@@ -9082,8 +9082,8 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
         {
             radius = 5.0f;
 
-            if (Aura *aur = m_caster->GetAura(70343, EFFECT_INDEX_0))
-                radius += aur->GetModifier()->m_miscvalue * 0.12f;
+            if (SpellAuraHolderPtr holder = m_caster->GetSpellAuraHolder(70347))
+                radius += holder->GetStackAmount() * 0.2f;
 
             FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_AOE_DAMAGE);
             break;
