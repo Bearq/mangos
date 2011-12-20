@@ -3289,6 +3289,11 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
 
                 return;
             }
+            case 70955:                                     // Unbound Plague Bounce Protection (Putricide)
+            {
+                target->CastSpell(target, 70917, true); // Search Periodic
+                return;
+            }
             case 72087:                                     // Kinetic Bomb Knockback
             {
                 float x, y, z;
@@ -6560,8 +6565,16 @@ void Aura::HandlePeriodicDamage(bool apply, bool Real)
         {
             if (apply)
             {
-                target->CastSpell(target, 70917, true); // Search Periodic
                 target->CastSpell(target, 70955, true); // Bounce Protection
+                if (Unit *pCaster = GetCaster())
+                {
+                    if (SpellAuraHolderPtr holder = pCaster->GetSpellAuraHolder(GetId()))
+                    {
+                        GetHolder()->SetAuraDuration(holder->GetAuraDuration());
+                        GetHolder()->RefreshHolder();
+                        pCaster->RemoveAurasDueToSpell(GetId());
+                    }
+                }
             }
             else
             {
