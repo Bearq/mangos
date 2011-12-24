@@ -9701,7 +9701,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                         if (SpellAuraHolderPtr holder = unitTarget->GetSpellAuraHolder(m_spellInfo->Id))
                         {
                             if (holder->GetStackAmount() >= 4)
-                                unitTarget->CastSpell(unitTarget, 69839, true); // Unstable Ooze Explosion
+                                unitTarget->CastSpell(unitTarget, 69839, false); // Unstable Ooze Explosion
                         }
                     }
                     return;

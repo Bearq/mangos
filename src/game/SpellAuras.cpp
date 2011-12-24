@@ -10886,11 +10886,14 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
                     break;
                 }
                 case 69674:                                 // Mutated Infection
+                case 71224:
+                case 73022:
+                case 73023:
                 {
                     if (!apply)
                     {
                         cast_at_remove = true;
-                        spellId1 = GetSpellProto() ? GetSpellProto()->CalculateSimpleValue(EFFECT_INDEX_2) : 0;
+                        spellId1 = (GetSpellProto() ? GetSpellProto()->CalculateSimpleValue(EFFECT_INDEX_2) : 0);
                     }
                     break;
                 }
