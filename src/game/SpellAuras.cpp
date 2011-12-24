@@ -6012,10 +6012,8 @@ void Aura::HandlePeriodicTriggerSpell(bool apply, bool /*Real*/)
                 if (target->GetTypeId() == TYPEID_UNIT)
                     ((Creature*)target)->ForcedDespawn();
                 return;
-            case 71441:                                     // Unstable Ooze Explosion (Icecrown Citadel encounter)
-                if (m_removeMode == AURA_REMOVE_BY_EXPIRE)
-                    target->CastSpell(target, 67375, true, NULL, this);
-
+            case 71441:                                     // Unstable Ooze Explosion (Rotface)
+                target->CastSpell(target, 67375, true);
                 return;
             default:
                 break;
