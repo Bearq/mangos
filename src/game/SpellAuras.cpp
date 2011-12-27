@@ -8420,7 +8420,6 @@ void Aura::PeriodicTick()
                     case 72856:
                         m_modifier.m_miscvalue += 1; // store ticks number in miscvalue
                         m_modifier.m_amount = m_modifier.m_baseamount * pow(2.7f, m_modifier.m_miscvalue * 0.223f);
-                        sLog.outDebug("========    TICK!  %d  %d   %d   ==========", m_modifier.m_baseamount, m_modifier.m_amount, m_modifier.m_miscvalue);
                         break;
                     // Boiling Blood (Saurfang)
                     case 72385:
