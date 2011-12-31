@@ -9575,7 +9575,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                 case 73031:
                 case 73032:
                 {
-                    // TODO: get proper difficulty spell?
                     m_caster->RemoveAurasDueToSpell(m_spellInfo->CalculateSimpleValue(eff_idx));
                     return;
                 }

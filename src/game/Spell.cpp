@@ -1772,15 +1772,9 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 70882:                                 // Slime Spray Summon Trigger (Rotface)
                 case 70920:                                 // Unbound Plague Search Effect (Putricide)
                 case 71224:                                 // Mutated Infection (Rotface)
-                case 71307:                                 // Vile Gas (Rotface, Festergut)
-                case 71908:                                 // Vile Gas (Rotface, Festergut)
                 case 72091:                                 // Frozen Orb (Vault of Archavon, Toravon encounter, normal)
-                case 72270:                                 // Vile Gas (Rotface, Festergut)
-                case 72271:                                 // Vile Gas (Rotface, Festergut)
-                case 72378:                                 // Blood Nova (Saurfang)
                 case 73022:                                 // Mutated Infection (heroic)
                 case 73023:                                 // Mutated Infection (heroic)
-                case 73058:                                 // Blood Nova
                 case 51146:                                 // Searching Gaze (Halls Of Stone)
                     unMaxTargets = 1;
                     break;
@@ -1790,6 +1784,7 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 66332:                                 // Nerubian Burrower (Trial of the Crusader, ->
                 case 67755:                                 // -> Anub'arak encounter, 10 and 10 heroic)
                 case 68509:                                 // Penetrating Cold (10 man heroic)
+                case 69055:                                 // Bone Slice (Icecrown Citadel, Lord Marrowgar, normal)
                 case 69278:                                 // Gas spore - 10 (Festergut)
                 case 70341:                                 // Slime Puddle (Putricide)
                 case 71336:                                 // Pact of the Darkfallen
@@ -1806,7 +1801,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 60936:                                 // Surge of Power (h) (Malygos)
                 case 61693:                                 // Arcane Storm (Malygos) (N)
                 case 62477:                                 // Icicle (Hodir 25man)
-                case 69055:                                 // Bone Slice (Icecrown Citadel, Lord Marrowgar, normal)
                 case 70814:                                 // Bone Slice (Icecrown Citadel, Lord Marrowgar, heroic)
                 case 71221:                                 // Gas spore - 25 (Festergut)
                 case 72095:                                 // Frozen Orb (Vault of Archavon, Toravon encounter, heroic)
