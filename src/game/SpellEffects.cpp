@@ -8670,7 +8670,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                 {
                     if (unitTarget)
                         SelectMountByAreaAndSkill(unitTarget, m_spellInfo, 0, 0, 75957, 75972, 76154);
-                    return
+                    return;
                 }
                 case 47703:                                 // Unholy Union for Quest In Service of the Unholy
                 {
