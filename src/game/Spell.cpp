@@ -3526,7 +3526,7 @@ void Spell::prepare(SpellCastTargets const* targets, Aura* triggeredByAura)
     // Fill cost data
     m_powerCost = CalculatePowerCost(m_spellInfo, m_caster, this, m_CastItem);
 
-    // Slam (hacky hacky hack, double rage cost fix)
+    // Slam (hacky hacky hack, double rage cost hackfix)
     if (m_spellInfo->Id == 50782)
         m_powerCost = 0;
 
