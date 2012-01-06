@@ -1895,6 +1895,10 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 69075:                                 // Bone Storm
                 case 69832:                                 // Unstable Ooze Explosion (Rotface)
                 case 70341:                                 // Slime Puddle (Putricide)
+                case 70541:                                 // Infest (Lich King)
+                case 73779:
+                case 73780:
+                case 73781:
                 case 70834:                                 // Bone Storm
                 case 70835:                                 // Bone Storm
                 case 70836:                                 // Bone Storm
