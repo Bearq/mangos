@@ -9928,6 +9928,12 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                         unitTarget->CastSpell(unitTarget, m_spellInfo->CalculateSimpleValue(eff_idx), true, 0, 0, m_caster->GetObjectGuid(), m_spellInfo);
                     return;
                 }
+                case 72429:                                 // Mass Resurrection (Lich King encounter)
+                {
+                    if (unitTarget)
+                        m_caster->CastSpell(unitTarget, 72423, true);
+                    return;
+                }
                 case 72705:                                 // Coldflame (in bone storm, Lord Marrowgar - Icecrown Citadel)
                 {
                     m_caster->CastSpell(m_caster, 72701, true);

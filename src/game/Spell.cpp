@@ -9416,6 +9416,19 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             targetUnitMap.remove(m_caster);
             break;
         }
+        case 72376:                                 // Raise Dead (Lich King)
+        case 72429:                                 // Mass Resurrection (Lich King)
+        {
+            radius = DEFAULT_VISIBILITY_INSTANCE;
+            UnitList tempTargetUnitMap;
+            FillAreaTargets(tempTargetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_ALL);
+            for (UnitList::iterator itr = tempTargetUnitMap.begin(); itr != tempTargetUnitMap.end();++itr)
+            {
+                if ((*itr) && (*itr)->GetTypeId() == TYPEID_PLAYER && !(*itr)->isAlive())
+                    targetUnitMap.push_back(*itr);
+            }
+            break;
+        }
         case 72454:                                 // Mutated Plague (Putricide)
         case 72464:
         case 72506:
