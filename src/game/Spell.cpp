@@ -9424,6 +9424,19 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             targetUnitMap.remove(m_caster);
             break;
         }
+        case 72133:                                 // Pain and Suffering (Lich King)
+        case 73788:
+        case 73789:
+        case 73790:
+        {
+            // keep standard chain targeting for dummy effect
+            if (i == EFFECT_INDEX_0)
+                return false;
+
+            FillAreaTargets(targetUnitMap, radius, PUSH_IN_FRONT_15, SPELL_TARGETS_AOE_DAMAGE);
+
+            break;
+        }
         case 72376:                                 // Raise Dead (Lich King)
         case 72429:                                 // Mass Resurrection (Lich King)
         {
