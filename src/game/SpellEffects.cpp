@@ -3274,6 +3274,20 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     m_caster->GetMotionMaster()->MovementExpired();
                     return;
                 }
+                case 69110:                                 // Ice Burst Target Search (Lich King)
+                {
+                    if (unitTarget)
+                    {
+                        if (unitTarget->GetTypeId() == TYPEID_PLAYER)
+                        {
+                            m_caster->CastSpell(m_caster, 69108, true);
+
+                            if (m_caster->GetTypeId() == TYPEID_UNIT)
+                                ((Creature*)m_caster)->ForcedDespawn(800);
+                        }
+                    }
+                    return;
+                }
                 case 69675:                                 // Ice Tomb (Sindragosa)
                 {
                     if (unitTarget)

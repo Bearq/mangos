@@ -8909,6 +8909,14 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             }
             break;
         }
+        case 69099: // Ice Pulse (Lich King)
+        case 73776:
+        case 73777:
+        case 73778:
+        {
+            FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE, GetAffectiveCaster());
+            break;
+        }
         case 69782: // Ooze Flood (Rotface)
         {
             UnitList tempTargetUnitMap;
