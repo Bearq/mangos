@@ -8360,7 +8360,7 @@ void Aura::PeriodicTick()
                         }
                         break;
                     }
-                    case 70541:
+                    case 70541: // Infest (Lich King)
                     case 73779:
                     case 73780:
                     case 73781:
@@ -8369,6 +8369,15 @@ void Aura::PeriodicTick()
                         {
                             target->RemoveAurasDueToSpell(GetId());
                             return;
+                        }
+                        else
+                        {
+                            // increasing damage (15% more each tick)
+                            // don't increase first tick damage
+                            if (GetModifier()->m_miscvalue > 0)
+                                GetModifier()->m_amount = GetModifier()->m_amount * 1.15f;
+                            else
+                                GetModifier()->m_miscvalue += 1;
                         }
                         break;
                     }
