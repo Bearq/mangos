@@ -9466,6 +9466,18 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             }
             break;
         }
+        case 73529:                                     // Shadow Trap triggered knockback (Lich King)
+        {
+            radius = 10.0f;
+            FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+            break;
+        }
+        case 74282:                                     // Shadow Trap (search target) (Lich King)
+        {
+            radius = 5.0f;
+            FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+            break;
+        }
         case 74960:                                     // Infrigidate
         {
             UnitList tempTargetUnitMap;

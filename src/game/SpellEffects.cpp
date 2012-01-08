@@ -9972,6 +9972,18 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                         unitTarget->CastSpell(unitTarget, 72865, true, NULL, NULL, m_originalCasterGUID);
                     return;
                 }
+                case 74282:                                 // Shadow Trap (Lich King)
+                {
+                    if (unitTarget)
+                    {
+                        m_caster->CastSpell(m_caster, 73529, true);
+                        m_caster->RemoveAurasDueToSpell(73525);
+
+                        if (m_caster->GetTypeId() == TYPEID_UNIT)
+                            ((Creature*)m_caster)->ForcedDespawn(800);
+                    }
+                    return;
+                }
             }
             break;
         }
