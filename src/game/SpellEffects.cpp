@@ -566,6 +566,17 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                         damage *= exp(-distance/(27.5f));
                         break;
                     }
+                    // Spirit Burst
+                    case 70503:
+                    case 73806:
+                    case 73807:
+                    case 73808:
+                    {
+                        if (m_caster->GetTypeId() == TYPEID_UNIT)
+                            ((Creature*)m_caster)->ForcedDespawn(1000);
+
+                        break;
+                    }
                     // Expunged Gas (Putricide)
                     case 70701:
                     {
@@ -738,6 +749,17 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                                     break;
                             }
                         }
+                        break;
+                    }
+                    // Defile
+                    case 72754:
+                    case 73708:
+                    case 73709:
+                    case 73710:
+                    {
+                        if (!unitTarget->GetDummyAura(m_spellInfo->Id))
+                            unitTarget->CastSpell(m_caster, 72756, true);
+
                         break;
                     }
                     // Shadow Prison
@@ -3330,6 +3352,17 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
 
                     // Return Tempered Quel'Delar
                     unitTarget->CastSpell(m_caster, 69956, true);
+                    return;
+                }
+                case 70534:                                 // Vile Spirit Damage Target Search (Lich King)
+                {
+                    if (unitTarget)
+                    {
+                        m_caster->CastSpell(m_caster, 70503, true);
+                        m_caster->RemoveAurasDueToSpell(70502);
+                        if (m_caster->GetTypeId() == TYPEID_UNIT)
+                            ((Creature*)m_caster)->ForcedDespawn(1000);
+                    }
                     return;
                 }
                 case 70769:                                 // Divine Storm!

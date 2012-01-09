@@ -9131,6 +9131,39 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             targetUnitMap.push_back(m_targets.getUnitTarget());
             break;
         }
+        case 70499: // Vile Spirits Visual Effect (Lich King)
+        {
+            radius = 100.0f;
+            FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_ALL);
+            for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end();)
+            {
+                if (!(*itr) || (*itr)->GetEntry() != 37799)
+                    itr = targetUnitMap.erase(itr);
+                else
+                    ++itr;
+            }
+
+            // random 1 target
+            if (!targetUnitMap.empty())
+            {
+                // remove random units from the map
+                while (targetUnitMap.size() > 1)
+                {
+                    uint32 poz = urand(0, targetUnitMap.size()-1);
+                    for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end(); ++itr, --poz)
+                    {
+                        if (!*itr) continue;
+
+                        if (!poz)
+                        {
+                            targetUnitMap.erase(itr);
+                            break;
+                        }
+                    }
+                }
+            }
+            break;
+        }
         case 70701: // Expunged Gas (Putricide)
         {
             FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_FRIENDLY);
@@ -9464,6 +9497,30 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                 else
                     ++itr;
             }
+            break;
+        }
+        case 72754:                                     // Defile
+        case 73708:
+        case 73709:
+        case 73710:
+        {
+            // base radius
+            radius = 10.0f;
+
+            // 10man normal - 10% growth
+            if (SpellAuraHolderPtr holder = m_caster->GetSpellAuraHolder(72756))
+                radius += holder->GetStackAmount() * 1.0f;
+            // 25man normal - 5% growth
+            else if (SpellAuraHolderPtr holder = m_caster->GetSpellAuraHolder(74162))
+                radius += holder->GetStackAmount() * 0.5f;
+            // 10man heroic - 10% growth
+            else if (SpellAuraHolderPtr holder = m_caster->GetSpellAuraHolder(74163))
+                radius += holder->GetStackAmount() * 1.0f;
+            // 25man heroic - 5% growth
+            else if (SpellAuraHolderPtr holder = m_caster->GetSpellAuraHolder(74164))
+                radius += holder->GetStackAmount() * 2.0f;
+
+            FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_AOE_DAMAGE);
             break;
         }
         case 73529:                                     // Shadow Trap triggered knockback (Lich King)

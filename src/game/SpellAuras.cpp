@@ -9464,6 +9464,21 @@ void Aura::PeriodicDummyTick()
                         target->CastSpell(target, spell->CalculateSimpleValue(GetEffIndex()), true);
                     return;
                 }
+                case 70498:                                   // Vile Spirits (Lich King)
+                {
+                    if (target)
+                    {
+                        if (target->GetMap()->GetDifficulty() == RAID_DIFFICULTY_10MAN_NORMAL)
+                        {
+                            // on 10man normal max 8 spirits
+                            if (GetModifier()->m_miscvalue > 7)
+                                return;
+                        }
+
+                        target->CastSpell(target, 70497, true);
+                    }
+                    return;
+                }
                 case 73001:                                   // Shadow Prison (Blood Council)
                 {
                     // cast dmg spell when moving
@@ -10849,6 +10864,17 @@ void SpellAuraHolder::HandleSpellSpecificBoosts(bool apply)
                 case 63277:                                 // Shadow Crash (General Vezax - Ulduar)
                 {
                     spellId1 = 65269;
+                    break;
+                }
+                case 69409:                                 // Soul Reaper (Lich King)
+                case 73797:
+                case 73798:
+                case 73799:
+                {
+                    Unit *pCaster = GetCaster();
+                    if (!apply && pCaster)
+                        m_target->CastSpell(pCaster, 69410, true);
+
                     break;
                 }
                 case 70157:                                 // Ice Tomb (Sindragosa)
