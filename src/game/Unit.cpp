@@ -12291,7 +12291,7 @@ void Unit::ExitVehicle()
     float x = GetPositionX();
     float y = GetPositionY();
     float z = GetPositionZ() + 2.0f;
-    GetClosePoint(x, y, z, 2.0f);
+    // GetClosePoint(x, y, z, 2.0f);
     //UpdateAllowedPositionZ(x, y, z);
     MonsterMoveWithSpeed(x, y, z + 0.5f, 28);
 }

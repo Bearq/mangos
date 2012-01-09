@@ -136,7 +136,10 @@ bool VehicleKit::AddPassenger(Unit *passenger, int8 seatId)
         {
             if (!seat->second.passenger && (seat->second.seatInfo->IsUsable() || (seat->second.seatInfo->m_flags & SEAT_FLAG_UNCONTROLLED)))
                 break;
-            if (GetBase()->GetEntry() == 37672 || GetBase()->GetEntry() == 38285)
+
+            // some weird behaviour of some vehicles: Abomination (Putricide) and Val'kyrs (Lich King)
+            if (GetBase()->GetEntry() == 37672 || GetBase()->GetEntry() == 38285 ||
+                GetBase()->GetEntry() == 36609)
                 break;
         }
 

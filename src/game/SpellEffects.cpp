@@ -3274,6 +3274,12 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     m_caster->GetMotionMaster()->MovementExpired();
                     return;
                 }
+                case 68576:                                 // Eject All Passengers (also used in encounters Lich King, Jaraxxus?)
+                {
+                    if (VehicleKit *pVK = m_caster->GetVehicleKit())
+                        pVK->RemoveAllPassengers();
+                    return;
+                }
                 case 69110:                                 // Ice Burst Target Search (Lich King)
                 {
                     if (unitTarget)
