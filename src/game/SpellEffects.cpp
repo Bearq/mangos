@@ -748,6 +748,17 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
 
                         break;
                     }
+                    // Life Siphon (Lich King)
+                    case 73488:
+                    case 73782:
+                    case 73783:
+                    case 73784:
+                    {
+                        // heals caster for damage done * 10
+                        int32 bp0 = damage * 10;
+                        m_caster->CastCustomSpell(m_caster, 73489, &bp0, 0, 0, true);
+                        break;
+                    }
                     case 74607:
                     // SPELL_FIERY_COMBUSTION_EXPLODE - Ruby sanctum boss Halion,
                     // damage proportional number of mark (74567, dummy)
