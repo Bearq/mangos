@@ -6553,10 +6553,9 @@ void Aura::HandlePeriodicDamage(bool apply, bool Real)
             target->CastSpell(target, 54343, true, NULL, NULL, GetCasterGuid());
     }
 
-    // Unbound Plague (Putricide)
     switch (GetId())
     {
-        case 70911:
+        case 70911:                             // Unbound Plague (Putricide)
         case 72854:
         case 72855:
         case 72856:
@@ -11732,6 +11731,52 @@ void SpellAuraHolder::HandleSpellSpecificBoostsForward(bool apply)
 
     switch(GetSpellProto()->SpellFamilyName)
     {
+        case SPELLFAMILY_GENERIC:
+        {
+            switch(GetId())
+            {
+                case 70337:                                 // Necrotic Plague (Lich King)
+                case 73912:
+                case 73913:
+                case 73914:
+                {
+                    if (!apply)
+                    {
+                        GetTarget()->CastSpell(GetTarget(), 70338, true);
+                        if (m_removeMode != AURA_REMOVE_BY_DISPEL)
+                            GetTarget()->CastSpell(GetTarget(), 70338, true);
+                    }
+                    break;
+                }
+                case 70338:                                 // Necrotic Plague (stacking) (Lich King)
+                case 73785:
+                case 73786:
+                case 73787:
+                {
+                    if (apply)
+                    {
+                        GetTarget()->CastSpell(GetTarget(), 74074, true); // Plague Siphon
+
+                        if (Unit *caster = GetCaster())
+                        {
+                            if (SpellAuraHolderPtr holder = caster->GetSpellAuraHolder(GetId()))
+                                SetStackAmount(holder->GetStackAmount());
+                        }
+                    }
+                    else if (m_removeMode != AURA_REMOVE_BY_DEFAULT)
+                    {
+                        if (m_removeMode == AURA_REMOVE_BY_DISPEL && m_stackAmount > 1)
+                            --m_stackAmount;
+                        else
+                            ++m_stackAmount;
+
+                        GetTarget()->CastSpell(GetTarget(), 70338, true);
+                    }
+                    break;
+                }
+            }
+            break;
+        }
         case SPELLFAMILY_WARLOCK:
         {
             // Shadow embrace (healing reduction part)

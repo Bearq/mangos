@@ -4998,6 +4998,12 @@ void Unit::RemoveAuraHolderDueToSpellByDispel(uint32 spellId, uint32 stackAmount
             }
         }
     }
+    // Necrotic Plague (Lich King)
+    // this hack needs correct implementation
+    else if (spellId == 70338)
+    {
+        RemoveSpellAuraHolder(GetSpellAuraHolder(spellId), AURA_REMOVE_BY_DISPEL);
+    }
 
     RemoveAuraHolderFromStack(spellId, stackAmount, casterGuid, AURA_REMOVE_BY_DISPEL);
 }

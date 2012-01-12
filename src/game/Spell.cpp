@@ -9104,6 +9104,28 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             targetUnitMap.remove(m_caster);
             break;
         }
+        case 70338: // Necrotic Plague
+        case 73785:
+        case 73786:
+        case 73787:
+        {
+            FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_ALL);
+            targetUnitMap.remove(m_caster);
+            for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end();)
+            {
+                // Lich King has Plague Avoidance aura
+                if (!(*itr) || (*itr)->GetDummyAura(72846))
+                    itr = targetUnitMap.erase(itr);
+                else
+                    ++itr;
+            }
+            if (!targetUnitMap.empty() && targetUnitMap.size() > 1)
+            {
+                targetUnitMap.sort(TargetDistanceOrderNear(m_caster));
+                targetUnitMap.resize(1);
+            }
+            break;
+        }
         case 70402: // Mutated Transformation (Putricide)
         case 72511:
         case 72512:

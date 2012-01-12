@@ -757,6 +757,8 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                     case 73709:
                     case 73710:
                     {
+                        damage = damage * m_caster->GetObjectScale();
+
                         if (!unitTarget->GetDummyAura(m_spellInfo->Id))
                             unitTarget->CastSpell(m_caster, 72756, true);
 
@@ -3309,8 +3311,7 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                 }
                 case 68576:                                 // Eject All Passengers (also used in encounters Lich King, Jaraxxus?)
                 {
-                    if (VehicleKit *pVK = m_caster->GetVehicleKit())
-                        pVK->RemoveAllPassengers();
+                    m_caster->RemoveSpellsCausingAura(SPELL_AURA_CONTROL_VEHICLE);
                     return;
                 }
                 case 69110:                                 // Ice Burst Target Search (Lich King)
