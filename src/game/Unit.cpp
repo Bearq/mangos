@@ -4501,9 +4501,23 @@ bool Unit::AddSpellAuraHolder(SpellAuraHolderPtr holder)
         for (SpellAuraHolderMap::iterator iter = spair.first; iter != spair.second; ++iter)
         {
             SpellAuraHolderPtr foundHolder = iter->second;
+
+            // stack some specific spells
+            bool bIsSpellStackingCustom = false;
+            switch(holder->GetId())
+            {
+                case 70338: // Necrotic Plague (Lich King)
+                case 73785:
+                case 73786:
+                case 73787:
+                case 74074: // Plague Siphon (Lich King)
+                    bIsSpellStackingCustom = true;
+                    break;
+            }
+
             if (foundHolder && !foundHolder->IsDeleted() &&
-                foundHolder->GetCasterGuid() == holder->GetCasterGuid() ||
-                foundHolder->GetCasterGuid().IsCreatureOrPet() && holder->GetCasterGuid().IsCreatureOrPet())
+                (foundHolder->GetCasterGuid() == holder->GetCasterGuid() || bIsSpellStackingCustom ||
+                foundHolder->GetCasterGuid().IsCreatureOrPet() && holder->GetCasterGuid().IsCreatureOrPet()))
             {
                 // Aura can stack on self -> Stack it;
                 if (aurSpellInfo->StackAmount)
