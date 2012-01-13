@@ -3362,7 +3362,10 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                         m_caster->CastSpell(m_caster, 70503, true);
                         m_caster->RemoveAurasDueToSpell(70502);
                         if (m_caster->GetTypeId() == TYPEID_UNIT)
+                        {
+                            m_caster->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
                             ((Creature*)m_caster)->ForcedDespawn(1000);
+                        }
                     }
                     return;
                 }
