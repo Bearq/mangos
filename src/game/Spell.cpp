@@ -8862,7 +8862,7 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
         case 73144:                                 // Bone Spike Graveyard (during Bone Storm) (Icecrown Citadel, Lord Marrowgar encounter, 10H)
         case 73145:                                 // Bone Spike Graveyard (during Bone Storm) (Icecrown Citadel, Lord Marrowgar encounter, 25H)
         {
-            int maxTargets = 1;
+            uint32 maxTargets = 1;
             switch (m_spellInfo->Id)
             {
                 case 72089:
@@ -9548,6 +9548,21 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
         {
             radius = 10.0f;
             FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+            break;
+        }
+        case 74086:                                     // Destroy Soul (Lich King)
+        {
+            radius = 50.0f;
+            UnitList tempTargetUnitMap;
+            FillAreaTargets(tempTargetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_ALL);
+            for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end();)
+            {
+                // target Terenas
+                if ((*itr) && (*itr)->GetEntry() == 36823)
+                    targetUnitMap.push_back(*itr);
+            }
+            // and self
+            targetUnitMap.push_back(m_caster);
             break;
         }
         case 74282:                                     // Shadow Trap (search target) (Lich King)

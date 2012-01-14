@@ -4511,6 +4511,14 @@ bool Unit::AddSpellAuraHolder(SpellAuraHolderPtr holder)
                 case 73786:
                 case 73787:
                 case 74074: // Plague Siphon (Lich King)
+                case 72679: // Harvested Soul (Lich King)
+                case 73028:
+                case 74318:
+                case 74319:
+                case 74320:
+                case 74321:
+                case 74322:
+                case 74323:
                     bIsSpellStackingCustom = true;
                     break;
             }
