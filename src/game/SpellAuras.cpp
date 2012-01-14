@@ -8740,6 +8740,14 @@ void Aura::PeriodicTick()
                 }
             }
 
+            // Light's Favor (Lich King)
+            // recalculate bonus damage done after each tick
+            if (GetId() == 69382)
+            {
+                if (Aura *aur = GetHolder()->GetAuraByEffectIndex(EFFECT_INDEX_1))
+                    aur->GetModifier()->m_amount = int32(target->GetHealthPercent());
+            }
+
 //            uint32 procAttacker = PROC_FLAG_ON_DO_PERIODIC;//   | PROC_FLAG_SUCCESSFUL_HEAL;
 //            uint32 procVictim   = 0;//ROC_FLAG_ON_TAKE_PERIODIC | PROC_FLAG_TAKEN_HEAL;
             // ignore item heals
@@ -9455,6 +9463,22 @@ void Aura::PeriodicDummyTick()
 
                     // Should actually be SMSG_SPELL_START, too
                     target->CastSpell(target, 68873, true);
+                    return;
+                }
+                case 69397:                                   // Soul Rip (Lich King)
+                {
+                    Unit *caster = GetCaster();
+                    if (target && caster)
+                    {
+                        int32 bp0;
+                        if (!GetModifier()->m_amount)
+                            GetModifier()->m_amount = 1750;
+                        else
+                            GetModifier()->m_amount *= 2;
+
+                        bp0 = GetModifier()->m_amount;
+                        caster->CastCustomSpell(target, 69398, &bp0, 0, 0, true);
+                    }
                     return;
                 }
                 case 70069:                                   // Ooze Flood Periodic Trigger (Rotface)

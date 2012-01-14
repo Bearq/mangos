@@ -8880,9 +8880,8 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             {
                 for (UnitList::const_iterator itr = tmpUnitMap.begin(); itr != tmpUnitMap.end(); ++itr)
                 {
-                    if (*itr && (*itr)->GetTypeId() == TYPEID_PLAYER && // target players only
-                        m_caster->getVictim() &&                        // don't target tank
-                        m_caster->getVictim()->GetObjectGuid() != (*itr)->GetObjectGuid())
+                    if ((*itr) && (*itr)->GetTypeId() == TYPEID_PLAYER &&  // target players only
+                        (*itr) != m_caster->getVictim())                    // don't target tank
                     {
                         targetUnitMap.push_back(*itr);
                     }
