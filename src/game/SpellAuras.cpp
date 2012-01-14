@@ -2628,17 +2628,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                         target->GetMotionMaster()->Clear();
                         target->GetMotionMaster()->MovePoint(0, x, y, z + 6.0f * GetStackAmount(), false);
                         return;
-                    case 72546:                             // Harvest Soul (Lich King)
-                        switch (m_removeMode)
-                        {
-                            case AURA_REMOVE_BY_EXPIRE:
-                                target->CastSpell(target, 72627, true); // instakill
-                                // no break
-                            case AURA_REMOVE_BY_DEATH:
-                                target->CastSpell(target, 72679, true); // Harvested Soul buff
-                                break;
-                        }
-                        return;
                 }
                 break;
             }
@@ -3312,6 +3301,20 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 z = target->GetTerrain()->GetHeight(x, y, z, true, MAX_FALL_DISTANCE);
                 target->GetMotionMaster()->Clear();
                 target->GetMotionMaster()->MovePoint(0, x, y, z, false);
+                return;
+            }
+            case 72546:                             // Harvest Soul (Lich King)
+            case 73655:
+            {
+                switch (m_removeMode)
+                {
+                    case AURA_REMOVE_BY_EXPIRE:
+                        target->CastSpell(target, 72627, true); // instakill
+                        // no break
+                    case AURA_REMOVE_BY_DEATH:
+                        target->CastSpell(target, 72679, true); // Harvested Soul buff
+                        break;
+                }
                 return;
             }
         }
@@ -6575,9 +6578,12 @@ void Aura::HandlePeriodicDamage(bool apply, bool Real)
         case 74327:
         case 73654:
         {
-            // if died - cast Harvested Soul on Lich King
-            if (m_removeMode == AURA_REMOVE_BY_DEATH)
-                target->CastSpell(target, 72679, true);
+            if (!apply)
+            {
+                // if died - cast Harvested Soul on Lich King
+                if (m_removeMode == AURA_REMOVE_BY_DEATH)
+                    target->CastSpell(target, 72679, true);
+            }
 
             break;
         }
