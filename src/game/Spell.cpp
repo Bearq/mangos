@@ -9558,7 +9558,8 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end();)
             {
                 // target Terenas
-                if ((*itr) && (*itr)->GetEntry() == 36823)
+                if ((*itr) && ((*itr)->GetEntry() == 36823 ||
+                    (*itr)->GetTypeId() == TYPEID_PLAYER)) // and target player inside Frostmourne
                     targetUnitMap.push_back(*itr);
             }
             // and self
