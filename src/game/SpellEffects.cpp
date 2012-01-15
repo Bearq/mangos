@@ -10038,6 +10038,14 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     }
                     return;
                 }
+                case 74302:                                 // Summon Spirit Bomb
+                case 74341:
+                case 74342:
+                case 74343:
+                {
+                    m_caster->CastSpell(m_caster, 74300, true);
+                    return;
+                }
             }
             break;
         }

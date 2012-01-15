@@ -188,7 +188,7 @@ bool MapManager::CanPlayerEnter(uint32 mapid, Player* player)
 
             // hacky check of Icecrown Citadel difficulty
             // can access heroic only with raid leader having Lich King killed on given difficulty
-            if (mapid == 631)
+            if (mapid == 631 && !player->isGameMaster())
             {
                 if (Group *pGroup= player->GetGroup())
                 {

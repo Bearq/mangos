@@ -9555,7 +9555,7 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             radius = 50.0f;
             UnitList tempTargetUnitMap;
             FillAreaTargets(tempTargetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_ALL);
-            for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end();)
+            for (UnitList::iterator itr = tempTargetUnitMap.begin(); itr != tempTargetUnitMap.end();++itr)
             {
                 // target Terenas
                 if ((*itr) && ((*itr)->GetEntry() == 36823 ||
