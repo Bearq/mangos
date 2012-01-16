@@ -423,8 +423,8 @@ class MANGOS_DLL_SPEC Aura
 
         SpellEntry const* GetSpellProto() const { return ( GetHolder() ? GetHolder()->GetSpellProto() : NULL); }
         uint32 GetId() const { return ( (GetHolder() && GetHolder()->GetSpellProto()) ? GetHolder()->GetSpellProto()->Id : 0 ); }
-        ObjectGuid const& GetCastItemGuid() const { return GetHolder()->GetCastItemGuid(); }
-        ObjectGuid const& GetCasterGuid() const { return GetHolder()->GetCasterGuid(); }
+        ObjectGuid const& GetCastItemGuid() const;
+        ObjectGuid const& GetCasterGuid() const;
         Unit* GetCaster() const { return ( GetHolder() ? GetHolder()->GetCaster() : NULL); }
         Unit* GetTarget() const { return ( GetHolder() ? GetHolder()->GetTarget() : NULL); }
 
@@ -476,6 +476,9 @@ class MANGOS_DLL_SPEC Aura
 
         void SetRemoveMode(AuraRemoveMode mode) { m_removeMode = mode; }
 
+        bool IsDeleted() const { return m_deleted;}
+        void SetDeleted()      { m_deleted = true;}
+
         Unit* GetTriggerTarget() const;
 
         uint32 CalculateCrowdControlBreakDamage();
@@ -513,6 +516,7 @@ class MANGOS_DLL_SPEC Aura
         // must be called only from Aura*::Update
         void PeriodicTick();
         void PeriodicDummyTick();
+        void PeriodicCheck();
 
         bool IsCritFromAbilityAura(Unit* caster, uint32& damage);
         void ReapplyAffectedPassiveAuras();
@@ -529,6 +533,7 @@ class MANGOS_DLL_SPEC Aura
 
         SpellEffectIndex m_effIndex :8;                     // Aura effect index in spell
 
+        bool m_deleted:1;
         bool m_positive:1;
         bool m_isPeriodic:1;
         bool m_isAreaAura:1;
