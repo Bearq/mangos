@@ -1788,7 +1788,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 67755:                                 // -> Anub'arak encounter, 10 and 10 heroic)
                 case 68509:                                 // Penetrating Cold (10 man heroic)
                 case 69055:                                 // Bone Slice (Icecrown Citadel, Lord Marrowgar, normal)
-                case 69278:                                 // Gas spore - 10 (Festergut)
                 case 70341:                                 // Slime Puddle (Putricide)
                 case 71336:                                 // Pact of the Darkfallen
                 case 71390:                                 // Pact of the Darkfallen
@@ -1806,7 +1805,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 case 62477:                                 // Icicle (Hodir 25man)
                 case 64598:                                 // Cosmic Smash (Algalon 25man) 
                 case 70814:                                 // Bone Slice (Icecrown Citadel, Lord Marrowgar, heroic)
-                case 71221:                                 // Gas spore - 25 (Festergut)
                 case 72095:                                 // Frozen Orb (Vault of Archavon, Toravon encounter, heroic)
                     unMaxTargets = 3;
                     break;
@@ -8998,6 +8996,44 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE, GetAffectiveCaster());
             break;
         }
+        case 69278:                                 // Gas spore - 10 (Festergut)
+        case 71221:                                 // Gas spore - 25 (Festergut)
+        {
+            uint32 maxTargets = 2;
+            if (m_spellInfo->Id == 71221)
+                maxTargets = 3;
+
+            UnitList tmpUnitMap;
+            FillAreaTargets(tmpUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
+            if (!tmpUnitMap.empty())
+            {
+                for (UnitList::const_iterator itr = tmpUnitMap.begin(); itr != tmpUnitMap.end(); ++itr)
+                {
+                    if ((*itr) && (*itr)->GetTypeId() == TYPEID_PLAYER)
+                        targetUnitMap.push_back(*itr);
+                }
+            }
+
+            if (!targetUnitMap.empty())
+            {
+                // remove random units from the map
+                while (targetUnitMap.size() > maxTargets)
+                {
+                    uint32 poz = urand(0, targetUnitMap.size()-1);
+                    for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end(); ++itr, --poz)
+                    {
+                        if (!*itr) continue;
+
+                        if (!poz)
+                        {
+                            targetUnitMap.erase(itr);
+                            break;
+                        }
+                    }
+                }
+            }
+            break;
+        }
         case 69782: // Ooze Flood (Rotface)
         {
             UnitList tempTargetUnitMap;
@@ -9249,13 +9285,12 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
         case 72512:
         case 72513:
         {
-            FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_FRIENDLY);
-            for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end();)
+            UnitList tempTargetUnitMap;
+            FillAreaTargets(tempTargetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_FRIENDLY);
+            for (UnitList::iterator itr = tempTargetUnitMap.begin(); itr != tempTargetUnitMap.end(); ++itr)
             {
-                if ((*itr) && (*itr)->GetObjectGuid().IsVehicle())
-                    itr = targetUnitMap.erase(itr);
-                else
-                    ++itr;
+                if ((*itr) && !(*itr)->GetObjectGuid().IsVehicle())
+                    targetUnitMap.push_back(*itr);
             }
             break;
         }
@@ -9306,13 +9341,12 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
         }
         case 70701: // Expunged Gas (Putricide)
         {
-            FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_FRIENDLY);
-            for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end();)
+            UnitList tempTargetUnitMap;
+            FillAreaTargets(tempTargetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_FRIENDLY);
+            for (UnitList::iterator itr = tempTargetUnitMap.begin(); itr != tempTargetUnitMap.end(); ++itr)
             {
-                if ((*itr) && (*itr)->GetObjectGuid().IsVehicle())
-                    itr = targetUnitMap.erase(itr);
-                else
-                    ++itr;
+                if ((*itr) && !(*itr)->GetObjectGuid().IsVehicle())
+                    targetUnitMap.push_back(*itr);
             }
             break;
         }
@@ -9449,15 +9483,14 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
         case 72297:
         case 72548:
         {
-            FillAreaTargets(targetUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_ALL);
-            targetUnitMap.remove(m_caster);
-            for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end();)
+            UnitList tempTargetUnitMap;
+            FillAreaTargets(tempTargetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_ALL);
+            for (UnitList::iterator itr = tempTargetUnitMap.begin(); itr != tempTargetUnitMap.end(); ++itr)
             {
-                if ((*itr) && (*itr)->GetObjectGuid().IsVehicle())
-                    itr = targetUnitMap.erase(itr);
-                else
-                    ++itr;
+                if ((*itr) && !(*itr)->GetObjectGuid().IsVehicle())
+                    targetUnitMap.push_back(*itr);
             }
+            targetUnitMap.remove(m_caster);
             break;
         }
         case 72905: // Frostbolt Volley (Lady Deathwhisper)
@@ -9648,13 +9681,12 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
         case 72507:
         {
             radius = DEFAULT_VISIBILITY_INSTANCE;
-            FillAreaTargets(targetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_AOE_DAMAGE, GetAffectiveCaster());
-            for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end();)
+            UnitList tempTargetUnitMap;
+            FillAreaTargets(tempTargetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_AOE_DAMAGE, GetAffectiveCaster());
+            for (UnitList::iterator itr = tempTargetUnitMap.begin(); itr != tempTargetUnitMap.end(); ++itr)
             {
-                if ((*itr) && (*itr)->GetObjectGuid().IsVehicle())
-                    itr = targetUnitMap.erase(itr);
-                else
-                    ++itr;
+                if ((*itr) && !(*itr)->GetObjectGuid().IsVehicle())
+                    targetUnitMap.push_back(*itr);
             }
             break;
         }
