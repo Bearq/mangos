@@ -5064,6 +5064,10 @@ void Aura::HandleAuraModDisarm(bool apply, bool Real)
     if (target->IsInFeralForm())
         return;
 
+    // remove Bladestorm
+    if (target->HasAura(46924, EFFECT_INDEX_0))
+        target->RemoveAurasDueToSpell(46924);
+
     if (apply)
     {
         target->SetAttackTime(BASE_ATTACK,BASE_ATTACK_TIME);
