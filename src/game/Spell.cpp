@@ -8516,6 +8516,7 @@ void Spell::CancelGlobalCooldown()
 bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
 {
     float radius;
+    uint32 unMaxTargets = 0;
 
     if (m_spellInfo->EffectRadiusIndex[i])
         radius = GetSpellRadius(sSpellRadiusStore.LookupEntry(m_spellInfo->EffectRadiusIndex[i]));
@@ -8999,9 +9000,10 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
         case 69278:                                 // Gas spore - 10 (Festergut)
         case 71221:                                 // Gas spore - 25 (Festergut)
         {
-            uint32 maxTargets = 2;
             if (m_spellInfo->Id == 71221)
-                maxTargets = 3;
+                unMaxTargets = 3;
+            else
+                unMaxTargets = 2;
 
             UnitList tmpUnitMap;
             FillAreaTargets(tmpUnitMap, radius, PUSH_DEST_CENTER, SPELL_TARGETS_AOE_DAMAGE);
@@ -9011,25 +9013,6 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                 {
                     if ((*itr) && (*itr)->GetTypeId() == TYPEID_PLAYER)
                         targetUnitMap.push_back(*itr);
-                }
-            }
-
-            if (!targetUnitMap.empty())
-            {
-                // remove random units from the map
-                while (targetUnitMap.size() > maxTargets)
-                {
-                    uint32 poz = urand(0, targetUnitMap.size()-1);
-                    for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end(); ++itr, --poz)
-                    {
-                        if (!*itr) continue;
-
-                        if (!poz)
-                        {
-                            targetUnitMap.erase(itr);
-                            break;
-                        }
-                    }
                 }
             }
             break;
@@ -9168,24 +9151,7 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                 }
             }
 
-            if (targetUnitMap.size() > 1)
-            {
-                // remove random units from the map
-                while (targetUnitMap.size() > 1)
-                {
-                    uint32 poz = urand(0, targetUnitMap.size()-1);
-                    for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end(); ++itr, --poz)
-                    {
-                        if (!*itr) continue;
-
-                        if (!poz)
-                        {
-                            targetUnitMap.erase(itr);
-                            break;
-                        }
-                    }
-                }
-            }
+            unMaxTargets = 1;
             break;
         }
         case 69762: // Unchained Magic (Sindragosa)
@@ -9230,24 +9196,7 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                 }
             }
 
-            if (targetUnitMap.size() > 3)
-            {
-                // remove random units from the map
-                while (targetUnitMap.size() > 3)
-                {
-                    uint32 poz = urand(0, targetUnitMap.size()-1);
-                    for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end(); ++itr, --poz)
-                    {
-                        if (!*itr) continue;
-
-                        if (!poz)
-                        {
-                            targetUnitMap.erase(itr);
-                            break;
-                        }
-                    }
-                }
-            }
+            unMaxTargets = 3;
 
             break;
         }
@@ -9287,7 +9236,7 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                 else
                     ++itr;
             }
-            if (!targetUnitMap.empty() && targetUnitMap.size() > 1)
+            if (targetUnitMap.size() > 1)
             {
                 targetUnitMap.sort(TargetDistanceOrderNear(m_caster));
                 targetUnitMap.resize(1);
@@ -9332,25 +9281,7 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                     ++itr;
             }
 
-            // random 1 target
-            if (!targetUnitMap.empty())
-            {
-                // remove random units from the map
-                while (targetUnitMap.size() > 1)
-                {
-                    uint32 poz = urand(0, targetUnitMap.size()-1);
-                    for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end(); ++itr, --poz)
-                    {
-                        if (!*itr) continue;
-
-                        if (!poz)
-                        {
-                            targetUnitMap.erase(itr);
-                            break;
-                        }
-                    }
-                }
-            }
+            unMaxTargets = 1;
             break;
         }
         case 70701: // Expunged Gas (Putricide)
@@ -9406,29 +9337,9 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                     targetUnitMap.push_back(*iter);
                 }
             }
-            
+
             targetUnitMap.remove(m_caster);
-
-            // random 1 target
-            if (!targetUnitMap.empty())
-            {
-                // remove random units from the map
-                while (targetUnitMap.size() > 1)
-                {
-                    uint32 poz = urand(0, targetUnitMap.size()-1);
-                    for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end(); ++itr, --poz)
-                    {
-                        if (!*itr) continue;
-
-                        if (!poz)
-                        {
-                            targetUnitMap.erase(itr);
-                            break;
-                        }
-                    }
-                }
-            }
-
+            unMaxTargets = 1;
             break;
         }
         case 71075: // Invocation of Blood (V) Move
@@ -9468,24 +9379,8 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                         targetUnitMap.push_back(*iter);
                 }
             }
-            if (!targetUnitMap.empty())
-            {
-                // remove random units from the map
-                while (targetUnitMap.size() > 1)
-                {
-                    uint32 poz = urand(0, targetUnitMap.size()-1);
-                    for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end(); ++itr, --poz)
-                    {
-                        if (!*itr) continue;
-
-                        if (!poz)
-                        {
-                            targetUnitMap.erase(itr);
-                            break;
-                        }
-                    }
-                }
-            }
+            
+            unMaxTargets = 1;
             break;
         }
         case 72873: // Malleable Goo (Putricide)
@@ -9553,16 +9448,7 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                 }
             }
 
-            if (!targetUnitMap.empty())
-            {
-                UnitList::iterator i = targetUnitMap.begin();
-                Unit *pTmp;
-
-                advance(i, urand(0, targetUnitMap.size() - 1));
-                pTmp = *i;
-                targetUnitMap.clear();
-                targetUnitMap.push_back(pTmp);
-            }
+            unMaxTargets = 1;
             break;
         }
         case 72385:                                     // Boiling Blood
@@ -9586,17 +9472,7 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                 }
             }
 
-            if (!targetUnitMap.empty())
-            {
-                UnitList::iterator i = targetUnitMap.begin();
-                Unit *pTmp;
-
-                advance(i, urand(0, targetUnitMap.size() - 1));
-                pTmp = *i;
-                targetUnitMap.clear();
-                targetUnitMap.push_back(pTmp);
-            }
-
+            unMaxTargets = 1;
             break;
         }
         case 71336:                                     // Pact of the Darkfallen
@@ -9613,31 +9489,14 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
                 }
             }
 
-            if (!targetUnitMap.empty())
+            if (m_caster->GetMap()->GetDifficulty() == RAID_DIFFICULTY_25MAN_NORMAL ||
+                m_caster->GetMap()->GetDifficulty() == RAID_DIFFICULTY_25MAN_HEROIC)
             {
-                int max = 2;
-                if (m_caster->GetMap()->GetDifficulty() == RAID_DIFFICULTY_25MAN_NORMAL ||
-                    m_caster->GetMap()->GetDifficulty() == RAID_DIFFICULTY_25MAN_HEROIC)
-                {
-                    max = 3;
-                }
-
-                // remove random units from the map
-                while (targetUnitMap.size() > max)
-                {
-                    uint32 poz = urand(0, targetUnitMap.size()-1);
-                    for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end(); ++itr, --poz)
-                    {
-                        if (!*itr) continue;
-
-                        if (!poz)
-                        {
-                            targetUnitMap.erase(itr);
-                            break;
-                        }
-                    }
-                }
+                unMaxTargets = 3;
             }
+            else
+                unMaxTargets = 2;
+
             break;
         }
         case 71341:
@@ -9773,16 +9632,39 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             FillAreaTargets(tempTargetUnitMap, 20.0f, PUSH_SELF_CENTER, SPELL_TARGETS_FRIENDLY);
             tempTargetUnitMap.remove(m_caster);
             if (!tempTargetUnitMap.empty())
-            {
-                UnitList::iterator i = tempTargetUnitMap.begin();
-                advance(i, urand(0, tempTargetUnitMap.size() - 1));
-                targetUnitMap.push_back(*i);
-                return true;
-            }
-            return false;
+                unMaxTargets = 1;
+            else
+                return false;
+
+            break;
         }
         default:
             return false;
     }
+
+    // random targets
+    if (unMaxTargets)
+    {
+        if (!targetUnitMap.empty())
+        {
+            // remove random units from the map
+            while (targetUnitMap.size() > unMaxTargets)
+            {
+                uint32 poz = urand(0, targetUnitMap.size()-1);
+                for (UnitList::iterator itr = targetUnitMap.begin(); itr != targetUnitMap.end(); ++itr, --poz)
+                {
+                    if (!*itr)
+                        continue;
+
+                    if (!poz)
+                    {
+                        targetUnitMap.erase(itr);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     return true;
 }
