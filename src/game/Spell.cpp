@@ -9162,7 +9162,7 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
             {
                 for (UnitList::const_iterator iter = tempTargetUnitMap.begin(); iter != tempTargetUnitMap.end(); ++iter)
                 {
-                    if ((*iter)->getPowerType() == POWER_MANA)
+                    if ((*iter)->GetTypeId() == TYPEID_PLAYER && (*iter)->getPowerType() == POWER_MANA)
                         targetUnitMap.push_back(*iter);
                 }
             }
