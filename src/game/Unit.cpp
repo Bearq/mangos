@@ -3276,9 +3276,7 @@ SpellMissInfo Unit::MeleeSpellHitResult(Unit *pVictim, SpellEntry const *spell)
     bool from_behind = !pVictim->HasInArc(M_PI_F,this);
 
     // Ranged attack cannot be parry/dodge, only deflect
-    // Some spells cannot be parry/dodge/blocked, but may be deflected
-    if (spell->Attributes & SPELL_ATTR_IMPOSSIBLE_DODGE_PARRY_BLOCK
-        || attType == RANGED_ATTACK)
+    if (attType == RANGED_ATTACK)
     {
         // only if in front or special ability
         if (!from_behind || pVictim->HasAuraType(SPELL_AURA_MOD_PARRY_FROM_BEHIND_PERCENT))
@@ -3298,8 +3296,14 @@ SpellMissInfo Unit::MeleeSpellHitResult(Unit *pVictim, SpellEntry const *spell)
         return SPELL_MISS_NONE;
     }
 
+    // some spells cannot be dodged, parried or blocked
+    if (spell->Attributes & SPELL_ATTR_IMPOSSIBLE_DODGE_PARRY_BLOCK)
+    {
+        canDodge = false;
+        canParry = false;
+    }
     // Check for attack from behind
-    if (from_behind)
+    else if (from_behind)
     {
         // Can`t dodge from behind in PvP (but its possible in PvE)
         if (GetTypeId() == TYPEID_PLAYER && pVictim->GetTypeId() == TYPEID_PLAYER)
