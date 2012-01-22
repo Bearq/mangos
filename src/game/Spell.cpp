@@ -6444,8 +6444,11 @@ SpellCastResult Spell::CheckCast(bool strict)
             // no break here!
             case SPELL_EFFECT_TELEPORT_UNITS_FACE_CASTER:
             {
-                if (m_caster->hasUnitState(UNIT_STAT_ROOT))
-                    return SPELL_FAILED_ROOTED;
+                if (m_spellInfo->Effect[i] != SPELL_EFFECT_LEAP)
+                {
+                    if (m_caster->hasUnitState(UNIT_STAT_ROOT))
+                        return SPELL_FAILED_ROOTED;
+                }
 
                 // not allow use this effect at battleground until battleground start
                 if (m_caster->GetTypeId() == TYPEID_PLAYER)
@@ -6668,6 +6671,15 @@ SpellCastResult Spell::CheckCast(bool strict)
             default:
                 break;
         }
+    }
+
+    // spell ID specific checks
+    switch (m_spellInfo->Id)
+    {
+        case 51690: // Killing Spree
+            if (m_caster->hasUnitState(UNIT_STAT_ROOT))
+                return SPELL_FAILED_ROOTED;
+            break;
     }
 
     // check trade slot case (last, for allow catch any another cast problems)
