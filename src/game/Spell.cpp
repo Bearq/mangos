@@ -1354,9 +1354,22 @@ void Spell::DoSpellHitOnUnit(Unit *unit, uint32 effectMask)
             }
 
             // not break stealth by cast targeting
+            // exclude Mass Dispel TODO: add to spell_dbc table
             if (!(m_spellInfo->AttributesEx & (SPELL_ATTR_EX_NOT_BREAK_STEALTH | SPELL_ATTR_EX_NO_THREAT)) &&
                 !(m_spellInfo->AttributesEx2 & SPELL_ATTR_EX2_UNK28))
-                unit->RemoveSpellsCausingAura(SPELL_AURA_MOD_STEALTH);
+            {
+                switch (m_spellInfo->Id)
+                {
+                    case 32375:
+                    case 32592:
+                    case 39897:
+                    case 72734:
+                        break;
+                    default:
+                        unit->RemoveSpellsCausingAura(SPELL_AURA_MOD_STEALTH);
+                        break;
+                }
+            }
 
             // Sap should remove victim's stealth
             if (m_spellInfo->Mechanic == MECHANIC_SAPPED)
