@@ -781,6 +781,10 @@ void Spell::prepareDataForTriggerSystem()
                     m_canTrigger = true;
                 break;
             case SPELLFAMILY_WARRIOR:
+                // Bladestorm
+                // if (m_spellInfo->SpellFamilyFlags.test<CF_WARRIOR_BLADESTORM>())
+                if (m_spellInfo->Id == 50622 || m_spellInfo->Id == 44949)
+                    m_canTrigger = true;
                 break;
             case SPELLFAMILY_SHAMAN:
                 // Earthgrab, Entangling Roots
@@ -788,9 +792,7 @@ void Spell::prepareDataForTriggerSystem()
                     m_canTrigger = true;
                 break;
             case SPELLFAMILY_GENERIC:
-                // Bladestorm triggered
-                if (m_spellInfo->Id == 65946)
-                    m_canTrigger = true;
+                break;
             default:
                 break;
         }

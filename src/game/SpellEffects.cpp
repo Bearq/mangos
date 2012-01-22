@@ -11605,6 +11605,10 @@ void Spell::EffectKnockBack(SpellEffectIndex eff_idx)
     if (unitTarget->hasUnitState(UNIT_STAT_ROOT))
         return;
 
+    // Bladestorm should provide immunity to knockbacks
+    if (unitTarget->HasAura(46924, EFFECT_INDEX_1))
+        return;
+
     // Typhoon
     if (m_spellInfo->SpellFamilyName == SPELLFAMILY_DRUID && m_spellInfo->SpellFamilyFlags.test<CF_DRUID_TYPHOON>())
         if (m_caster->HasAura(62135)) // Glyph of Typhoon
