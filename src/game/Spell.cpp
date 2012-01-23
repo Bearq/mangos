@@ -6689,6 +6689,7 @@ SpellCastResult Spell::CheckCast(bool strict)
     // spell ID specific checks
     switch (m_spellInfo->Id)
     {
+        case 36554: // Shadowstep
         case 51690: // Killing Spree
             if (m_caster->hasUnitState(UNIT_STAT_ROOT))
                 return SPELL_FAILED_ROOTED;
