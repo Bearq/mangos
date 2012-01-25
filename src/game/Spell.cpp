@@ -9335,10 +9335,10 @@ bool Spell::FillCustomTargetMap(SpellEffectIndex i, UnitList &targetUnitMap)
         case 70572: // Grip of Agony
         {
             UnitList tempTargetUnitMap;
-            FillAreaTargets(tempTargetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_FRIENDLY);
+            FillAreaTargets(tempTargetUnitMap, radius, PUSH_SELF_CENTER, SPELL_TARGETS_ALL);
             for (UnitList::iterator itr = tempTargetUnitMap.begin(); itr != tempTargetUnitMap.end(); ++itr)
             {
-                if (*itr)
+                if (*itr && (*itr)->GetTypeId() == TYPEID_UNIT)
                 {
                     switch ((*itr)->GetEntry())
                     {
