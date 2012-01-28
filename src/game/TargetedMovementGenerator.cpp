@@ -138,7 +138,19 @@ bool TargetedMovementGeneratorMedium<T,D>::Update(T &owner, const uint32 & time_
     if (owner.IsNonMeleeSpellCasted(false, false,  true))
     {
         if (!owner.IsStopped())
-            owner.StopMoving();
+        {
+            // some spells should be able to be cast while moving
+            // maybe some attribute? here, check the entry of creatures useing these spells
+            // Volatile Ooze and Gas Cloud (Putricide)
+            switch(owner.GetEntry())
+            {
+                case 37562:
+                case 37697:
+                    break;
+                default:
+                    owner.StopMoving();
+            }
+        }
         return true;
     }
 
