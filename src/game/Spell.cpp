@@ -1302,8 +1302,9 @@ void Spell::DoSpellHitOnUnit(Unit *unit, uint32 effectMask)
         {
             if (effectMask & (1 << effectNumber))
             {
+                // don't handle effect to which target is immuned
                 if (unit->IsImmuneToSpellEffect(m_spellInfo, SpellEffectIndex(effectNumber)))
-                    return;
+                    effectMask &= ~(1 << effectNumber);
             }
         }
     }
