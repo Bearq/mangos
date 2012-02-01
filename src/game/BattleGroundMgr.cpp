@@ -1372,6 +1372,11 @@ void BattleGroundMgr::BuildPvpLogDataPacket(WorldPacket *data, BattleGround *bg)
                 *data << uint32(((BattleGroundICScore*)itr->second)->BasesAssaulted);       // bases asssulted
                 *data << uint32(((BattleGroundICScore*)itr->second)->BasesDefended);        // bases defended
                 break;
+            case BATTLEGROUND_WG:                           // wotlk
+                *data << (uint32)0x00000002;                // count of next fields
+                *data << (uint32)((BattleGroundABScore*)itr->second)->BasesAssaulted;       // bases asssulted
+                *data << (uint32)((BattleGroundABScore*)itr->second)->BasesDefended;        // bases defended
+                break;
             case BATTLEGROUND_NA:
             case BATTLEGROUND_BE:
             case BATTLEGROUND_AA:
@@ -1568,6 +1573,9 @@ BattleGround * BattleGroundMgr::CreateNewBattleGround(BattleGroundTypeId bgTypeI
         case BATTLEGROUND_IC:
             bg = new BattleGroundIC(*(BattleGroundIC*)bg_template);
             break;
+        case BATTLEGROUND_WG:
+            bg = new BattleGroundWG(*(BattleGroundWG*)bg_template);
+            break;
         case BATTLEGROUND_RB:
             bg = new BattleGroundRB(*(BattleGroundRB*)bg_template);
             break;
@@ -1617,6 +1625,7 @@ uint32 BattleGroundMgr::CreateBattleGround(BattleGroundTypeId bgTypeId, bool IsA
         case BATTLEGROUND_DS: bg = new BattleGroundDS; break;
         case BATTLEGROUND_RV: bg = new BattleGroundRV; break;
         case BATTLEGROUND_IC: bg = new BattleGroundIC; break;
+        case BATTLEGROUND_WG: bg = new BattleGroundWG; break;
         case BATTLEGROUND_RB: bg = new BattleGroundRB; break;
         default:bg = new BattleGround;   break;             // placeholder for non implemented BG
     }
@@ -1940,6 +1949,8 @@ BattleGroundQueueTypeId BattleGroundMgr::BGQueueTypeId(BattleGroundTypeId bgType
             return BATTLEGROUND_QUEUE_SA;
         case BATTLEGROUND_IC:
             return BATTLEGROUND_QUEUE_IC;
+        case BATTLEGROUND_WG:
+            return BATTLEGROUND_QUEUE_WG;
         case BATTLEGROUND_RB:
             return BATTLEGROUND_QUEUE_RB;
         case BATTLEGROUND_AA:
