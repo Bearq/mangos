@@ -32,6 +32,7 @@
 #include "BattleGroundDS.h"
 #include "BattleGroundRV.h"
 #include "BattleGroundIC.h"
+#include "BattleGroundWG.h"
 #include "BattleGroundRB.h"
 #include "MapManager.h"
 #include "Map.h"
@@ -1350,8 +1351,8 @@ void BattleGroundMgr::BuildPvpLogDataPacket(WorldPacket *data, BattleGround *bg)
                 break;
             case BATTLEGROUND_WS:
                 *data << (uint32)0x00000002;                // count of next fields
-                *data << (uint32)((BattleGroundWGScore*)itr->second)->FlagCaptures;         // flag captures
-                *data << (uint32)((BattleGroundWGScore*)itr->second)->FlagReturns;          // flag returns
+                *data << (uint32)((BattleGroundWSScore*)itr->second)->FlagCaptures;         // flag captures
+                *data << (uint32)((BattleGroundWSScore*)itr->second)->FlagReturns;          // flag returns
                 break;
             case BATTLEGROUND_AB:
                 *data << (uint32)0x00000002;                // count of next fields
@@ -1374,8 +1375,8 @@ void BattleGroundMgr::BuildPvpLogDataPacket(WorldPacket *data, BattleGround *bg)
                 break;
             case BATTLEGROUND_WG:                           // wotlk
                 *data << (uint32)0x00000002;                // count of next fields
-                *data << (uint32)((BattleGroundABScore*)itr->second)->BasesAssaulted;       // bases asssulted
-                *data << (uint32)((BattleGroundABScore*)itr->second)->BasesDefended;        // bases defended
+                *data << (uint32)((BattleGroundWGScore*)itr->second)->BasesAssaulted;       // bases asssulted
+                *data << (uint32)((BattleGroundWGScore*)itr->second)->BasesDefended;        // bases defended
                 break;
             case BATTLEGROUND_NA:
             case BATTLEGROUND_BE:
